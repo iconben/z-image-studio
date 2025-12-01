@@ -85,19 +85,19 @@
                                             background: rgba(255, 255, 255, 0.4);
                                             transform: scale(1.1);
                                         }
-                                        .delete-history-item {
-                                            color: #6c757d;
-                                            border: 1px solid transparent;
-                                            transition: all 0.2s;
-                                            padding: 0.25rem 0.5rem; /* Bootstrap's py-1 px-2 approx */
-                                            align-self: center; 
-                                        }
-                                        .delete-history-item:hover {
-                                            color: #dc3545 !important;
-                                            border-color: #dc3545;
-                                            background: rgba(220, 53, 69, 0.05);
-                                        }
-                                        /* Position close button relative to the image container if possible,               but since image width varies, absolute top-right of modal dialog is safer 
+                                                .delete-history-item {
+                                                    color: #6c757d;
+                                                    border: 1px solid transparent;
+                                                    transition: all 0.2s;
+                                                    padding: 0.25rem 0.5rem; /* Bootstrap's py-1 px-2 approx */
+                                                    align-self: center; 
+                                                }
+                                                .delete-history-item:not(.btn-danger):hover {
+                                                    color: #dc3545 !important;
+                                                    border-color: #dc3545;
+                                                    background: rgba(220, 53, 69, 0.05);
+                                                }
+                                                /* Position close button relative to the image container if possible,               but since image width varies, absolute top-right of modal dialog is safer 
            to avoid it overlapping content or flying off screen. */
     </style>
 </head>
@@ -478,9 +478,31 @@
                 button.addEventListener('click', async (e) => {
                     e.stopPropagation(); // Prevent loading history item
                     e.preventDefault();
-                    const itemId = e.currentTarget.dataset.id;
-                    if (window.confirm(translations[languageSelect.value].confirm_delete)) {
+                    
+                    const btn = e.currentTarget;
+                    const itemId = btn.dataset.id;
+
+                    if (btn.dataset.armed === "true") {
+                        // Confirmed deletion
                         await deleteHistoryItem(itemId);
+                    } else {
+                        // Arm the button
+                        btn.dataset.armed = "true";
+                        
+                        // Change style to "Danger" state
+                        btn.classList.remove('btn-outline-secondary');
+                        btn.classList.add('btn-danger');
+                        btn.innerHTML = '<i class="bi bi-trash-fill"></i>'; // Filled icon for emphasis
+                        
+                        // Reset after 3 seconds
+                        setTimeout(() => {
+                            if (btn && document.body.contains(btn)) { // Check if button still exists
+                                btn.dataset.armed = "false";
+                                btn.classList.remove('btn-danger');
+                                btn.classList.add('btn-outline-secondary');
+                                btn.innerHTML = '<i class="bi bi-trash"></i>';
+                            }
+                        }, 3000);
                     }
                 });
             });
