@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-Image Turbo Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .preview-area {
+            min-height: 400px;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 2px dashed #ced4da;
+        }
+        .preview-area img {
+            max-width: 100%;
+            max-height: 600px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <header class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-primary">Z-Image Turbo</h1>
+            <p class="lead text-secondary">Local High-Quality Image Generation</p>
+        </header>
+
+        <div class="row g-4">
+            <!-- Controls Column -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4">Settings</h5>
+                        <form id="generateForm">
+                            <div class="mb-3">
+                                <label for="prompt" class="form-label fw-bold">Prompt</label>
+                                <textarea class="form-control" id="prompt" rows="4" placeholder="Describe your image..." required>A futuristic cyberpunk city at night, neon lights, realistic, 8k</textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="steps" class="form-label">Steps: <span id="stepsVal">9</span></label>
+                                <input type="range" class="form-range" id="steps" min="1" max="50" value="9">
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col">
+                                    <label for="width" class="form-label">Width</label>
+                                    <input type="number" class="form-control" id="width" value="1280" step="8">
+                                </div>
+                                <div class="col">
+                                    <label for="height" class="form-label">Height</label>
+                                    <input type="number" class="form-control" id="height" value="720" step="8">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="generateBtn">
+                                Generate Image
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Column -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title mb-3">Preview</h5>
+                        <div class="preview-area flex-grow-1 mb-3" id="previewContainer">
+                            <span class="text-muted">Image will appear here</span>
+                        </div>
+                        
+                        <div id="resultInfo" class="d-none d-flex justify-content-between align-items-center">
+                            <small class="text-muted" id="timeTaken"></small>
+                            <a href="#" id="downloadBtn" class="btn btn-success" download>Download Image</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('generateForm');
+        const stepsInput = document.getElementById('steps');
+        const stepsVal = document.getElementById('stepsVal');
+        const generateBtn = document.getElementById('generateBtn');
+        const previewContainer = document.getElementById('previewContainer');
+        const resultInfo = document.getElementById('resultInfo');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const timeTaken = document.getElementById('timeTaken');
+
+        stepsInput.addEventListener('input', (e) => stepsVal.textContent = e.target.value);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // UI Loading State
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            previewContainer.innerHTML = `
+                <div class="spinner-border text-primary loading-spinner" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            `;
+            resultInfo.classList.add('d-none');
+
+            const payload = {
+                prompt: document.getElementById('prompt').value,
+                steps: parseInt(document.getElementById('steps').value),
+                width: parseInt(document.getElementById('width').value),
+                height: parseInt(document.getElementById('height').value)
+            };
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('Generation failed');
+
+                const data = await response.json();
+                
+                // Update UI with result
+                const img = new Image();
+                img.onload = () => {
+                    previewContainer.innerHTML = '';
+                    previewContainer.appendChild(img);
+                    
+                    downloadBtn.href = data.image_url;
+                    timeTaken.textContent = `Generated in ${data.generation_time}s`;
+                    resultInfo.classList.remove('d-none');
+                    
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = 'Generate Image';
+                };
+                img.onerror = () => {
+                     throw new Error('Failed to load image');
+                }
+                img.src = data.image_url;
+
+            } catch (err) {
+                console.error(err);
+                previewContainer.innerHTML = `<div class="text-danger">Error: ${err.message}</div>`;
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate Image';
+            }
+        });
+    </script>
+</body>
+</html>
