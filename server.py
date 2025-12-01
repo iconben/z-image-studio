@@ -26,6 +26,9 @@ class GenerateRequest(BaseModel):
 class GenerateResponse(BaseModel):
     image_url: str
     generation_time: float
+    width: int
+    height: int
+    file_size_kb: float
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest):
@@ -54,10 +57,14 @@ async def generate(req: GenerateRequest):
         image.save(output_path)
         
         duration = time.time() - start_time
+        file_size_kb = output_path.stat().st_size / 1024
         
         return {
             "image_url": f"/outputs/{filename}",
-            "generation_time": round(duration, 2)
+            "generation_time": round(duration, 2),
+            "width": image.width,
+            "height": image.height,
+            "file_size_kb": round(file_size_kb, 1)
         }
     except Exception as e:
         print(f"Error generating image: {e}")

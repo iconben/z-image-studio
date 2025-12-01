@@ -106,9 +106,17 @@
                             <span class="text-muted" data-i18n="preview_placeholder">Image will appear here</span>
                         </div>
                         
-                        <div id="resultInfo" class="d-none d-flex justify-content-between align-items-center">
-                            <small class="text-muted" id="timeTaken"></small>
-                            <a href="#" id="downloadBtn" class="btn btn-success" download data-i18n="download_btn">Download Image</a>
+                        <div id="resultInfo" class="d-none border-top pt-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="text-muted small">
+                                    <span id="timeTaken"></span>
+                                    <span class="mx-2">|</span>
+                                    <span id="metaDims"></span>
+                                    <span class="mx-2">|</span>
+                                    <span id="metaSize"></span>
+                                </div>
+                                <a href="#" id="downloadBtn" class="btn btn-success" download data-i18n="download_btn">Download Image</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -125,6 +133,8 @@
         const resultInfo = document.getElementById('resultInfo');
         const downloadBtn = document.getElementById('downloadBtn');
         const timeTaken = document.getElementById('timeTaken');
+        const metaDims = document.getElementById('metaDims');
+        const metaSize = document.getElementById('metaSize');
         const languageSelect = document.getElementById('languageSelect');
 
         // i18n Configuration
@@ -143,7 +153,8 @@
                 preview_title: "Preview",
                 preview_placeholder: "Image will appear here",
                 download_btn: "Download Image",
-                time_taken: "Generated in {0}s"
+                time_taken: "{0}s",
+                meta_size: "{0} KB"
             },
             zh: {
                 subtitle: "本地高质量图像生成",
@@ -159,7 +170,8 @@
                 preview_title: "预览",
                 preview_placeholder: "生成的图片将显示在这里",
                 download_btn: "下载图片",
-                time_taken: "耗时 {0}秒"
+                time_taken: "{0}秒",
+                meta_size: "{0} KB"
             },
             jp: {
                 subtitle: "高品質な画像生成（ローカル）",
@@ -175,7 +187,8 @@
                 preview_title: "プレビュー",
                 preview_placeholder: "画像がここに表示されます",
                 download_btn: "画像をダウンロード",
-                time_taken: "{0}秒で生成"
+                time_taken: "{0}秒",
+                meta_size: "{0} KB"
             }
         };
 
@@ -305,8 +318,10 @@
                     
                     downloadBtn.href = data.image_url;
                     
-                    // Format time string
+                    // Format meta info
                     timeTaken.textContent = t.time_taken.replace('{0}', data.generation_time);
+                    metaDims.textContent = `${data.width}x${data.height}`;
+                    metaSize.textContent = t.meta_size.replace('{0}', data.file_size_kb);
                     
                     resultInfo.classList.remove('d-none');
                     
