@@ -16,12 +16,14 @@
             justify-content: center;
             border-radius: 8px;
             border: 2px dashed #ced4da;
+            cursor: pointer; /* Add cursor pointer to indicate clickable */
         }
         .preview-area img {
             max-width: 100%;
             max-height: 600px;
             border-radius: 4px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            cursor: pointer; /* Also for the image itself */
         }
         .loading-spinner {
             width: 3rem;
@@ -36,6 +38,55 @@
         .tooltip-icon {
             cursor: pointer;
         }
+        /* Style for the modal image to ensure it fits the screen */
+        .modal-dialog-custom {
+            max-width: 95vw;
+            margin: 1rem auto;
+        }
+        .modal-content-custom {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+        .modal-body-custom {
+            padding: 0;
+            position: relative;
+            text-align: center;
+        }
+        .modal-image-full {
+            max-height: 90vh;
+            max-width: 100%;
+            width: auto;
+            display: inline-block;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 4px;
+        }
+        .close-btn-custom {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            z-index: 1060;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            color: white;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+        .close-btn-custom:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+        /* Position close button relative to the image container if possible, 
+           but since image width varies, absolute top-right of modal dialog is safer 
+           to avoid it overlapping content or flying off screen. */
     </style>
 </head>
 <body>
@@ -124,6 +175,22 @@
         </div>
     </div>
 
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-custom modal-dialog-centered">
+            <div class="modal-content modal-content-custom">
+                <div class="modal-body modal-body-custom">
+                    <button type="button" class="close-btn-custom" data-bs-dismiss="modal" aria-label="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16">
+                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                        </svg>
+                    </button>
+                    <img id="modalImage" src="" alt="Generated Image Preview" class="modal-image-full">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const form = document.getElementById('generateForm');
         const stepsInput = document.getElementById('steps');
@@ -136,6 +203,8 @@
         const metaDims = document.getElementById('metaDims');
         const metaSize = document.getElementById('metaSize');
         const languageSelect = document.getElementById('languageSelect');
+        const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+        const modalImage = document.getElementById('modalImage');
 
         // i18n Configuration
         const translations = {
@@ -154,7 +223,8 @@
                 preview_placeholder: "Image will appear here",
                 download_btn: "Download Image",
                 time_taken: "{0}s",
-                meta_size: "{0} KB"
+                meta_size: "{0} KB",
+                modal_title: "Generated Image"
             },
             zh: {
                 subtitle: "本地高质量图像生成",
@@ -171,7 +241,8 @@
                 preview_placeholder: "生成的图片将显示在这里",
                 download_btn: "下载图片",
                 time_taken: "{0}秒",
-                meta_size: "{0} KB"
+                meta_size: "{0} KB",
+                modal_title: "生成图片"
             },
             jp: {
                 subtitle: "高品質な画像生成（ローカル）",
@@ -188,7 +259,8 @@
                 preview_placeholder: "画像がここに表示されます",
                 download_btn: "画像をダウンロード",
                 time_taken: "{0}秒",
-                meta_size: "{0} KB"
+                meta_size: "{0} KB",
+                modal_title: "生成された画像"
             }
         };
 
@@ -212,6 +284,8 @@
                 const key = el.getAttribute('data-i18n-title');
                 if (t[key]) el.setAttribute('title', t[key]);
             });
+            
+            // No more modal title to update
 
             // Save preference
             localStorage.setItem('zimage_lang', lang);
@@ -236,7 +310,7 @@
             });
         });
 
-        // --- Persistence Logic ---
+        // --- Persistence Logic (Restored) ---
         const promptInput = document.getElementById('prompt');
         const widthInput = document.getElementById('width');
         const heightInput = document.getElementById('height');
@@ -314,6 +388,11 @@
                 const img = new Image();
                 img.onload = () => {
                     previewContainer.innerHTML = '';
+                    img.style.cursor = 'pointer'; // Make the preview image clickable
+                    img.onclick = () => {
+                        modalImage.src = data.image_url;
+                        imageModal.show();
+                    };
                     previewContainer.appendChild(img);
                     
                     downloadBtn.href = data.image_url;
