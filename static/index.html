@@ -108,9 +108,12 @@
         <div class="row g-4">
             <!-- Controls Column -->
             <div class="col-lg-4">
-                <div class="d-flex justify-content-start mb-3">
+                <div class="d-flex justify-content-start mb-3 gap-2">
                     <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#historyDrawer" aria-controls="historyDrawer" data-i18n="history_btn">
                         History
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm d-none" type="button" id="restoreDraftBtn" data-i18n="restore_draft_btn">
+                        Restore Last Draft
                     </button>
                 </div>
                 <div class="card shadow-sm">
@@ -224,6 +227,9 @@
         const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
         const modalImage = document.getElementById('modalImage');
         const historyList = document.getElementById('historyList');
+        const restoreDraftBtn = document.getElementById('restoreDraftBtn');
+        
+        let isDirty = false;
 
         // i18n Configuration
         const translations = {
@@ -246,7 +252,8 @@
                 modal_title: "Generated Image",
                 history_btn: "History",
                 history_title: "Generation History",
-                history_empty: "No history yet."
+                history_empty: "No history yet.",
+                restore_draft_btn: "Restore Last Draft"
             },
             zh: {
                 subtitle: "本地高质量图像生成",
@@ -267,7 +274,8 @@
                 modal_title: "生成图片",
                 history_btn: "历史记录",
                 history_title: "生成历史",
-                history_empty: "暂无记录"
+                history_empty: "暂无记录",
+                restore_draft_btn: "恢复草稿"
             },
             jp: {
                 subtitle: "高品質な画像生成（ローカル）",
@@ -288,7 +296,8 @@
                 modal_title: "生成された画像",
                 history_btn: "履歴",
                 history_title: "生成履歴",
-                history_empty: "履歴なし"
+                history_empty: "履歴なし",
+                restore_draft_btn: "下書きを復元"
             }
         };
 
@@ -356,11 +365,15 @@
         if (localStorage.getItem('zimage_height')) heightInput.value = localStorage.getItem('zimage_height');
 
         // Save on change
-        promptInput.addEventListener('input', (e) => localStorage.setItem('zimage_prompt', e.target.value));
+        promptInput.addEventListener('input', (e) => {
+            localStorage.setItem('zimage_prompt', e.target.value);
+            isDirty = true;
+        });
         
         stepsInput.addEventListener('input', (e) => {
             stepsVal.textContent = e.target.value;
             localStorage.setItem('zimage_steps', e.target.value);
+            isDirty = true;
         });
 
         // Enforce multiples of 16 for dimensions + Save
@@ -376,6 +389,7 @@
                 
                 // Save to storage
                 localStorage.setItem(`zimage_${id}`, val);
+                isDirty = true;
             });
         });
 
@@ -425,13 +439,23 @@
         }
 
         function loadFromHistory(item) {
+            // Auto-stash if dirty
+            if (isDirty) {
+                localStorage.setItem('zimage_stash_prompt', promptInput.value);
+                localStorage.setItem('zimage_stash_steps', stepsInput.value);
+                localStorage.setItem('zimage_stash_width', widthInput.value);
+                localStorage.setItem('zimage_stash_height', heightInput.value);
+                restoreDraftBtn.classList.remove('d-none');
+            }
+            isDirty = false; // Now we are in "clean" history state
+
             promptInput.value = item.prompt;
             stepsInput.value = item.steps;
             stepsVal.textContent = item.steps;
             widthInput.value = item.width;
             heightInput.value = item.height;
             
-            // Save to local storage as if user typed it
+            // Save to local storage as if user typed it (sync state)
             localStorage.setItem('zimage_prompt', item.prompt);
             localStorage.setItem('zimage_steps', item.steps);
             localStorage.setItem('zimage_width', item.width);
@@ -466,6 +490,28 @@
             if (drawer) drawer.hide();
         }
 
+        restoreDraftBtn.onclick = () => {
+            if (localStorage.getItem('zimage_stash_prompt')) {
+                promptInput.value = localStorage.getItem('zimage_stash_prompt');
+                localStorage.setItem('zimage_prompt', promptInput.value);
+            }
+            if (localStorage.getItem('zimage_stash_steps')) {
+                stepsInput.value = localStorage.getItem('zimage_stash_steps');
+                stepsVal.textContent = stepsInput.value;
+                localStorage.setItem('zimage_steps', stepsInput.value);
+            }
+            if (localStorage.getItem('zimage_stash_width')) {
+                widthInput.value = localStorage.getItem('zimage_stash_width');
+                localStorage.setItem('zimage_width', widthInput.value);
+            }
+            if (localStorage.getItem('zimage_stash_height')) {
+                heightInput.value = localStorage.getItem('zimage_stash_height');
+                localStorage.setItem('zimage_height', heightInput.value);
+            }
+            restoreDraftBtn.classList.add('d-none');
+            isDirty = true; // Restored draft is dirty by definition
+        };
+
         // Load history on startup
         loadHistory();
 
@@ -474,7 +520,8 @@
             const currentLang = languageSelect.value;
             const t = translations[currentLang];
             
-            // UI Loading State
+            isDirty = false; // Generation commits the state
+            restoreDraftBtn.classList.add('d-none'); // Clear stash option on new generation
             generateBtn.disabled = true;
             generateBtn.textContent = t.generating_btn;
             previewContainer.innerHTML = `
