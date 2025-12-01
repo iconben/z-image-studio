@@ -33,9 +33,12 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
 
     model_id = "Tongyi-MAI/Z-Image-Turbo"
 
+    # Select optimal dtype based on device capabilities
     if device == "cpu":
         torch_dtype = torch.float32
     else:
+        # CUDA and MPS (for this model) prefer bfloat16.
+        # Note: float16 on MPS causes black images due to numerical instability with Z-Image-Turbo.
         torch_dtype = torch.bfloat16
 
     print(f"[info] try to load model with torch_dtype={torch_dtype} ...")
@@ -46,6 +49,12 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
         low_cpu_mem_usage=False,
     )
     pipe = pipe.to(device)
+
+    # Memory Optimization: Enable attention slicing to prevent OOM/Swapping
+    # This slices the attention computation into chunks, trading a tiny bit of 
+    # speed for massive memory savings (which prevents disk swapping).
+    print("[info] enabling attention slicing for lower memory usage")
+    pipe.enable_attention_slicing()
 
     # Disable safety checker while debugging (it can output black images)
     if hasattr(pipe, "safety_checker") and pipe.safety_checker is not None:
