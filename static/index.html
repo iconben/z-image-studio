@@ -223,9 +223,32 @@
             });
         });
 
-        stepsInput.addEventListener('input', (e) => stepsVal.textContent = e.target.value);
+        // --- Persistence Logic ---
+        const promptInput = document.getElementById('prompt');
+        const widthInput = document.getElementById('width');
+        const heightInput = document.getElementById('height');
 
-        // Enforce multiples of 16 for dimensions
+        // Load saved values
+        if (localStorage.getItem('zimage_prompt')) promptInput.value = localStorage.getItem('zimage_prompt');
+        
+        if (localStorage.getItem('zimage_steps')) {
+            const savedSteps = localStorage.getItem('zimage_steps');
+            stepsInput.value = savedSteps;
+            stepsVal.textContent = savedSteps;
+        }
+
+        if (localStorage.getItem('zimage_width')) widthInput.value = localStorage.getItem('zimage_width');
+        if (localStorage.getItem('zimage_height')) heightInput.value = localStorage.getItem('zimage_height');
+
+        // Save on change
+        promptInput.addEventListener('input', (e) => localStorage.setItem('zimage_prompt', e.target.value));
+        
+        stepsInput.addEventListener('input', (e) => {
+            stepsVal.textContent = e.target.value;
+            localStorage.setItem('zimage_steps', e.target.value);
+        });
+
+        // Enforce multiples of 16 for dimensions + Save
         ['width', 'height'].forEach(id => {
             const el = document.getElementById(id);
             el.addEventListener('change', (e) => {
@@ -235,6 +258,9 @@
                 val = Math.round(val / 16) * 16;
                 if (val < 16) val = 16;
                 e.target.value = val;
+                
+                // Save to storage
+                localStorage.setItem(`zimage_${id}`, val);
             });
         });
 
