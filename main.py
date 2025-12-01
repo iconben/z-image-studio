@@ -31,14 +31,14 @@ def parse_generate_args(args=None):
         "-w",
         type=int,
         default=1280,
-        help="Image width (must be multiple of 8), default 768",
+        help="Image width (must be multiple of 16), default 1280",
     )
     parser.add_argument(
         "--height",
         "-H",
         type=int,
         default=720,
-        help="Image height (must be multiple of 8), default 768",
+        help="Image height (must be multiple of 16), default 720",
     )
     return parser.parse_args(args)
 
@@ -71,9 +71,10 @@ def run_generation(cli_args):
     # Ensure width/height are multiples of 16
     for name in ["width", "height"]:
         v = getattr(args, name)
-        if v % 8 != 0:
+        if v % 16 != 0:
             fixed = (v // 16) * 16
-            print(f"[warn] {name}={v} is not a multiple of 8, adjust to {fixed}")
+            if fixed < 16: fixed = 16
+            print(f"[warn] {name}={v} is not a multiple of 16, adjust to {fixed}")
             setattr(args, name, fixed)
 
     # Determine output path

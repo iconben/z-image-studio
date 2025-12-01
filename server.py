@@ -30,9 +30,13 @@ class GenerateResponse(BaseModel):
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest):
     try:
-        # Validate dimensions
-        width = req.width if req.width % 8 == 0 else (req.width // 16) * 16
-        height = req.height if req.height % 8 == 0 else (req.height // 16) * 16
+        # Validate dimensions (must be multiple of 16)
+        width = req.width if req.width % 16 == 0 else (req.width // 16) * 16
+        height = req.height if req.height % 16 == 0 else (req.height // 16) * 16
+        
+        # Ensure minimums
+        width = max(16, width)
+        height = max(16, height)
         
         start_time = time.time()
         

@@ -69,11 +69,11 @@
                             <div class="row mb-3">
                                 <div class="col">
                                     <label for="width" class="form-label" data-i18n="width_label">Width</label>
-                                    <input type="number" class="form-control" id="width" value="1280" step="8">
+                                    <input type="number" class="form-control" id="width" value="1280" step="16" min="16">
                                 </div>
                                 <div class="col">
                                     <label for="height" class="form-label" data-i18n="height_label">Height</label>
-                                    <input type="number" class="form-control" id="height" value="720" step="8">
+                                    <input type="number" class="form-control" id="height" value="720" step="16" min="16">
                                 </div>
                             </div>
                             
@@ -224,6 +224,19 @@
         });
 
         stepsInput.addEventListener('input', (e) => stepsVal.textContent = e.target.value);
+
+        // Enforce multiples of 16 for dimensions
+        ['width', 'height'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('change', (e) => {
+                let val = parseInt(e.target.value);
+                if (isNaN(val)) val = 1280;
+                // Snap to nearest multiple of 16
+                val = Math.round(val / 16) * 16;
+                if (val < 16) val = 16;
+                e.target.value = val;
+            });
+        });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
