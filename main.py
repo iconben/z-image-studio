@@ -1,16 +1,16 @@
 import argparse
+import sys
 from pathlib import Path
 import traceback
 from engine import generate_image
 
-def parse_args():
+def parse_generate_args(args=None):
     parser = argparse.ArgumentParser(
         description="Z-Image Turbo CLI (prompt, resolution, optional save path)"
     )
     parser.add_argument(
         "prompt",
         type=str,
-        nargs="?", # Make prompt optional so we can just run --web
         help="Prompt for image generation",
     )
     parser.add_argument(
@@ -40,27 +40,32 @@ def parse_args():
         default=720,
         help="Image height (must be multiple of 8), default 768",
     )
+    return parser.parse_args(args)
+
+def parse_serve_args(args=None):
+    parser = argparse.ArgumentParser(description="Start Z-Image Web Server")
     parser.add_argument(
-        "--web",
-        action="store_true",
-        help="Start web server interface",
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="Host to bind the server to (default: 0.0.0.0)",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to bind the server to (default: 8000)",
+    )
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload (dev mode)",
+    )
+    return parser.parse_args(args)
 
-
-def main():
-    args = parse_args()
-
-    if args.web:
-        import uvicorn
-        print("[info] Starting web server at http://localhost:8000")
-        uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
-        return
-
-    if not args.prompt:
-        print("Error: 'prompt' is required unless --web is specified.")
-        return
-
+def run_generation(cli_args):
+    args = parse_generate_args(cli_args)
+    
     print(f"[debug] cwd: {Path.cwd().resolve()}")
 
     # Ensure width/height are multiples of 16
@@ -103,6 +108,21 @@ def main():
         print(e)
         traceback.print_exc()
 
+def run_server(cli_args):
+    import uvicorn
+    args = parse_serve_args(cli_args)
+    print(f"[info] Starting web server at http://{args.host}:{args.port}")
+    uvicorn.run("server:app", host=args.host, port=args.port, reload=args.reload)
+
+def main():
+    # Hybrid command dispatch
+    if len(sys.argv) > 1 and sys.argv[1] == "serve":
+        # Shift args so "serve" isn't processed by the next parser
+        run_server(sys.argv[2:])
+    else:
+        # Default mode: generation
+        # Pass all args (excluding script name) to the generator parser
+        run_generation(sys.argv[1:])
 
 if __name__ == "__main__":
     main()
