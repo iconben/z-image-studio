@@ -21,6 +21,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
 *   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 8).
+*   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified are supported.
 
 ## Requirements
 
@@ -98,6 +99,14 @@ Once started, open your browser to the displayed URL.
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
 | `--port` | `int` | `8000` | Port to bind the server to. |
 | `--reload` | `bool` | `False` | Enable auto-reload (for development). |
+
+## Screenshots
+
+![Screenshot 1](docs/images/screenshot1.png)
+
+![Screenshot 2](docs/images/screenshot2.png)
+
+![Screenshot 3](docs/images/screenshot3.png)
 
 ## Development
 
