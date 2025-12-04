@@ -743,10 +743,13 @@
                 seedFixedRadio.checked = true;
                 seedInput.value = item.seed;
                 seedInput.disabled = false;
+                localStorage.setItem('zimage_seed_mode', 'fixed');
+                localStorage.setItem('zimage_seed_value', item.seed);
             } else {
-                // Fallback if legacy item has no seed (should be rare with new backend)
+                // Fallback if legacy item has no seed
                 seedRandomRadio.checked = true;
                 seedInput.disabled = true;
+                localStorage.setItem('zimage_seed_mode', 'random');
             }
             
             // Save to local storage as if user typed it (sync state)

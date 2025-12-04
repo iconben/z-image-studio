@@ -41,6 +41,7 @@ class GenerateResponse(BaseModel):
     width: int
     height: int
     file_size_kb: float
+    seed: int = None
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest):
@@ -100,7 +101,8 @@ async def generate(req: GenerateRequest):
             "generation_time": round(duration, 2),
             "width": image.width,
             "height": image.height,
-            "file_size_kb": round(file_size_kb, 1)
+            "file_size_kb": round(file_size_kb, 1),
+            "seed": req.seed
         }
     except Exception as e:
         print(f"Error generating image: {e}")
