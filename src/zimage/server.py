@@ -9,10 +9,10 @@ import threading
 import sqlite3
 
 try:
-    from .engine import generate_image
+    from .engine import generate_image, MODEL_ID_MAP
     from . import db
 except ImportError:
-    from engine import generate_image
+    from engine import generate_image, MODEL_ID_MAP
     import db
 
 app = FastAPI()
@@ -60,6 +60,7 @@ class GenerateRequest(BaseModel):
     width: int = 1280
     height: int = 720
     seed: int = None
+    precision: str = "q8"
 
 class GenerateResponse(BaseModel):
     id: int
@@ -69,6 +70,8 @@ class GenerateResponse(BaseModel):
     height: int
     file_size_kb: float
     seed: int = None
+    precision: str
+    model_id: str
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest):
@@ -90,7 +93,8 @@ async def generate(req: GenerateRequest):
             steps=req.steps,
             width=width,
             height=height,
-            seed=req.seed
+            seed=req.seed,
+            precision=req.precision
         )
         
         # Save file
@@ -106,6 +110,8 @@ async def generate(req: GenerateRequest):
         duration = time.time() - start_time
         file_size_kb = output_path.stat().st_size / 1024
         
+        model_id = MODEL_ID_MAP.get(req.precision, "Unknown")
+
         # Record to DB
         new_id = db.add_generation(
             prompt=req.prompt,
@@ -115,10 +121,11 @@ async def generate(req: GenerateRequest):
             filename=filename,
             generation_time=duration,
             file_size_kb=file_size_kb,
-            model="Tongyi-MAI/Z-Image-Turbo",
+            model=model_id,
             cfg_scale=0.0,
             seed=req.seed,
-            status="succeeded"
+            status="succeeded",
+            precision=req.precision
         )
         
         return {
@@ -128,7 +135,9 @@ async def generate(req: GenerateRequest):
             "width": image.width,
             "height": image.height,
             "file_size_kb": round(file_size_kb, 1),
-            "seed": req.seed
+            "seed": req.seed,
+            "precision": req.precision,
+            "model_id": model_id
         }
     except Exception as e:
         print(f"Error generating image: {e}")

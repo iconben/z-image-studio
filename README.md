@@ -21,7 +21,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **MPS Acceleration**: Optimized for Mac users with Apple Silicon.
 *   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
-*   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 8).
+*   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 16).
 *   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified are supported.
 
 ## Requirements
@@ -67,6 +67,9 @@ zimg gen "Landscape view" --width 1920 --height 1080 --steps 20
 
 # With a specific seed for reproducibility
 zimg gen "A majestic dragon" --seed 12345
+
+# Select model precision (full, q8, q4)
+zimg gen "A futuristic city" --precision q8
 ```
 
 ### 2. Web Server Mode
@@ -93,6 +96,7 @@ Once started, open your browser to the displayed URL.
 | `--width` | `-w` | `int` | `1280` | Image width (automatically adjusted to be a multiple of 8). |
 | `--height` | `-H` | `int` | `720` | Image height (automatically adjusted to be a multiple of 8). |
 | `--seed` | | `int` | `None` | Random seed for reproducible generation. |
+| `--precision` | | `str` | `q8` | Model precision (`full`, `q8`, `q4`). `q8` is the default and balanced, `full` is higher quality but slower, `int4` is fastest. |
 
 ### Subcommand: `serve`
 | Argument | Type | Default | Description |

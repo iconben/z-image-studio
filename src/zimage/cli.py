@@ -65,6 +65,7 @@ def run_generation(args):
             width=args.width,
             height=args.height,
             seed=args.seed,
+            precision=args.precision,
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
@@ -101,6 +102,7 @@ def main():
     parser_gen.add_argument("--width", "-w", type=int, default=1280, help="Image width (must be multiple of 16), default 1280")
     parser_gen.add_argument("--height", "-H", type=int, default=720, help="Image height (must be multiple of 16), default 720")
     parser_gen.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
+    parser_gen.add_argument("--precision", type=str, default="q8", choices=["full", "q8", "q4"], help="Model precision (full, q8, q4), default q8")
     parser_gen.set_defaults(func=run_generation)
 
     # Subcommand: serve

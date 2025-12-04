@@ -11,6 +11,9 @@ import torch
 import subprocess
 import platform
 from diffusers import ZImagePipeline
+from sdnq import SDNQConfig
+from sdnq.common import use_torch_compile as triton_is_available
+from sdnq.loader import apply_sdnq_options_to_model
 
 # ANSI escape codes for colors
 GREEN = "\033[92m"
@@ -30,6 +33,14 @@ warnings.filterwarnings(
 )
 
 _cached_pipe = None
+_cached_precision = None
+
+# Mapping of model precision to model IDs
+MODEL_ID_MAP = {
+    "full": "Tongyi-MAI/Z-Image-Turbo",
+    "q8": "Disty0/Z-Image-Turbo-SDNQ-int8",
+    "q4": "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
+}
 
 def should_enable_attention_slicing(device: str) -> bool:
     """
@@ -79,10 +90,24 @@ def should_enable_attention_slicing(device: str) -> bool:
     # Default safe fallback
     return True
 
-def load_pipeline(device: str = None) -> ZImagePipeline:
-    global _cached_pipe
-    if _cached_pipe is not None:
+def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
+    global _cached_pipe, _cached_precision
+    
+    # If pipe is cached and precision matches, return it
+    if _cached_pipe is not None and _cached_precision == precision:
         return _cached_pipe
+    
+    # If we are switching models, unload the old one first to free memory
+    if _cached_pipe is not None:
+        log_info(f"Switching model precision from {_cached_precision} to {precision}. Unloading old model...")
+        del _cached_pipe
+        import gc
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        if torch.backends.mps.is_available():
+             torch.mps.empty_cache()
+        _cached_pipe = None
 
     if device is None:
         if torch.backends.mps.is_available():
@@ -93,7 +118,12 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
     
     log_info(f"using device: {device}")
 
-    model_id = "Tongyi-MAI/Z-Image-Turbo"
+    if precision not in MODEL_ID_MAP:
+        log_warn(f"Unknown precision '{precision}', falling back to 'q8'")
+        precision = "q8"
+
+    model_id = MODEL_ID_MAP[precision]
+    log_info(f"using model: {model_id} (precision={precision})")
 
     # Select optimal dtype based on device capabilities
     if device == "cpu":
@@ -113,14 +143,32 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
         # Fallback for other devices
         torch_dtype = torch.float32
 
+    cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
+    total_ram_bytes = int(cmd_out)
+    total_ram_gb = total_ram_bytes / (1024**3)
+
+    if model_id == "Tongyi-MAI/Z-Image-Turbo" and total_ram_gb >= 32:
+        low_cpu_mem_usage=False
+    else:
+        low_cpu_mem_usage=True
+
     log_info(f"try to load model with torch_dtype={torch_dtype} ...")
 
     pipe = ZImagePipeline.from_pretrained(
         model_id,
         torch_dtype=torch_dtype,   # ZImagePipeline still expects torch_dtype
-        low_cpu_mem_usage=False,
+        low_cpu_mem_usage=low_cpu_mem_usage,
     )
     pipe = pipe.to(device)
+
+    # Enable INT8 MatMul for AMD, Intel ARC and Nvidia GPUs:
+    if triton_is_available and (torch.cuda.is_available() or torch.xpu.is_available()):
+        pipe.transformer = apply_sdnq_options_to_model(pipe.transformer, use_quantized_matmul=True)
+        pipe.text_encoder = apply_sdnq_options_to_model(pipe.text_encoder, use_quantized_matmul=True)
+        pipe.transformer = torch.compile(pipe.transformer) # optional for faster speeds
+
+    if device == "cuda":
+        pipe.enable_model_cpu_offload()
 
     # Auto-configure attention slicing based on hardware
     if should_enable_attention_slicing(device):
@@ -142,6 +190,7 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
         log_info(f"Text encoder dtype: {pipe.text_encoder.dtype}")
 
     _cached_pipe = pipe
+    _cached_precision = precision
     return pipe
 
 def generate_image(
@@ -150,13 +199,14 @@ def generate_image(
     width: int,
     height: int,
     seed: int = None,
+    precision: str = "int8",
 ):
-    pipe = load_pipeline()
+    pipe = load_pipeline(precision=precision)
     
     log_info(f"generating image for prompt: {prompt!r}")
     print(
         f"DEBUG: steps={steps}, width={width}, "
-        f"height={height}, guidance_scale=0.0, seed={seed}"
+        f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}"
     )
 
     # Handle seed for reproducibility
