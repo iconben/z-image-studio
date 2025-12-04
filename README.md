@@ -1,6 +1,13 @@
-# Z-Image CLI
+# Z-Image Studio
 
-A command-line interface for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo`).
+![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)
+![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)
+![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Diffusers-yellow)
+![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-MPS-gray?logo=apple)
+
+A web application and a command-line interface for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo`).
 
 This tool is designed to run efficiently on local machines, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if unavailable.
 
@@ -24,8 +31,8 @@ This tool is designed to run efficiently on local machines, with specific optimi
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository_url>
-    cd zimage-cli
+    git clone https://github.com/iconben/z-image-studio.git
+    cd z-image-studio
     ```
 
 2.  **Install dependencies and package in editable mode:**
