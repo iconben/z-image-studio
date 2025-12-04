@@ -86,10 +86,20 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
     # Select optimal dtype based on device capabilities
     if device == "cpu":
         torch_dtype = torch.float32
-    else:
-        # CUDA and MPS (for this model) prefer bfloat16.
-        # Note: float16 on MPS causes black images due to numerical instability with Z-Image-Turbo.
+    elif device == "mps":
+        # MPS (for this model) prefers bfloat16 to avoid black images
         torch_dtype = torch.bfloat16
+    elif device == "cuda":
+        if torch.cuda.is_bf16_supported():
+            print("[info] CUDA device supports bfloat16 -> using bfloat16")
+            torch_dtype = torch.bfloat16
+        else:
+            print("[warn] CUDA device does NOT support bfloat16 -> falling back to float16")
+            print("[warn] This might cause numerical instability (black images) with Z-Image-Turbo.")
+            torch_dtype = torch.float16
+    else:
+        # Fallback for other devices
+        torch_dtype = torch.float32
 
     print(f"[info] try to load model with torch_dtype={torch_dtype} ...")
 
