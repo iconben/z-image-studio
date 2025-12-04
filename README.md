@@ -41,20 +41,23 @@ This tool is designed to run efficiently on local machines, with specific optimi
 After installation, you can use the `zimg` command directly from your terminal.
 
 ### 1. CLI Generation (Default Mode)
-Generate images directly from the command line.
+Generate images directly from the command line using the `generate` (or `gen`) subcommand.
 
 ```bash
 # Basic generation
-zimg "A futuristic city with neon lights"
+zimg generate "A futuristic city with neon lights"
+
+# Using the alias 'gen'
+zimg gen "A cute cat"
 
 # Custom output path
-zimg "A cute cat" --output "my_cat.png"
+zimg gen "A cute cat" --output "my_cat.png"
 
 # High quality settings
-zimg "Landscape view" --width 1920 --height 1080 --steps 20
+zimg gen "Landscape view" --width 1920 --height 1080 --steps 20
 
 # With a specific seed for reproducibility
-zimg "A majestic dragon" --seed 12345
+zimg gen "A majestic dragon" --seed 12345
 ```
 
 ### 2. Web Server Mode
@@ -72,7 +75,7 @@ Once started, open your browser to the displayed URL.
 
 ## Command Line Arguments
 
-### Generation Mode
+### Subcommand: `generate` (alias: `gen`)
 | Argument | Short | Type | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `prompt` | | `str` | Required | The text prompt for image generation. |
@@ -82,7 +85,7 @@ Once started, open your browser to the displayed URL.
 | `--height` | `-H` | `int` | `720` | Image height (automatically adjusted to be a multiple of 8). |
 | `--seed` | | `int` | `None` | Random seed for reproducible generation. |
 
-### Server Mode (`serve`)
+### Subcommand: `serve`
 | Argument | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
@@ -95,7 +98,7 @@ To run the source code directly without installation:
 
 1.  **Run CLI:**
     ```bash
-    uv run src/zimage/cli.py "A prompt"
+    uv run src/zimage/cli.py generate "A prompt"
     ```
 
 2.  **Run Server:**

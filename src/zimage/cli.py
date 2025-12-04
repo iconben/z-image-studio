@@ -10,74 +10,7 @@ except ImportError:
     sys.path.append(str(Path(__file__).parent))
     from engine import generate_image
 
-def parse_generate_args(args=None):
-    parser = argparse.ArgumentParser(
-        description="Z-Image Turbo CLI (zimg)"
-    )
-    parser.add_argument(
-        "prompt",
-        type=str,
-        help="Prompt for image generation",
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        type=str,
-        default=None,
-        help="Output image path (optional, default: outputs/<prompt>.png)",
-    )
-    parser.add_argument(
-        "--steps",
-        type=int,
-        default=9,
-        help="Sampling steps (default 9, try 15–25 for better quality)",
-    )
-    parser.add_argument(
-        "--width",
-        "-w",
-        type=int,
-        default=1280,
-        help="Image width (must be multiple of 16), default 1280",
-    )
-    parser.add_argument(
-        "--height",
-        "-H",
-        type=int,
-        default=720,
-        help="Image height (must be multiple of 16), default 720",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=None,
-        help="Random seed for reproducibility",
-    )
-    return parser.parse_args(args)
-
-def parse_serve_args(args=None):
-    parser = argparse.ArgumentParser(description="Start Z-Image Web Server")
-    parser.add_argument(
-        "--host",
-        type=str,
-        default="0.0.0.0",
-        help="Host to bind the server to (default: 0.0.0.0)",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="Port to bind the server to (default: 8000)",
-    )
-    parser.add_argument(
-        "--reload",
-        action="store_true",
-        help="Enable auto-reload (dev mode)",
-    )
-    return parser.parse_args(args)
-
-def run_generation(cli_args):
-    args = parse_generate_args(cli_args)
-    
+def run_generation(args):
     print(f"[debug] cwd: {Path.cwd().resolve()}")
 
     # Ensure width/height are multiples of 16
@@ -127,9 +60,8 @@ def run_generation(cli_args):
         print(e)
         traceback.print_exc()
 
-def run_server(cli_args):
+def run_server(args):
     import uvicorn
-    args = parse_serve_args(cli_args)
     print(f"[info] Starting web server at http://{args.host}:{args.port}")
     
     # Determine app string based on execution mode
@@ -143,14 +75,28 @@ def run_server(cli_args):
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def main():
-    # Hybrid command dispatch
-    if len(sys.argv) > 1 and sys.argv[1] == "serve":
-        # Shift args so "serve" isn't processed by the next parser
-        run_server(sys.argv[2:])
-    else:
-        # Default mode: generation
-        # Pass all args (excluding script name) to the generator parser
-        run_generation(sys.argv[1:])
+    parser = argparse.ArgumentParser(description="Z-Image Turbo CLI (zimg)")
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
+
+    # Subcommand: generate (aliases: gen)
+    parser_gen = subparsers.add_parser("generate", aliases=["gen"], help="Generate an image from a prompt")
+    parser_gen.add_argument("prompt", type=str, help="Prompt for image generation")
+    parser_gen.add_argument("--output", "-o", type=str, default=None, help="Output image path (optional, default: outputs/<prompt>.png)")
+    parser_gen.add_argument("--steps", type=int, default=9, help="Sampling steps (default 9, try 15–25 for better quality)")
+    parser_gen.add_argument("--width", "-w", type=int, default=1280, help="Image width (must be multiple of 16), default 1280")
+    parser_gen.add_argument("--height", "-H", type=int, default=720, help="Image height (must be multiple of 16), default 720")
+    parser_gen.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
+    parser_gen.set_defaults(func=run_generation)
+
+    # Subcommand: serve
+    parser_serve = subparsers.add_parser("serve", help="Start Z-Image Web Server")
+    parser_serve.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0)")
+    parser_serve.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
+    parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
+    parser_serve.set_defaults(func=run_server)
+
+    args = parser.parse_args()
+    args.func(args)
 
 if __name__ == "__main__":
     main()
