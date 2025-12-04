@@ -134,7 +134,7 @@
                         <form id="generateForm">
                             <div class="mb-3">
                                 <label for="prompt" class="form-label fw-bold" data-i18n="prompt_label">Prompt</label>
-                                <textarea class="form-control" id="prompt" rows="6" placeholder="Describe your image..." data-i18n-placeholder="prompt_placeholder" required>A futuristic cyberpunk city at night, neon lights, realistic, 8k</textarea>
+                                <textarea class="form-control" id="prompt" rows="6" placeholder="Describe your image..." data-i18n-placeholder="prompt_placeholder" data-i18n-value="default_prompt" required></textarea>
                             </div>
 
                             <div class="row mb-3">
@@ -299,7 +299,8 @@
                 history_empty: "No history yet.",
                 restore_draft_btn: "Restore Last Draft",
                 delete_btn_tooltip: "Delete",
-                confirm_delete: "Are you sure you want to delete this generation?"
+                confirm_delete: "Are you sure you want to delete this generation?",
+                default_prompt: "A futuristic cyberpunk city at night, neon lights, realistic"
             },
             zh: {
                 subtitle: "本地高质量图像生成",
@@ -327,7 +328,8 @@
                 history_empty: "暂无记录",
                 restore_draft_btn: "恢复草稿",
                 delete_btn_tooltip: "删除",
-                confirm_delete: "确定要删除此生成记录吗？"
+                confirm_delete: "确定要删除此生成记录吗？",
+                default_prompt: "夜晚的未来赛博朋克城市，霓虹灯，写实"
             },
             jp: {
                 subtitle: "高品質な画像生成（ローカル）",
@@ -355,7 +357,8 @@
                 history_empty: "履歴なし",
                 restore_draft_btn: "下書きを復元",
                 delete_btn_tooltip: "削除",
-                confirm_delete: "この生成を削除してもよろしいですか？"
+                confirm_delete: "この生成を削除してもよろしいですか？",
+                default_prompt: "未来的なサイバーパンク都市の夜、ネオンライト、リアル"
             }
         };
 
@@ -384,6 +387,19 @@
 
             // Save preference
             localStorage.setItem('zimage_lang', lang);
+            
+            // Update Input Values (like default prompt)
+            document.querySelectorAll('[data-i18n-value]').forEach(el => {
+                const key = el.getAttribute('data-i18n-value');
+                if (t[key]) {
+                    // Only set if prompt isn't already loaded from localStorage or user input
+                    if (el.id === 'prompt' && localStorage.getItem('zimage_prompt')) {
+                        // Do nothing, localStorage takes precedence
+                    } else {
+                        el.value = t[key];
+                    }
+                }
+            });
             
             // Handle dynamic state text (like button loading state if active)
             if (generateBtn.disabled) {
