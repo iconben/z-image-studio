@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-zimage = "zimage.cli:main"
+zimg = "zimage.cli:main"
 
 [tool.uv.sources]
 diffusers = { git = "https://github.com/huggingface/diffusers" }

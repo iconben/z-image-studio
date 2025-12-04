@@ -12,7 +12,7 @@ except ImportError:
 
 def parse_generate_args(args=None):
     parser = argparse.ArgumentParser(
-        description="Z-Image Turbo CLI (prompt, resolution, optional save path)"
+        description="Z-Image Turbo CLI (zimg)"
     )
     parser.add_argument(
         "prompt",

@@ -34,27 +34,27 @@ This tool is designed to run efficiently on local machines, with specific optimi
     uv pip install -e .
     ```
 
-    This will install all dependencies and make the `zimage` command available globally.
+    This will install all dependencies and make the `zimg` command available globally.
 
 ## Usage
 
-After installation, you can use the `zimage` command directly from your terminal.
+After installation, you can use the `zimg` command directly from your terminal.
 
 ### 1. CLI Generation (Default Mode)
 Generate images directly from the command line.
 
 ```bash
 # Basic generation
-zimage "A futuristic city with neon lights"
+zimg "A futuristic city with neon lights"
 
 # Custom output path
-zimage "A cute cat" --output "my_cat.png"
+zimg "A cute cat" --output "my_cat.png"
 
 # High quality settings
-zimage "Landscape view" --width 1920 --height 1080 --steps 20
+zimg "Landscape view" --width 1920 --height 1080 --steps 20
 
 # With a specific seed for reproducibility
-zimage "A majestic dragon" --seed 12345
+zimg "A majestic dragon" --seed 12345
 ```
 
 ### 2. Web Server Mode
@@ -62,10 +62,10 @@ Launch the web interface to generate images interactively.
 
 ```bash
 # Start server on default port (http://localhost:8000)
-zimage serve
+zimg serve
 
 # Start on custom host/port
-zimage serve --host 0.0.0.0 --port 9090
+zimg serve --host 0.0.0.0 --port 9090
 ```
 
 Once started, open your browser to the displayed URL.
