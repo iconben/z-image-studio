@@ -53,7 +53,13 @@ async def generate(req: GenerateRequest):
         # TODO: Pass seed to generate_image once engine supports it
         # For now, we just record it if provided, though engine uses random
         with gpu_lock:
-            image = generate_image(req.prompt, req.steps, width, height)
+            image = generate_image(
+                prompt=req.prompt,
+                steps=req.steps,
+                width=width,
+                height=height,
+                seed=req.seed,
+            )
         
         # Save file
         safe_prompt = "".join(c for c in req.prompt[:30] if c.isalnum() or c in "-_")

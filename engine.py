@@ -1,5 +1,7 @@
 import warnings
 import torch
+import subprocess
+import platform
 from diffusers import ZImagePipeline
 
 # Silence the noisy CUDA autocast warning on Mac
@@ -16,6 +18,54 @@ warnings.filterwarnings(
 )
 
 _cached_pipe = None
+
+def should_enable_attention_slicing(device: str) -> bool:
+    """
+    Determine if attention slicing should be enabled based on hardware specs.
+    - MPS (Mac): Enable if RAM < 32 GB.
+    - CUDA: Enable if VRAM < 12 GB.
+    - CPU: Always enable.
+    """
+    try:
+        if device == "cpu":
+            print("[info] Device is CPU -> Enabling attention slicing.")
+            return True
+            
+        if device == "mps" and platform.system() == "Darwin":
+            # Get macOS total RAM in bytes
+            cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
+            total_ram_bytes = int(cmd_out)
+            total_ram_gb = total_ram_bytes / (1024**3)
+            
+            print(f"[info] Detected System RAM: {total_ram_gb:.1f} GB")
+            
+            if total_ram_gb < 32:
+                print("[info] RAM < 32GB -> Enabling attention slicing.")
+                return True
+            else:
+                print("[info] RAM >= 32GB -> Disabling attention slicing for performance.")
+                return False
+
+        if device == "cuda" and torch.cuda.is_available():
+            # Get CUDA VRAM in bytes
+            props = torch.cuda.get_device_properties(0)
+            total_vram_gb = props.total_memory / (1024**3)
+            
+            print(f"[info] Detected GPU VRAM: {total_vram_gb:.1f} GB")
+            
+            if total_vram_gb < 12:
+                print("[info] VRAM < 12GB -> Enabling attention slicing.")
+                return True
+            else:
+                print("[info] VRAM >= 12GB -> Disabling attention slicing for performance.")
+                return False
+
+    except Exception as e:
+        print(f"[warn] Failed to detect hardware specs ({e}), defaulting to attention slicing enabled.")
+        return True
+
+    # Default safe fallback
+    return True
 
 def load_pipeline(device: str = None) -> ZImagePipeline:
     global _cached_pipe
@@ -50,11 +100,11 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
     )
     pipe = pipe.to(device)
 
-    # Memory Optimization: Enable attention slicing to prevent OOM/Swapping
-    # This slices the attention computation into chunks, trading a tiny bit of 
-    # speed for massive memory savings (which prevents disk swapping).
-    print("[info] enabling attention slicing for lower memory usage")
-    pipe.enable_attention_slicing()
+    # Auto-configure attention slicing based on hardware
+    if should_enable_attention_slicing(device):
+        pipe.enable_attention_slicing()
+    else:
+        pipe.disable_attention_slicing()
 
     # Disable safety checker while debugging (it can output black images)
     if hasattr(pipe, "safety_checker") and pipe.safety_checker is not None:
@@ -72,14 +122,25 @@ def load_pipeline(device: str = None) -> ZImagePipeline:
     _cached_pipe = pipe
     return pipe
 
-def generate_image(prompt: str, steps: int, width: int, height: int):
+def generate_image(
+    prompt: str,
+    steps: int,
+    width: int,
+    height: int,
+    seed: int = None,
+):
     pipe = load_pipeline()
     
     print(f"[info] generating image for prompt: {prompt!r}")
     print(
         f"[debug] steps={steps}, width={width}, "
-        f"height={height}, guidance_scale=0.0"
+        f"height={height}, guidance_scale=0.0, seed={seed}"
     )
+
+    # Handle seed for reproducibility
+    generator = None
+    if seed is not None:
+        generator = torch.Generator(device=pipe.device).manual_seed(seed)
 
     # Optimize inference: disable gradient calculation
     with torch.inference_mode():
@@ -89,6 +150,7 @@ def generate_image(prompt: str, steps: int, width: int, height: int):
             height=height,
             width=width,
             guidance_scale=0.0,  # Turbo model: CFG must be 0
+            generator=generator,
         ).images[0]
     
     return image

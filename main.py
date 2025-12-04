@@ -40,6 +40,12 @@ def parse_generate_args(args=None):
         default=720,
         help="Image height (must be multiple of 16), default 720",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducibility",
+    )
     return parser.parse_args(args)
 
 def parse_serve_args(args=None):
@@ -99,7 +105,13 @@ def run_generation(cli_args):
 
     # Generate image with strong logging & error handling
     try:
-        image = generate_image(args.prompt, args.steps, args.width, args.height)
+        image = generate_image(
+            prompt=args.prompt,
+            steps=args.steps,
+            width=args.width,
+            height=args.height,
+            seed=args.seed,
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
         print(f"[info] image saved to: {output_path.resolve()}")
