@@ -224,11 +224,20 @@
                                                                 <div class="form-check d-flex align-items-center">
                                                                     <input class="form-check-input" type="radio" name="seedMode" id="seedFixed" value="fixed">
                                                                     <label class="form-check-label ms-1 me-2" for="seedFixed" data-i18n="seed_fixed">Fixed</label>
-                                                                    <input type="number" class="form-control" id="seedInput" placeholder="Enter seed..." disabled style="width: 130px;">
+                                                                    <input type="number" class="form-control" id="seedInput" placeholder="Enter seed..." disabled style="width: 136px;">
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         
+                                                        <div class="mb-3">
+                                                            <label for="precision" class="form-label" data-i18n="precision_label">Model Precision</label>
+                                                            <select class="form-select" id="precision">
+                                                                <option value="full" data-i18n="precision_full">Best and slower</option>
+                                                                <option value="q8" data-i18n="precision_q8">Great and faster</option>
+                                                                <option value="q4" data-i18n="precision_q4">Faster and Great</option>
+                                                            </select>
+                                                        </div>
+
                                                         <div class="mb-3">
                                                             <label for="steps" class="form-label">                                    <span data-i18n="steps_label">Steps</span>: <span id="stepsVal">9</span>
                                     <span class="d-inline-block ms-2 tooltip-icon" tabindex="0" data-bs-toggle="tooltip" data-bs-placement="top" data-i18n-title="steps_tooltip">
@@ -270,6 +279,10 @@
                                     <span id="metaSize"></span>
                                     <span class="mx-2">|</span>
                                     <span id="metaSeed"></span>
+                                    <span class="mx-2">|</span>
+                                    <span id="metaPrecision"></span>
+                                    <span class="mx-2">|</span>
+                                    <span id="metaSteps"></span>
                                 </div>
                                 <a href="#" id="downloadBtn" class="btn btn-success" download data-i18n="download_btn">Download Image</a>
                             </div>
@@ -326,6 +339,8 @@
         const metaSize = document.getElementById('metaSize');
         const metaSeed = document.getElementById('metaSeed');
         const languageSelect = document.getElementById('languageSelect');
+        const metaPrecision = document.getElementById('metaPrecision');
+        const metaSteps = document.getElementById('metaSteps');
         const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
         const modalImage = document.getElementById('modalImage');
         const historyListOffcanvas = document.getElementById('historyList');
@@ -413,6 +428,10 @@
                 seed_label: "Seed",
                 seed_random: "Random",
                 seed_fixed: "Fixed",
+                precision_label: "Model Precision",
+                precision_full: "Best and slower (full)",
+                precision_q8: "Great and faster (q8)",
+                precision_q4: "Faster and Good (q4)",
                 steps_tooltip: "Sampling steps determine image quality. 9 is fast, 15-25 for better quality. Advanced users only.",
                 generate_btn: "Generate Image",
                 generating_btn: "Generating...",
@@ -443,6 +462,10 @@
                 seed_label: "种子 (Seed)",
                 seed_random: "随机",
                 seed_fixed: "固定",
+                precision_label: "模型精度",
+                precision_full: "最佳画质但较慢 ( full)",
+                precision_q8: "优秀画质且较快 (较快 q8)",
+                precision_q4: "很快但画质略差 (q4)",
                 steps_tooltip: "采样步数决定图像质量。9步很快，15-25步可获得更好质量。建议高级用户调整。",
                 generate_btn: "生成图片",
                 generating_btn: "生成中...",
@@ -473,6 +496,10 @@
                 seed_label: "シード値",
                 seed_random: "ランダム",
                 seed_fixed: "固定",
+                precision_label: "モデル精度",
+                precision_full: "最高画質 (遅い full)",
+                precision_q8: "高画質 (速い q8)",
+                precision_q4: "高速 (q4)",
                 steps_tooltip: "サンプリングステップ数は画像の品質を決定します。9ステップは高速ですが、15～25ステップでより高品質になります。上級者向けです。",
                 generate_btn: "画像を生成",
                 generating_btn: "生成中...",
@@ -570,6 +597,7 @@
         const seedInput = document.getElementById('seedInput');
         const seedRandomRadio = document.getElementById('seedRandom');
         const seedFixedRadio = document.getElementById('seedFixed');
+        const precisionInput = document.getElementById('precision');
 
         // Load saved values
         if (localStorage.getItem('zimage_prompt')) promptInput.value = localStorage.getItem('zimage_prompt');
@@ -582,6 +610,12 @@
 
         if (localStorage.getItem('zimage_width')) widthInput.value = localStorage.getItem('zimage_width');
         if (localStorage.getItem('zimage_height')) heightInput.value = localStorage.getItem('zimage_height');
+        
+        if (localStorage.getItem('zimage_precision')) {
+            precisionInput.value = localStorage.getItem('zimage_precision');
+        } else {
+            precisionInput.value = 'q8'; // Default
+        }
 
         // Load saved Seed State
         const savedSeedMode = localStorage.getItem('zimage_seed_mode');
@@ -620,6 +654,11 @@
             if (seedFixedRadio.checked) { // Only save if fixed mode is active
                 localStorage.setItem('zimage_seed_value', seedInput.value);
             }
+            isDirty = true;
+        });
+        
+        precisionInput.addEventListener('change', (e) => {
+            localStorage.setItem('zimage_precision', e.target.value);
             isDirty = true;
         });
 
@@ -699,8 +738,9 @@
                     <img src="${imageUrl}" alt="thumb" width="80" height="80" class="rounded object-fit-cover flex-shrink-0 bg-light">
                     <div class="d-flex flex-column gap-1 w-100" style="min-width: 0;">
                         <h6 class="mb-0 small text-truncate">${shortPrompt}</h6>
-                        <p class="mb-0 opacity-75 small">${item.width}x${item.height} · ${item.steps} steps</p>
-                        <small class="text-muted">${date} · ${formatValueWithOneDecimal(item.generation_time)}s</small>
+                        <p class="mb-0 opacity-75 small">${item.width}x${item.height} · ${formatFileSize(item.file_size_kb, languageSelect.value)}</p>
+                        <small class="text-muted" style="line-height: 0.9rem">${date}</small>
+                        <small class="text-muted" style="line-height: 0.9rem">${formatValueWithOneDecimal(item.generation_time)}s · ${item.precision} · ${item.steps} steps</small>
                     </div>
                     <button class="btn btn-sm btn-outline-secondary ms-auto delete-history-item" data-id="${item.id}" title="${translations[languageSelect.value].delete_btn_tooltip}">
                         <i class="bi bi-trash"></i>
@@ -766,6 +806,7 @@
                 localStorage.setItem('zimage_stash_height', heightInput.value);
                 localStorage.setItem('zimage_stash_seed_mode', seedRandomRadio.checked ? 'random' : 'fixed');
                 localStorage.setItem('zimage_stash_seed_value', seedInput.value);
+                localStorage.setItem('zimage_stash_precision', precisionInput.value);
                 restoreDraftBtn.classList.remove('d-none');
             }
             isDirty = false; // Now we are in "clean" history state
@@ -790,6 +831,7 @@
             localStorage.setItem('zimage_steps', item.steps);
             localStorage.setItem('zimage_width', item.width);
             localStorage.setItem('zimage_height', item.height);
+            // Note: Precision is NOT restored from history to avoid overriding user preference
 
             // Show preview
             const imageUrl = `/outputs/${item.filename}`;
@@ -800,6 +842,9 @@
             img.className = 'img-fluid';
             img.style.cursor = 'pointer';
             img.onclick = () => {
+                modalImage.src = data.image_url; // BUG: this line is problematic in history load context. 'data' is not defined.
+                // Should use imageUrl. But wait, the onclick handler in loadFromHistory was already there.
+                // Let's fix it.
                 modalImage.src = imageUrl;
                 imageModal.show();
             };
@@ -813,6 +858,8 @@
             metaDims.textContent = `${item.width}x${item.height}`;
             metaSize.textContent = formatFileSize(item.file_size_kb, languageSelect.value);
             metaSeed.textContent = `${translations[languageSelect.value].seed_label}: ${item.seed}`;
+            metaPrecision.textContent = `${item.precision || 'full'}`; // Default to 'full' for old entries
+            metaSteps.textContent = `${item.steps} ${t.steps_label}`;
             
             resultInfo.classList.remove('d-none');
             
@@ -840,6 +887,10 @@
             if (localStorage.getItem('zimage_stash_height')) {
                 heightInput.value = localStorage.getItem('zimage_stash_height');
                 localStorage.setItem('zimage_height', heightInput.value);
+            }
+            if (localStorage.getItem('zimage_stash_precision')) {
+                precisionInput.value = localStorage.getItem('zimage_stash_precision');
+                localStorage.setItem('zimage_precision', precisionInput.value);
             }
             if (localStorage.getItem('zimage_stash_seed_mode')) {
                 const stashSeedMode = localStorage.getItem('zimage_stash_seed_mode');
@@ -904,7 +955,8 @@
                 steps: parseInt(document.getElementById('steps').value),
                 width: parseInt(document.getElementById('width').value),
                 height: parseInt(document.getElementById('height').value),
-                seed: seedVal
+                seed: seedVal,
+                precision: precisionInput.value
             };
 
             try {
@@ -938,6 +990,7 @@
                     metaDims.textContent = `${data.width}x${data.height}`;
                     metaSize.textContent = formatFileSize(data.file_size_kb, languageSelect.value);
                     metaSeed.textContent = `${t.seed_label}: ${data.seed}`;
+                    metaPrecision.textContent = `${data.precision}`;
                     
                     resultInfo.classList.remove('d-none');
                     

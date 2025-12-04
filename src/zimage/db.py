@@ -26,9 +26,20 @@ def init_db():
             error_message TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             generation_time REAL,
-            file_size_kb REAL
+            file_size_kb REAL,
+            precision TEXT
         )
     ''')
+    
+    # Migration: Add 'precision' column if it doesn't exist
+    cursor.execute("PRAGMA table_info(generations)")
+    columns = [info[1] for info in cursor.fetchall()]
+    if "precision" not in columns:
+        cursor.execute("ALTER TABLE generations ADD COLUMN precision TEXT DEFAULT 'full'")
+    
+    # Handle historical data normalization
+    cursor.execute("UPDATE generations SET precision = 'full' WHERE precision IS NULL")
+    cursor.execute("UPDATE generations SET model = 'Tongyi-MAI/Z-Image-Turbo' WHERE model IS NULL")
     
     conn.commit()
     conn.close()
@@ -46,7 +57,8 @@ def add_generation(
     negative_prompt: Optional[str] = None,
     cfg_scale: float = 0.0,
     seed: Optional[int] = None,
-    error_message: Optional[str] = None
+    error_message: Optional[str] = None,
+    precision: str = "q8"
 ) -> int:
     """Insert a new generation record."""
     conn = sqlite3.connect(DB_PATH)
@@ -56,12 +68,12 @@ def add_generation(
         INSERT INTO generations (
             prompt, negative_prompt, steps, width, height, 
             cfg_scale, seed, model, status, filename, 
-            error_message, generation_time, file_size_kb, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            error_message, generation_time, file_size_kb, created_at, precision
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         prompt, negative_prompt, steps, width, height,
         cfg_scale, seed, model, status, filename,
-        error_message, generation_time, file_size_kb, datetime.now()
+        error_message, generation_time, file_size_kb, datetime.now(), precision
     ))
     
     new_id = cursor.lastrowid

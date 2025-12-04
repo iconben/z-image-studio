@@ -1051,6 +1051,17 @@ wheels = [
 ]
 
 [[package]]
+name = "sdnq"
+version = "0.1.2"
+source = { git = "https://github.com/Disty0/sdnq#3fce0ac6f685861b21f2347f4879a8c1a4c2ec73" }
+dependencies = [
+    { name = "accelerate" },
+    { name = "diffusers" },
+    { name = "torch" },
+    { name = "transformers" },
+]
+
+[[package]]
 name = "setuptools"
 version = "80.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1298,6 +1309,7 @@ dependencies = [
     { name = "accelerate" },
     { name = "diffusers" },
     { name = "fastapi" },
+    { name = "sdnq" },
     { name = "torchvision" },
     { name = "transformers" },
     { name = "uvicorn" },
@@ -1308,6 +1320,7 @@ requires-dist = [
     { name = "accelerate", specifier = ">=1.12.0" },
     { name = "diffusers", git = "https://github.com/huggingface/diffusers" },
     { name = "fastapi", specifier = ">=0.123.0" },
+    { name = "sdnq", git = "https://github.com/Disty0/sdnq" },
     { name = "torchvision", specifier = ">=0.24.1" },
     { name = "transformers", specifier = ">=4.57.3" },
     { name = "uvicorn", specifier = ">=0.38.0" },

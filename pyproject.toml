@@ -8,6 +8,7 @@ dependencies = [
     "accelerate>=1.12.0",
     "diffusers",
     "fastapi>=0.123.0",
+    "sdnq",
     "torchvision>=0.24.1",
     "transformers>=4.57.3",
     "uvicorn>=0.38.0",
@@ -18,4 +19,5 @@ zimg = "zimage.cli:main"
 
 [tool.uv.sources]
 diffusers = { git = "https://github.com/huggingface/diffusers" }
+sdnq = { git = "https://github.com/Disty0/sdnq" }
 
