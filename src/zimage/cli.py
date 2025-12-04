@@ -2,7 +2,13 @@ import argparse
 import sys
 from pathlib import Path
 import traceback
-from engine import generate_image
+
+try:
+    from .engine import generate_image
+except ImportError:
+    # Allow running as a script directly (e.g. python src/zimage/cli.py)
+    sys.path.append(str(Path(__file__).parent))
+    from engine import generate_image
 
 def parse_generate_args(args=None):
     parser = argparse.ArgumentParser(
@@ -125,7 +131,16 @@ def run_server(cli_args):
     import uvicorn
     args = parse_serve_args(cli_args)
     print(f"[info] Starting web server at http://{args.host}:{args.port}")
-    uvicorn.run("server:app", host=args.host, port=args.port, reload=args.reload)
+    
+    # Determine app string based on execution mode
+    if not __package__:
+        # Running as script (flat layout simulation)
+        app_str = "server:app"
+    else:
+        # Running as package
+        app_str = "zimage.server:app"
+        
+    uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def main():
     # Hybrid command dispatch

@@ -11,6 +11,8 @@ This tool is designed to run efficiently on local machines, with specific optimi
     *   **CLI**: Fast, direct image generation from the terminal.
     *   **Web UI**: Modern web interface for interactive generation.
 *   **MPS Acceleration**: Optimized for Mac users with Apple Silicon.
+*   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
+*   **Seed Control**: Reproducible image generation via CLI or Web UI.
 *   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 8).
 
 ## Requirements
@@ -26,28 +28,33 @@ This tool is designed to run efficiently on local machines, with specific optimi
     cd zimage-cli
     ```
 
-2.  **Install dependencies:**
+2.  **Install dependencies and package in editable mode:**
     Using `uv` (recommended):
     ```bash
-    uv sync
+    uv pip install -e .
     ```
+
+    This will install all dependencies and make the `zimage` command available globally.
 
 ## Usage
 
-Run the script using `uv run` or directly with python if your environment is active.
+After installation, you can use the `zimage` command directly from your terminal.
 
 ### 1. CLI Generation (Default Mode)
 Generate images directly from the command line.
 
 ```bash
 # Basic generation
-uv run main.py "A futuristic city with neon lights"
+zimage "A futuristic city with neon lights"
 
 # Custom output path
-uv run main.py "A cute cat" --output "my_cat.png"
+zimage "A cute cat" --output "my_cat.png"
 
 # High quality settings
-uv run main.py "Landscape view" --width 1920 --height 1080 --steps 20
+zimage "Landscape view" --width 1920 --height 1080 --steps 20
+
+# With a specific seed for reproducibility
+zimage "A majestic dragon" --seed 12345
 ```
 
 ### 2. Web Server Mode
@@ -55,10 +62,10 @@ Launch the web interface to generate images interactively.
 
 ```bash
 # Start server on default port (http://localhost:8000)
-uv run main.py serve
+zimage serve
 
 # Start on custom host/port
-uv run main.py serve --host 0.0.0.0 --port 9090
+zimage serve --host 0.0.0.0 --port 9090
 ```
 
 Once started, open your browser to the displayed URL.
@@ -73,6 +80,7 @@ Once started, open your browser to the displayed URL.
 | `--steps` | | `int` | `9` | Number of inference steps. Higher usually means better quality. |
 | `--width` | `-w` | `int` | `1280` | Image width (automatically adjusted to be a multiple of 8). |
 | `--height` | `-H` | `int` | `720` | Image height (automatically adjusted to be a multiple of 8). |
+| `--seed` | | `int` | `None` | Random seed for reproducible generation. |
 
 ### Server Mode (`serve`)
 | Argument | Type | Default | Description |
@@ -80,6 +88,25 @@ Once started, open your browser to the displayed URL.
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
 | `--port` | `int` | `8000` | Port to bind the server to. |
 | `--reload` | `bool` | `False` | Enable auto-reload (for development). |
+
+## Development
+
+To run the source code directly without installation:
+
+1.  **Run CLI:**
+    ```bash
+    uv run src/zimage/cli.py "A prompt"
+    ```
+
+2.  **Run Server:**
+    ```bash
+    uv run src/zimage/cli.py serve --reload
+    ```
+
+3.  **Run tests:**
+    ```bash
+    uv run python -m unittest tests/manual_test_mps.py
+    ```
 
 ## Notes
 

@@ -4,10 +4,15 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from pathlib import Path
 import time
-from engine import generate_image
 import threading
-import db
 import sqlite3
+
+try:
+    from .engine import generate_image
+    from . import db
+except ImportError:
+    from engine import generate_image
+    import db
 
 app = FastAPI()
 
@@ -136,4 +141,6 @@ async def delete_history_item(item_id: int):
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 # Serve frontend
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+# Use absolute path for package-internal static files
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
