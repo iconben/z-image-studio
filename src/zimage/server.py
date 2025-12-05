@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -39,9 +39,11 @@ def worker_loop():
         func, args, kwargs, future, loop = task
         try:
             result = func(*args, **kwargs)
-            loop.call_soon_threadsafe(future.set_result, result)
+            if future and loop:
+                loop.call_soon_threadsafe(future.set_result, result)
         except Exception as e:
-            loop.call_soon_threadsafe(future.set_exception, e)
+            if future and loop:
+                loop.call_soon_threadsafe(future.set_exception, e)
         finally:
             job_queue.task_done()
 
@@ -53,6 +55,22 @@ async def run_in_worker(func, *args, **kwargs):
     future = loop.create_future()
     job_queue.put((func, args, kwargs, future, loop))
     return await future
+
+def run_in_worker_nowait(func, *args, **kwargs):
+    """Fire and forget task for the worker thread."""
+    job_queue.put((func, args, kwargs, None, None))
+
+def cleanup_gpu():
+    """
+    Force garbage collection and MPS cache clearing.
+    This is a slow operation (~seconds to minutes) but necessary to prevent OOM
+    on memory-constrained MPS devices after large generations.
+    """
+    import gc
+    import torch
+    gc.collect()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -74,7 +92,7 @@ class GenerateResponse(BaseModel):
     model_id: str
 
 @app.post("/generate", response_model=GenerateResponse)
-async def generate(req: GenerateRequest):
+async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:
         # Validate dimensions (must be multiple of 16)
         width = req.width if req.width % 16 == 0 else (req.width // 16) * 16
@@ -127,6 +145,9 @@ async def generate(req: GenerateRequest):
             status="succeeded",
             precision=req.precision
         )
+        
+        # Schedule cleanup to run AFTER the response is sent
+        background_tasks.add_task(run_in_worker_nowait, cleanup_gpu)
         
         return {
             "id": new_id,

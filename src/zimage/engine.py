@@ -204,14 +204,21 @@ def generate_image(
         generator = torch.Generator(device=pipe.device).manual_seed(seed)
 
     # Optimize inference: disable gradient calculation
-    with torch.inference_mode():
-        image = pipe(
-            prompt,
-            num_inference_steps=steps,
-            height=height,
-            width=width,
-            guidance_scale=0.0,  # Turbo model: CFG must be 0
-            generator=generator,
-        ).images[0]
-    
-    return image
+    try:
+        with torch.inference_mode():
+            image = pipe(
+                prompt,
+                num_inference_steps=steps,
+                height=height,
+                width=width,
+                guidance_scale=0.0,  # Turbo model: CFG must be 0
+                generator=generator,
+            ).images[0]
+        
+        return image
+    finally:
+        # Cleanup memory to prevent accumulation/leaks on MPS
+        import gc
+        gc.collect()
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
