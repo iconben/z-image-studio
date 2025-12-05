@@ -26,14 +26,16 @@ except ImportError:
     from engine import generate_image, get_available_models
 
 def run_models(args):
-    models = get_available_models()
-    print("Available Models:")
-    # Import MODEL_ID_MAP from engine
-    from .engine import MODEL_ID_MAP
-    for m in models:
-        rec_str = f" {GREEN}(Recommended){RESET}" if m['recommended'] else ""
-        model_hf_id = MODEL_ID_MAP.get(m['id'], "Unknown Model ID")
-        print(f"  * {m['id']} -> {model_hf_id}{rec_str}")
+    models_dict = get_available_models()
+    # For CLI, we can show all, or just generation. Let's show all categorized.
+    
+    for category, models in models_dict.items():
+        if not models: continue
+        print(f"\nCategory: {category.capitalize()}")
+        for m in models:
+            rec_str = f" {GREEN}(Recommended){RESET}" if m['recommended'] else ""
+            tasks_str = ",".join(m['tasks'])
+            print(f"  * {m['id']} ({m['precision']}) -> {m['hf_id']} [Tasks: {tasks_str}]{rec_str}")
 
 def run_generation(args):
     print(f"DEBUG: cwd: {Path.cwd().resolve()}")

@@ -35,12 +35,27 @@ warnings.filterwarnings(
 _cached_pipe = None
 _cached_precision = None
 
-# Mapping of model precision to model IDs
-MODEL_ID_MAP = {
-    "full": "Tongyi-MAI/Z-Image-Turbo",
-    "q8": "Disty0/Z-Image-Turbo-SDNQ-int8",
-    "q4": "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
-}
+# Model Definitions
+MODEL_DEFINITIONS = [
+    {
+        "id": "turbo-full",
+        "precision": "full",
+        "tasks": ["generate"],
+        "hf_id": "Tongyi-MAI/Z-Image-Turbo",
+    },
+    {
+        "id": "turbo-q8",
+        "precision": "q8",
+        "tasks": ["generate"],
+        "hf_id": "Disty0/Z-Image-Turbo-SDNQ-int8",
+    },
+    {
+        "id": "turbo-q4",
+        "precision": "q4",
+        "tasks": ["generate"],
+        "hf_id": "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
+    },
+]
 
 _cached_available_models = None
 try:
@@ -49,10 +64,10 @@ try:
 except ImportError:
     _sdnq_available = False
 
-def get_available_models() -> list[dict]:
+def get_available_models() -> dict:
     """
-    Returns a list of available models with hardware-based recommendations.
-    This function caches its result as hardware specs typically don't change during runtime.
+    Returns a categorized dictionary of available models with hardware-based recommendations.
+    Format: {"generate": [...], "edit": [...]}
     """
     global _cached_available_models
     if _cached_available_models:
@@ -61,65 +76,56 @@ def get_available_models() -> list[dict]:
 
     # 1. Detect available RAM/VRAM
     total_ram_gb = 0
-    
-    # Check System RAM (macOS/Linux) as a baseline
     try:
         if platform.system() == "Darwin":
             cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
             total_ram_gb = int(cmd_out) / (1024**3)
         elif platform.system() == "Linux":
-             # Basic Linux memory check (fallback)
              with open('/proc/meminfo', 'r') as f:
                  for line in f:
                      if 'MemTotal' in line:
-                         # MemTotal:        16329508 kB
                          kb = int(line.split()[1])
                          total_ram_gb = kb / (1024**2)
                          break
     except Exception:
         pass
     
-    # If CUDA is available, VRAM overrides system RAM for recommendation logic
-    # (usually, though for offloading, system RAM still matters. Let's stick to a simple heuristic)
     if torch.cuda.is_available():
          try:
             props = torch.cuda.get_device_properties(0)
-            vram_gb = props.total_memory / (1024**3)
-            # Use VRAM as the primary constraint factor if using GPU
-            total_ram_gb = vram_gb
+            total_ram_gb = props.total_memory / (1024**3)
          except:
              pass
 
     # 2. Determine recommended precision
-    # Default to q8 if RAM detection fails or is very low
-    recommended_id = "q8" 
-    if total_ram_gb > 0: # Only apply specific recommendations if RAM was detected
+    recommended_precision = "q8" 
+    if total_ram_gb > 0:
         if total_ram_gb < 8:
-            recommended_id = "q4"
+            recommended_precision = "q4"
         elif total_ram_gb < 16:
-            recommended_id = "q8"
+            recommended_precision = "q8"
         else:
-            recommended_id = "full" # or q8 if we want to be conservative
+            recommended_precision = "full"
 
-    # 3. Build result list
-    models = []
-    # Define order and filter by SDNQ availability
-    order = ["full"]
-    if _sdnq_available:
-        order.extend(["q8", "q4"])
-    else:
-        log_warn("sdnq library not found. Quantized models (q8, q4) will not be available.")
-
-    for pid in order:
-        if pid in MODEL_ID_MAP:
-            models.append({
-                "id": pid,
-                "recommended": (pid == recommended_id)
-            })
+    # 3. Build and categorize list
+    result = {"generate": [], "edit": []}
+    
+    for m in MODEL_DEFINITIONS:
+        # Filter by SDNQ availability
+        if m["precision"] != "full" and not _sdnq_available:
+            continue
             
-    _cached_available_models = models # Cache the result
-    return models
-
+        model_info = m.copy()
+        model_info["recommended"] = (m["precision"] == recommended_precision)
+        
+        # Add to task-specific lists
+        for task in m["tasks"]:
+            if task not in result:
+                result[task] = []
+            result[task].append(model_info)
+            
+    _cached_available_models = result
+    return result
 
 def should_enable_attention_slicing(device: str) -> bool:
     """
@@ -161,13 +167,23 @@ def should_enable_attention_slicing(device: str) -> bool:
 def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
     global _cached_pipe, _cached_precision
     
-    # If pipe is cached and precision matches, return it
-    if _cached_pipe is not None and _cached_precision == precision:
+    # Look up model definition for "generate" task
+    model_def = next((m for m in MODEL_DEFINITIONS if m["precision"] == precision and "generate" in m["tasks"]), None)
+    
+    if not model_def:
+        log_warn(f"Unknown precision '{precision}' for generation, falling back to 'q8'")
+        precision = "q8"
+        model_def = next((m for m in MODEL_DEFINITIONS if m["precision"] == "q8" and "generate" in m["tasks"]), None)
+    
+    model_id = model_def["hf_id"]
+    # Cache key uses model_id to be specific
+    cache_key = model_id
+
+    if _cached_pipe is not None and _cached_precision == cache_key:
         return _cached_pipe
     
-    # If we are switching models, unload the old one first to free memory
     if _cached_pipe is not None:
-        log_info(f"Switching model precision from {_cached_precision} to {precision}. Unloading old model...")
+        log_info(f"Switching model. Unloading old model...")
         del _cached_pipe
         import gc
         gc.collect()
@@ -185,19 +201,12 @@ def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
             device = "cpu"
     
     log_info(f"using device: {device}")
-
-    if precision not in MODEL_ID_MAP:
-        log_warn(f"Unknown precision '{precision}', falling back to 'q8'")
-        precision = "q8"
-
-    model_id = MODEL_ID_MAP[precision]
     log_info(f"using model: {model_id} (precision={precision})")
 
     # Select optimal dtype based on device capabilities
     if device == "cpu":
         torch_dtype = torch.float32
     elif device == "mps":
-        # MPS (for this model) prefers bfloat16 to avoid black images
         torch_dtype = torch.bfloat16
     elif device == "cuda":
         if torch.cuda.is_bf16_supported():
@@ -205,10 +214,8 @@ def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
             torch_dtype = torch.bfloat16
         else:
             log_warn("CUDA device does NOT support bfloat16 -> falling back to float16")
-            log_warn("This might cause numerical instability (black images) with Z-Image-Turbo.")
             torch_dtype = torch.float16
     else:
-        # Fallback for other devices
         torch_dtype = torch.float32
 
     cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
@@ -224,7 +231,7 @@ def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
 
     pipe = ZImagePipeline.from_pretrained(
         model_id,
-        torch_dtype=torch_dtype,   # ZImagePipeline still expects torch_dtype
+        torch_dtype=torch_dtype,
         low_cpu_mem_usage=low_cpu_mem_usage,
     )
     pipe = pipe.to(device)
@@ -233,32 +240,22 @@ def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
     if triton_is_available and (torch.cuda.is_available() or torch.xpu.is_available()):
         pipe.transformer = apply_sdnq_options_to_model(pipe.transformer, use_quantized_matmul=True)
         pipe.text_encoder = apply_sdnq_options_to_model(pipe.text_encoder, use_quantized_matmul=True)
-        pipe.transformer = torch.compile(pipe.transformer) # optional for faster speeds
+        pipe.transformer = torch.compile(pipe.transformer) 
 
     if device == "cuda":
         pipe.enable_model_cpu_offload()
 
-    # Auto-configure attention slicing based on hardware
     if should_enable_attention_slicing(device):
         pipe.enable_attention_slicing()
     else:
         pipe.disable_attention_slicing()
 
-    # Disable safety checker while debugging (it can output black images)
     if hasattr(pipe, "safety_checker") and pipe.safety_checker is not None:
         log_info("disable safety_checker")
         pipe.safety_checker = None
 
-    # Debug actual dtypes
-    if hasattr(pipe, "unet"):
-        log_info(f"UNet dtype: {pipe.unet.dtype}")
-    if hasattr(pipe, "vae"):
-        log_info(f"VAE  dtype: {pipe.vae.dtype}")
-    if hasattr(pipe, "text_encoder"):
-        log_info(f"Text encoder dtype: {pipe.text_encoder.dtype}")
-
     _cached_pipe = pipe
-    _cached_precision = precision
+    _cached_precision = cache_key
     return pipe
 
 def generate_image(
@@ -277,12 +274,10 @@ def generate_image(
         f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}"
     )
 
-    # Handle seed for reproducibility
     generator = None
     if seed is not None:
         generator = torch.Generator(device=pipe.device).manual_seed(seed)
 
-    # Optimize inference: disable gradient calculation
     try:
         with torch.inference_mode():
             image = pipe(
@@ -290,13 +285,12 @@ def generate_image(
                 num_inference_steps=steps,
                 height=height,
                 width=width,
-                guidance_scale=0.0,  # Turbo model: CFG must be 0
+                guidance_scale=0.0, 
                 generator=generator,
             ).images[0]
         
         return image
     finally:
-        # Cleanup memory to prevent accumulation/leaks on MPS
         import gc
         gc.collect()
         if torch.backends.mps.is_available():

@@ -453,6 +453,9 @@
                 model_desc_full: "Best and slower (full)",
                 model_desc_q8: "Great and faster (q8)",
                 model_desc_q4: "Faster and Good (q4)",
+                "model_desc_turbo-full": "Best and slower (full)",
+                "model_desc_turbo-q8": "Great and faster (q8)",
+                "model_desc_turbo-q4": "Faster and Good (q4)",
                 model_recommended_suffix: " (Recommended)"
             },
             zh: {
@@ -470,6 +473,9 @@
                 precision_full: "最佳画质但较慢 ( full)",
                 precision_q8: "优秀画质且较快 (较快 q8)",
                 precision_q4: "很快但画质略差 (q4)",
+                "model_desc_turbo-full": "最佳画质但较慢 (full)",
+                "model_desc_turbo-q8": "优秀画质且较快 (q8)",
+                "model_desc_turbo-q4": "很快但画质略差 (q4)",
                 steps_tooltip: "采样步数决定图像质量。9步很快，15-25步可获得更好质量。建议高级用户调整。",
                 generate_btn: "生成图片",
                 generating_btn: "生成中...",
@@ -508,6 +514,9 @@
                 precision_full: "最高画質 (遅い full)",
                 precision_q8: "高画質 (速い q8)",
                 precision_q4: "高速 (q4)",
+                "model_desc_turbo-full": "最高画質 (遅い full)",
+                "model_desc_turbo-q8": "高画質 (速い q8)",
+                "model_desc_turbo-q4": "高速 (q4)",
                 steps_tooltip: "サンプリングステップ数は画像の品質を決定します。9ステップは高速ですが、15～25ステップでより高品質になります。上級者向けです。",
                 generate_btn: "画像を生成",
                 generating_btn: "生成中...",
@@ -630,17 +639,18 @@
         async function loadModels() {
             try {
                 const res = await fetch('/models');
-                const models = await res.json();
+                const data = await res.json();
+                const models = data.generate || []; // Use 'generate' task specific models
                 window.availableModels = models; // Cache for language switching
                 renderModelOptions(models);
                 
                 // Set initial value AFTER models are loaded (from localStorage or recommended)
                 const savedPrecision = localStorage.getItem('zimage_precision');
-                // Find the recommended model ID, default to 'q8' if none found (shouldn't happen if models array is properly populated)
-                const recommended = models.find(m => m.recommended)?.id || 'q8';
+                // Find the recommended model precision
+                const recommended = models.find(m => m.recommended)?.precision || 'q8';
                 
-                // Use saved precision if it's available in the dynamically loaded options, otherwise use recommended
-                if (savedPrecision && models.some(m => m.id === savedPrecision)) {
+                // Use saved precision if it's available, otherwise use recommended
+                if (savedPrecision && models.some(m => m.precision === savedPrecision)) {
                     precisionInput.value = savedPrecision;
                 } else {
                     precisionInput.value = recommended;
@@ -653,34 +663,34 @@
                     <option value="q8">Great and faster (q8)</option>
                     <option value="full">Best and slower (full)</option>
                 `;
-                precisionInput.value = "q8"; // Explicitly set default value for fallback
+                precisionInput.value = "q8"; 
             }
         }
 
         function renderModelOptions(models) {
             const t = translations[languageSelect.value];
-            // Save current selection to restore it if possible
             const currentVal = precisionInput.value;
             
-            precisionInput.innerHTML = ''; // Clear existing options
+            precisionInput.innerHTML = '';
             models.forEach(m => {
-                const descKey = `model_desc_${m.id}`;
-                let label = t[descKey] || m.id;
+                // Try specific key (model_desc_turbo-q8) then generic (model_desc_q8) then raw ID
+                const specificKey = `model_desc_${m.id}`;
+                const genericKey = `model_desc_${m.precision}`;
+                let label = t[specificKey] || t[genericKey] || m.id;
+                
                 if (m.recommended) {
                     label += t.model_recommended_suffix;
                 }
                 const opt = document.createElement('option');
-                opt.value = m.id;
+                opt.value = m.precision; // Send "q8", "full" to backend (API contract)
                 opt.textContent = label;
                 precisionInput.appendChild(opt);
             });
             
-            // Restore previous selection or set recommended
-            if (currentVal && models.some(m => m.id === currentVal)) {
+            if (currentVal && models.some(m => m.precision === currentVal)) {
                 precisionInput.value = currentVal;
             } else {
-                 // If previous selection isn't available, try to set the recommended one
-                const recommended = models.find(m => m.recommended)?.id;
+                const recommended = models.find(m => m.recommended)?.precision;
                 if (recommended) {
                     precisionInput.value = recommended;
                 }

@@ -133,7 +133,10 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         duration = time.time() - start_time
         file_size_kb = output_path.stat().st_size / 1024
         
-        model_id = MODEL_ID_MAP.get(req.precision, "Unknown")
+        # Get the actual HF ID used
+        from .engine import get_model_def
+        model_def = get_model_def("generate", req.precision)
+        model_id = model_def["hf_id"]
 
         # Record to DB
         new_id = db.add_generation(
