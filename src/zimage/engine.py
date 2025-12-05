@@ -55,19 +55,8 @@ def should_enable_attention_slicing(device: str) -> bool:
             return True
             
         if device == "mps" and platform.system() == "Darwin":
-            # Get macOS total RAM in bytes
-            cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
-            total_ram_bytes = int(cmd_out)
-            total_ram_gb = total_ram_bytes / (1024**3)
-            
-            log_info(f"Detected System RAM: {total_ram_gb:.1f} GB")
-            
-            if total_ram_gb < 32:
-                log_info("RAM < 32GB -> Enabling attention slicing.")
-                return True
-            else:
-                log_info("RAM >= 32GB -> Disabling attention slicing for performance.")
-                return False
+            log_info("Device is MPS -> Enabling attention slicing for stability.")
+            return True
 
         if device == "cuda" and torch.cuda.is_available():
             # Get CUDA VRAM in bytes
