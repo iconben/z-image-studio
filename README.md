@@ -23,6 +23,8 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
 *   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 16).
 *   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified are supported.
+*   **History Pagination and Infinite Scroll**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
+*   **Hardware-aware Model Recommendation**: The Web UI dynamically presents model precision options based on your system's detected RAM/VRAM, recommending the optimal choice for your hardware. You can also inspect available models and recommendations via the CLI.
 
 ## Requirements
 
@@ -96,7 +98,7 @@ Once started, open your browser to the displayed URL.
 | `--width` | `-w` | `int` | `1280` | Image width (automatically adjusted to be a multiple of 8). |
 | `--height` | `-H` | `int` | `720` | Image height (automatically adjusted to be a multiple of 8). |
 | `--seed` | | `int` | `None` | Random seed for reproducible generation. |
-| `--precision` | | `str` | `q8` | Model precision (`full`, `q8`, `q4`). `q8` is the default and balanced, `full` is higher quality but slower, `int4` is fastest. |
+| `--precision` | | `str` | `q8` | Model precision (`full`, `q8`, `q4`). `q8` is the default and balanced, `full` is higher quality but slower, `q4` is fastest and uses less memory. |
 
 ### Subcommand: `serve`
 | Argument | Type | Default | Description |
@@ -104,6 +106,11 @@ Once started, open your browser to the displayed URL.
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
 | `--port` | `int` | `8000` | Port to bind the server to. |
 | `--reload` | `bool` | `False` | Enable auto-reload (for development). |
+
+### Subcommand: `models`
+| Argument | Short | Type | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| (None)   |       |       |         | Lists available image generation models, highlights the one recommended for your system's hardware, and displays their corresponding Hugging Face model IDs. |
 
 ## Screenshots
 

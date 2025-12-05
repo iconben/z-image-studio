@@ -449,7 +449,14 @@
                 delete_btn_tooltip: "Delete",
                 confirm_delete: "Are you sure you want to delete this generation?",
                 default_prompt: "A futuristic cyberpunk city at night, neon lights, realistic",
-                yesterday: "Yesterday"
+                yesterday: "Yesterday",
+                model_desc_full: "Best and slower (full)",
+                model_desc_q8: "Great and faster (q8)",
+                model_desc_q4: "Faster and Good (q4)",
+                model_desc_full_mps: "Best quality (High VRAM) (full)",
+                model_desc_q8_mps: "Balanced (Low VRAM) (q8)",
+                model_desc_q4_mps: "Low Memory (Lowest VRAM) (q4)",
+                model_recommended_suffix: " (Recommended)"
             },
             zh: {
                 subtitle: "本地高质量图像生成",
@@ -466,6 +473,9 @@
                 precision_full: "最佳画质但较慢 ( full)",
                 precision_q8: "优秀画质且较快 (较快 q8)",
                 precision_q4: "很快但画质略差 (q4)",
+                model_desc_full_mps: "最佳画质 (高显存) (full)",
+                model_desc_q8_mps: "平衡模式 (低显存) (q8)",
+                model_desc_q4_mps: "低内存模式 (最低显存) (q4)",
                 steps_tooltip: "采样步数决定图像质量。9步很快，15-25步可获得更好质量。建议高级用户调整。",
                 generate_btn: "生成图片",
                 generating_btn: "生成中...",
@@ -483,7 +493,11 @@
                 delete_btn_tooltip: "删除",
                 confirm_delete: "确定要删除此生成记录吗？",
                 default_prompt: "夜晚的未来赛博朋克城市，霓虹灯，写实",
-                yesterday: "昨天"
+                yesterday: "昨天",
+                model_desc_full: "最佳画质但较慢 (full)",
+                model_desc_q8: "优秀画质且较快 (q8)",
+                model_desc_q4: "很快但画质略差 (q4)",
+                model_recommended_suffix: " (推荐)"
             },
             jp: {
                 subtitle: "高品質な画像生成（ローカル）",
@@ -500,6 +514,9 @@
                 precision_full: "最高画質 (遅い full)",
                 precision_q8: "高画質 (速い q8)",
                 precision_q4: "高速 (q4)",
+                model_desc_full_mps: "最高画質 (高VRAM) (full)",
+                model_desc_q8_mps: "バランス (低VRAM) (q8)",
+                model_desc_q4_mps: "低メモリ (最低VRAM) (q4)",
                 steps_tooltip: "サンプリングステップ数は画像の品質を決定します。9ステップは高速ですが、15～25ステップでより高品質になります。上級者向けです。",
                 generate_btn: "画像を生成",
                 generating_btn: "生成中...",
@@ -517,7 +534,11 @@
                 delete_btn_tooltip: "削除",
                 confirm_delete: "この生成を削除してもよろしいですか？",
                 default_prompt: "未来的なサイバーパンク都市の夜、ネオンライト、リアル",
-                yesterday: "昨日"
+                yesterday: "昨日",
+                model_desc_full: "最高画質 (遅い full)",
+                model_desc_q8: "高画質 (速い q8)",
+                model_desc_q4: "高速 (q4)",
+                model_recommended_suffix: " (推奨)"
             }
         };
 
@@ -542,7 +563,10 @@
                 if (t[key]) el.setAttribute('title', t[key]);
             });
             
-            // No more modal title to update
+            // Re-render model options if needed to update descriptions
+            if (window.availableModels) {
+                renderModelOptions(window.availableModels);
+            }
 
             // Save preference
             localStorage.setItem('zimage_lang', lang);
@@ -599,7 +623,7 @@
         const seedFixedRadio = document.getElementById('seedFixed');
         const precisionInput = document.getElementById('precision');
 
-        // Load saved values
+        // Load saved values (prompt, steps, width, height)
         if (localStorage.getItem('zimage_prompt')) promptInput.value = localStorage.getItem('zimage_prompt');
         
         if (localStorage.getItem('zimage_steps')) {
@@ -611,11 +635,121 @@
         if (localStorage.getItem('zimage_width')) widthInput.value = localStorage.getItem('zimage_width');
         if (localStorage.getItem('zimage_height')) heightInput.value = localStorage.getItem('zimage_height');
         
-        if (localStorage.getItem('zimage_precision')) {
-            precisionInput.value = localStorage.getItem('zimage_precision');
-        } else {
-            precisionInput.value = 'q8'; // Default
+        // --- Models Loading Logic ---
+        async function loadModels() {
+            try {
+                const res = await fetch('/models');
+                const data = await res.json();
+                
+                // Capture device info
+                if (data.device) {
+                    window.currentDevice = data.device;
+                } else if (data.device_info) { // Fallback if old structure exists
+                    window.currentDevice = data.device_info.device;
+                }
+                // Capture default precision
+                if (data.default_precision) {
+                    window.defaultPrecision = data.default_precision;
+                }
+
+                const models = data.models || []; // Use 'models' list from the new response structure
+                window.availableModels = models; // Cache for language switching
+                renderModelOptions(models);
+                
+                // Set initial value AFTER models are loaded (from localStorage or default_precision)
+                const savedPrecision = localStorage.getItem('zimage_precision');
+                
+                // Use saved precision if it's available and valid, otherwise use data.default_precision
+                if (savedPrecision && models.some(m => m.precision === savedPrecision)) {
+                    precisionInput.value = savedPrecision;
+                } else if (window.defaultPrecision) {
+                    precisionInput.value = window.defaultPrecision;
+                } else {
+                    // Fallback to 'q8' if all else fails
+                    precisionInput.value = 'q8';
+                }
+
+            } catch (e) {
+                console.error("Failed to load models", e);
+                // Fallback options if fetch fails
+                precisionInput.innerHTML = `
+                    <option value="q8">Great and faster (q8)</option>
+                    <option value="full">Best and slower (full)</option>
+                `;
+                precisionInput.value = "q8"; 
+            }
         }
+
+                        function renderModelOptions(models) {
+
+                            const t = translations[languageSelect.value];
+
+                            const currentVal = precisionInput.value;
+
+                            
+
+                            precisionInput.innerHTML = '';
+
+                            models.forEach(m => {
+
+                                // Use m.precision (e.g. "q8") for translation lookup
+
+                                let deviceKey = null;
+
+                                if (window.currentDevice) {
+
+                                    deviceKey = `model_desc_${m.precision}_${window.currentDevice}`;
+
+                                }
+
+                                const genericKey = `model_desc_${m.precision}`;
+
+                                // Fallback: try translation keys, then specific ID translation (if any), then raw precision string
+
+                                let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.precision);
+
+                                
+
+                                if (m.recommended) {
+
+                                    label += t.model_recommended_suffix;
+
+                                }
+
+                                const opt = document.createElement('option');
+
+                                opt.value = m.precision; // Send "q8", "full" to backend (API contract)
+
+                                opt.textContent = label;
+
+                                precisionInput.appendChild(opt);
+
+                            });
+
+                            
+
+                            if (currentVal && models.some(m => m.precision === currentVal)) {
+
+                                precisionInput.value = currentVal;
+
+                            }
+
+                            else {
+
+                                const recommended = models.find(m => m.recommended)?.precision;
+
+                                if (recommended) {
+
+                                    precisionInput.value = recommended;
+
+                                }
+
+                            }
+
+                        }
+
+        loadModels(); // Trigger load of models immediately on page load
+
 
         // Load saved Seed State
         const savedSeedMode = localStorage.getItem('zimage_seed_mode');

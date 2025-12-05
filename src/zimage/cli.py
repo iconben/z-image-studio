@@ -19,11 +19,33 @@ def log_error(message: str):
     print(f"{RED}ERROR{RESET}: {message}")
 
 try:
-    from .engine import generate_image
+    from .engine import generate_image, get_available_models
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
-    from engine import generate_image
+    from engine import generate_image, get_available_models
+
+def run_models(args):
+    models_response = get_available_models()
+    
+    # Print device info
+    print(f"Device: {models_response['device'].upper()}")
+    if models_response['ram_gb'] is not None:
+        print(f"RAM: {models_response['ram_gb']:.1f} GB")
+    if models_response['vram_gb'] is not None:
+        print(f"VRAM: {models_response['vram_gb']:.1f} GB")
+
+    print("\nAvailable Models:")
+    if not models_response['models']:
+        log_warn("No models available for this hardware configuration.")
+        return
+
+    for m in models_response['models']:
+        rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
+        # The 'id' field is now 'full', 'q8', 'q4' again.
+        # The 'tasks' field is gone from ModelInfo.
+        # So we just print id, hf_model_id and recommendation.
+        print(f"  * {m['id']} -> {m['hf_model_id']}{rec_str}")
 
 def run_generation(args):
     print(f"DEBUG: cwd: {Path.cwd().resolve()}")
@@ -112,8 +134,15 @@ def main():
     parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
     parser_serve.set_defaults(func=run_server)
 
+    # Subcommand: models
+    parser_models = subparsers.add_parser("models", help="List available models and recommendations")
+    parser_models.set_defaults(func=run_models)
+
     args = parser.parse_args()
-    args.func(args)
+    if hasattr(args, "func"):
+        args.func(args)
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
     main()

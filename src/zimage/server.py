@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
 import asyncio
@@ -9,11 +9,11 @@ import threading
 import sqlite3
 
 try:
-    from .engine import generate_image, MODEL_ID_MAP
+    from .engine import generate_image, get_available_models, MODEL_ID_MAP
     from . import db
     from . import migrations
 except ImportError:
-    from engine import generate_image, MODEL_ID_MAP
+    from engine import generate_image, get_available_models, MODEL_ID_MAP
     import db
     import migrations
 
@@ -93,9 +93,21 @@ class GenerateResponse(BaseModel):
     precision: str
     model_id: str
 
+@app.get("/models")
+async def get_models():
+    """Get list of available models with hardware recommendations."""
+    return get_available_models()
+
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:
+        # Validate precision early to avoid KeyError inside engine
+        if req.precision not in MODEL_ID_MAP:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Unsupported precision '{req.precision}'"}
+            )
+
         # Validate dimensions (must be multiple of 16)
         width = req.width if req.width % 16 == 0 else (req.width // 16) * 16
         height = req.height if req.height % 16 == 0 else (req.height // 16) * 16
@@ -130,7 +142,13 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         duration = time.time() - start_time
         file_size_kb = output_path.stat().st_size / 1024
         
-        model_id = MODEL_ID_MAP.get(req.precision, "Unknown")
+        # Get the actual HF ID used (guard against bad inputs)
+        model_id = MODEL_ID_MAP.get(req.precision)
+        if model_id is None:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Unsupported precision '{req.precision}'"}
+            )
 
         # Record to DB
         new_id = db.add_generation(
