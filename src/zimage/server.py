@@ -9,10 +9,10 @@ import threading
 import sqlite3
 
 try:
-    from .engine import generate_image, MODEL_ID_MAP
+    from .engine import generate_image
     from . import db
 except ImportError:
-    from engine import generate_image, MODEL_ID_MAP
+    from engine import generate_image
     import db
 
 app = FastAPI()

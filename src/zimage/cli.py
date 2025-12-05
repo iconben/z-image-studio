@@ -27,13 +27,12 @@ except ImportError:
 
 def run_models(args):
     models_dict = get_available_models()
-    # For CLI, we can show all, or just generation. Let's show all categorized.
     
     for category, models in models_dict.items():
         if not models: continue
         print(f"\nCategory: {category.capitalize()}")
         for m in models:
-            rec_str = f" {GREEN}(Recommended){RESET}" if m['recommended'] else ""
+            rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
             tasks_str = ",".join(m['tasks'])
             print(f"  * {m['id']} ({m['precision']}) -> {m['hf_id']} [Tasks: {tasks_str}]{rec_str}")
 
