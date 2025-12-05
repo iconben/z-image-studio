@@ -674,39 +674,73 @@
             }
         }
 
-        function renderModelOptions(models) {
-            const t = translations[languageSelect.value];
-            const currentVal = precisionInput.value;
-            
-            precisionInput.innerHTML = '';
-            models.forEach(m => {
-                // Try specific key for device (e.g. model_desc_q8_mps) then generic (model_desc_q8) then raw ID
-                let deviceKey = null;
-                if (window.currentDevice) {
-                    deviceKey = `model_desc_${m.id}_${window.currentDevice}`;
+                function renderModelOptions(models) {
+
+                    const t = translations[languageSelect.value];
+
+                    const currentVal = precisionInput.value;
+
+                    
+
+                    precisionInput.innerHTML = '';
+
+                    models.forEach(m => {
+
+                        // Use m.precision (e.g. "q8") for translation lookup, not the internal id
+
+                        let deviceKey = null;
+
+                        if (window.currentDevice) {
+
+                            deviceKey = `model_desc_${m.precision}_${window.currentDevice}`;
+
+                        }
+
+                        const genericKey = `model_desc_${m.precision}`;
+
+                        // Fallback: try translation keys, then specific ID translation (if any), then raw precision string
+
+                        let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.precision);
+
+                        
+
+                        if (m.recommended) {
+
+                            label += t.model_recommended_suffix;
+
+                        }
+
+                        const opt = document.createElement('option');
+
+                        opt.value = m.precision; // Send "q8", "full" to backend (API contract)
+
+                        opt.textContent = label;
+
+                        precisionInput.appendChild(opt);
+
+                    });
+
+                    
+
+                    if (currentVal && models.some(m => m.precision === currentVal)) {
+
+                        precisionInput.value = currentVal;
+
+                    }
+
+                    else {
+
+                        const recommended = models.find(m => m.recommended)?.precision;
+
+                        if (recommended) {
+
+                            precisionInput.value = recommended;
+
+                        }
+
+                    }
+
                 }
-                const genericKey = `model_desc_${m.id}`;
-                let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.id);
-                
-                if (m.recommended) {
-                    label += t.model_recommended_suffix;
-                }
-                const opt = document.createElement('option');
-                opt.value = m.precision; // Send "q8", "full" to backend (API contract)
-                opt.textContent = label;
-                precisionInput.appendChild(opt);
-            });
-            
-            if (currentVal && models.some(m => m.precision === currentVal)) {
-                precisionInput.value = currentVal;
-            }
-            else {
-                const recommended = models.find(m => m.recommended)?.precision;
-                if (recommended) {
-                    precisionInput.value = recommended;
-                }
-            }
-        }
 
         loadModels(); // Trigger load of models immediately on page load
 
