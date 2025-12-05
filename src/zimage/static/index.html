@@ -644,39 +644,30 @@
                 // Capture device info
                 if (data.device) {
                     window.currentDevice = data.device;
-                } else if (data.device_info) {
+                } else if (data.device_info) { // Fallback if old structure exists
                     window.currentDevice = data.device_info.device;
                 }
+                // Capture default precision
+                if (data.default_precision) {
+                    window.defaultPrecision = data.default_precision;
+                }
 
-                                const models = data.models || []; // Use 'models' list from the new response structure
-
-                                window.availableModels = models; // Cache for language switching
-
-                                renderModelOptions(models);
-
-                                
-
-                                // Set initial value AFTER models are loaded (from localStorage or recommended)
-
-                                const savedPrecision = localStorage.getItem('zimage_precision');
-
-                                // Find the recommended model precision
-
-                                const recommended = models.find(m => m.recommended)?.id || 'q8';
-
-                                
-
-                                // Use saved precision if it's available, otherwise use recommended
-
-                                if (savedPrecision && models.some(m => m.id === savedPrecision)) {
-
-                                    precisionInput.value = savedPrecision;
-
-                                } else {
-
-                                    precisionInput.value = recommended;
-
-                                }
+                const models = data.models || []; // Use 'models' list from the new response structure
+                window.availableModels = models; // Cache for language switching
+                renderModelOptions(models);
+                
+                // Set initial value AFTER models are loaded (from localStorage or default_precision)
+                const savedPrecision = localStorage.getItem('zimage_precision');
+                
+                // Use saved precision if it's available and valid, otherwise use data.default_precision
+                if (savedPrecision && models.some(m => m.precision === savedPrecision)) {
+                    precisionInput.value = savedPrecision;
+                } else if (window.defaultPrecision) {
+                    precisionInput.value = window.defaultPrecision;
+                } else {
+                    // Fallback to 'q8' if all else fails
+                    precisionInput.value = 'q8';
+                }
 
             } catch (e) {
                 console.error("Failed to load models", e);
@@ -701,21 +692,21 @@
 
                             models.forEach(m => {
 
-                                // Use m.id (e.g. "q8") for translation lookup
+                                // Use m.precision (e.g. "q8") for translation lookup
 
                                 let deviceKey = null;
 
                                 if (window.currentDevice) {
 
-                                    deviceKey = `model_desc_${m.id}_${window.currentDevice}`;
+                                    deviceKey = `model_desc_${m.precision}_${window.currentDevice}`;
 
                                 }
 
-                                const genericKey = `model_desc_${m.id}`;
+                                const genericKey = `model_desc_${m.precision}`;
 
                                 // Fallback: try translation keys, then specific ID translation (if any), then raw precision string
 
-                                let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.id);
+                                let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.precision);
 
                                 
 
@@ -727,7 +718,7 @@
 
                                 const opt = document.createElement('option');
 
-                                opt.value = m.id; // Send "q8", "full" to backend (API contract)
+                                opt.value = m.precision; // Send "q8", "full" to backend (API contract)
 
                                 opt.textContent = label;
 
@@ -737,7 +728,7 @@
 
                             
 
-                            if (currentVal && models.some(m => m.id === currentVal)) {
+                            if (currentVal && models.some(m => m.precision === currentVal)) {
 
                                 precisionInput.value = currentVal;
 
@@ -745,7 +736,7 @@
 
                             else {
 
-                                const recommended = models.find(m => m.recommended)?.id;
+                                const recommended = models.find(m => m.recommended)?.precision;
 
                                 if (recommended) {
 

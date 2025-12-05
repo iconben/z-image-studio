@@ -57,6 +57,7 @@ MODEL_ID_MAP: dict[PrecisionId, str] = {
 
 class ModelInfo(TypedDict):
     id: PrecisionId
+    precision: PrecisionId
     hf_model_id: str
     available: bool
     recommended: bool
@@ -65,6 +66,7 @@ class ModelsResponse(TypedDict):
     device: str
     ram_gb: float | None
     vram_gb: float | None
+    default_precision: str
     models: List[ModelInfo]
 
 # -------------------------------
@@ -146,23 +148,27 @@ def get_available_models() -> ModelsResponse:
     ram_gb = _get_ram_gb()
     vram_gb = _get_vram_gb()
     sdnq_ok = _has_sdnq()
+    default_precision = "full" # Very likely to be overridden below
 
     # 初始：full 总是“逻辑上”可用，推荐先设 True，后面再按设备修正。
     models: dict[PrecisionId, ModelInfo] = {
         "full": {
             "id": "full",
+            "precision": "full",
             "hf_model_id": MODEL_ID_MAP["full"],
             "available": True,
             "recommended": True,
         },
         "q8": {
             "id": "q8",
+            "precision": "q8",
             "hf_model_id": MODEL_ID_MAP["q8"],
             "available": False,
             "recommended": False,
         },
         "q4": {
             "id": "q4",
+            "precision": "q4",
             "hf_model_id": MODEL_ID_MAP["q4"],
             "available": False,
             "recommended": False,
@@ -173,30 +179,40 @@ def get_available_models() -> ModelsResponse:
     if sdnq_ok:
         models["q8"]["available"] = True
         models["q4"]["available"] = True
+        default_precision = "q4"  # If SDNQ is available, default to q4
 
     # ------- 按设备 & 内存调整逻辑 -------
 
     if device == "mps":
         # Mac / Apple Silicon：按系统 RAM 做比较，保守一点
         if ram_gb is None:
-            # 不知道内存大小：保守策略，推荐 q8（如果有），full 不推荐
+            # 不知道内存大小：保守策略，推荐 q4（如果有），full 不推荐
             models["full"]["recommended"] = False
             if sdnq_ok:
-                models["q8"]["recommended"] = True
+                models["q4"]["recommended"] = True
+                default_precision = "q4"
         else:
-            if ram_gb < 16:
-                # 8～16G Mac：full 很容易爆，直接隐藏，强制量化
+            if ram_gb <= 24:
+                # 8～24G Mac：full basically leads to OOM；q4 default
                 models["full"]["available"] = False
                 models["full"]["recommended"] = False
                 if sdnq_ok:
-                    models["q8"]["recommended"] = True
-            elif ram_gb < 32:
-                # 16～32G Mac：full 勉强可用但不推荐；q8 默认
+                    models["q4"]["recommended"] = True
+            elif ram_gb <= 32:
+                # 24～32G Mac：full barely work but not recommended；q8 default
                 models["full"]["recommended"] = False
                 if sdnq_ok:
                     models["q8"]["recommended"] = True
+                    default_precision = "q8"
+            elif ram_gb <= 48:
+                # >=32G to 48G：full & q8 Both reasonable
+                models["full"]["recommended"] = True
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+                    default_precision = "q8"
+                # q4 永远留给“高级/极限压缩用户”，不主动推荐
             else:
-                # >=32G：full & q8 都算合理选择
+                # >48G：full & q8 Both reasonable
                 models["full"]["recommended"] = True
                 if sdnq_ok:
                     models["q8"]["recommended"] = True
@@ -218,6 +234,7 @@ def get_available_models() -> ModelsResponse:
                     models["q8"]["available"] = True
                     models["q8"]["recommended"] = True
                     models["q4"]["available"] = True
+                    default_precision = "q4"
             elif vram_gb < 16:
                 # 8～16GB：full 可用但不推荐；q8 当主力
                 models["full"]["recommended"] = False
@@ -225,22 +242,44 @@ def get_available_models() -> ModelsResponse:
                     models["q8"]["available"] = True
                     models["q8"]["recommended"] = True
                     models["q4"]["available"] = True
+                    default_precision = "q8"
             else:
                 # >=16GB：full & q8 都推荐
                 models["full"]["recommended"] = True
                 if sdnq_ok:
                     models["q8"]["available"] = True
                     models["q8"]["recommended"] = True
+                default_precision = "full"
                 # q4 依然不默认推荐
 
     else:  # CPU-only
-        # 理论上 full 可以跑，但会非常慢，所以不推荐
-        models["full"]["recommended"] = False
-        if sdnq_ok:
-            models["q8"]["available"] = True
-            models["q8"]["recommended"] = True
-            models["q4"]["available"] = True
-            # 看你心情，可以把 q4 也标成 recommended
+        # CPU 场景：算力是绝对瓶颈，内存也要看，但推荐顺序不一样
+        models["full"]["recommended"] = False  # full 在 CPU 上永远不推荐
+
+        if ram_gb is None:
+            # 不知道内存大小：保守选 q8 作为默认（如果有）
+            if sdnq_ok:
+                models["q8"]["recommended"] = True
+                models["q4"]["available"] = True
+                default_precision = "q4"
+        else:
+            if ram_gb < 8:
+                # <8GB RAM：full 不可用，只能走量化；内存太小，q4 为救命档
+                models["full"]["available"] = False
+                if sdnq_ok:
+                    models["q4"]["recommended"] = True
+                    default_precision = "q4"
+            elif ram_gb < 16:
+                # 8～16GB：禁 full；q8 当主力
+                models["full"]["available"] = False
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+                    default_precision = "q8"
+            else:
+                # >=16GB：q8 当主力，q4 作为备选
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+                    default_precision = "q8"
 
     # 构造响应：过滤掉 available=False 的
     # Safety check: If no SDNQ, we MUST enable full precision regardless of RAM/VRAM,
@@ -248,28 +287,34 @@ def get_available_models() -> ModelsResponse:
     if not sdnq_ok:
         models["full"]["available"] = True
         models["full"]["recommended"] = True
+        default_precision = "full"
 
-    categorized: dict[str, list[dict]] = {
-        "device_info": {
-            "device": device,
-            "ram_gb": ram_gb,
-            "vram_gb": vram_gb,
-        }
+    result: ModelsResponse = {
+        "device": device,
+        "ram_gb": ram_gb,
+        "vram_gb": vram_gb,
+        "default_precision": default_precision,
+        "models": []
     }
 
-    for model_def in MODEL_DEFINITIONS:
-        status = models.get(model_def["precision"])
+    for precision, hf_id in MODEL_ID_MAP.items():
+        status = models.get(precision)
         if not status or not status["available"]:
             continue
 
-        model_info = model_def.copy()
-        model_info.update(status)
+        # Construct ModelInfo
+        model_info: ModelInfo = {
+            "id": precision,
+            "precision": precision,
+            "hf_model_id": hf_id,
+            "available": status["available"],
+            "recommended": status["recommended"]
+        }
         
-        for task in model_def.get("tasks", []):
-            categorized.setdefault(task, []).append(model_info)
+        result["models"].append(model_info)
 
-    _cached_available_models = categorized
-    return categorized
+    _cached_models_response = result
+    return result
 
 def should_enable_attention_slicing(device: str) -> bool:
     """
@@ -403,7 +448,7 @@ def generate_image(
     width: int,
     height: int,
     seed: int = None,
-    precision: str = "int8",
+    precision: str = "q4",
 ):
     pipe = load_pipeline(precision=precision)
     
