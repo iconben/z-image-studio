@@ -26,20 +26,26 @@ except ImportError:
     from engine import generate_image, get_available_models
 
 def run_models(args):
-    models_dict = get_available_models()
+    models_response = get_available_models()
+    
+    # Print device info
+    print(f"Device: {models_response['device'].upper()}")
+    if models_response['ram_gb'] is not None:
+        print(f"RAM: {models_response['ram_gb']:.1f} GB")
+    if models_response['vram_gb'] is not None:
+        print(f"VRAM: {models_response['vram_gb']:.1f} GB")
 
-    if not models_dict:
-        log_warn("No models available for this hardware.")
+    print("\nAvailable Models:")
+    if not models_response['models']:
+        log_warn("No models available for this hardware configuration.")
         return
 
-    print("Available models:")
-    for category, models in models_dict.items():
-        if not models:
-            continue
-        print(f"\nCategory: {category}")
-        for m in models:
-            rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
-            print(f"  * {m['id']} ({m['precision']}) -> {m['hf_id']}{rec_str}")
+    for m in models_response['models']:
+        rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
+        # The 'id' field is now 'full', 'q8', 'q4' again.
+        # The 'tasks' field is gone from ModelInfo.
+        # So we just print id, hf_model_id and recommendation.
+        print(f"  * {m['id']} -> {m['hf_model_id']}{rec_str}")
 
 def run_generation(args):
     print(f"DEBUG: cwd: {Path.cwd().resolve()}")

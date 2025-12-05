@@ -9,10 +9,10 @@ import threading
 import sqlite3
 
 try:
-    from .engine import generate_image
+    from .engine import generate_image, get_available_models, MODEL_ID_MAP
     from . import db
 except ImportError:
-    from engine import generate_image
+    from engine import generate_image, get_available_models, MODEL_ID_MAP
     import db
 
 app = FastAPI()
@@ -134,9 +134,8 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         file_size_kb = output_path.stat().st_size / 1024
         
         # Get the actual HF ID used
-        from .engine import get_model_def
-        model_def = get_model_def("generate", req.precision)
-        model_id = model_def["hf_id"]
+        from .engine import MODEL_ID_MAP
+        model_id = MODEL_ID_MAP[req.precision]
 
         # Record to DB
         new_id = db.add_generation(

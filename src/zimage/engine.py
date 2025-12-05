@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 
 # Silence the noisy CUDA autocast warning on Mac
@@ -7,10 +9,11 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 
-import torch
-import subprocess
 import platform
-from typing import Optional
+import subprocess
+from typing import Literal, TypedDict, List, Optional
+
+import torch
 from diffusers import ZImagePipeline
 from sdnq import SDNQConfig
 from sdnq.common import use_torch_compile as triton_is_available
@@ -36,170 +39,221 @@ warnings.filterwarnings(
 _cached_pipe = None
 _cached_precision = None
 
-# Model Definitions
-MODEL_DEFINITIONS = [
-    {
-        "id": "turbo-full",
-        "precision": "full",
-        "tasks": ["generate"],
-        "hf_id": "Tongyi-MAI/Z-Image-Turbo",
-    },
-    {
-        "id": "turbo-q8",
-        "precision": "q8",
-        "tasks": ["generate"],
-        "hf_id": "Disty0/Z-Image-Turbo-SDNQ-int8",
-    },
-    {
-        "id": "turbo-q4",
-        "precision": "q4",
-        "tasks": ["generate"],
-        "hf_id": "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
-    },
-]
+# -------------------------------
+# 模型精度枚举 & HF 模型映射
+# -------------------------------
 
-_cached_available_models = None
-try:
-    from sdnq import SDNQConfig  # Import to check for availability
-    _sdnq_available = True
-except ImportError:
-    _sdnq_available = False
+PrecisionId = Literal["full", "q8", "q4"]
 
+MODEL_ID_MAP: dict[PrecisionId, str] = {
+    "full": "Tongyi-MAI/Z-Image-Turbo",
+    "q8":   "Disty0/Z-Image-Turbo-SDNQ-int8",
+    "q4":   "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
+}
 
-def detect_device() -> str:
-    if torch.cuda.is_available():
-        return "cuda"
+# -------------------------------
+# 类型声明
+# -------------------------------
+
+class ModelInfo(TypedDict):
+    id: PrecisionId
+    hf_model_id: str
+    available: bool
+    recommended: bool
+
+class ModelsResponse(TypedDict):
+    device: str
+    ram_gb: float | None
+    vram_gb: float | None
+    models: List[ModelInfo]
+
+# -------------------------------
+# 硬件检测工具
+# -------------------------------
+
+def _detect_device() -> str:
     if torch.backends.mps.is_available():
         return "mps"
+    if torch.cuda.is_available():
+        return "cuda"
     return "cpu"
 
 
-def get_ram_gb() -> Optional[float]:
+def _get_ram_gb() -> float | None:
     try:
-        import psutil
-
-        return psutil.virtual_memory().total / (1024**3)
+        system = platform.system()
+        if system == "Darwin":
+            # macOS: sysctl hw.memsize
+            out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
+            return int(out) / (1024 ** 3)
+        elif system == "Linux":
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        kb = int(line.split()[1])
+                        return kb / 1024 / 1024
+        # 其它系统暂时不支持，返回 None
     except Exception:
         pass
-
-    try:
-        if platform.system() == "Darwin":
-            cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
-            return int(cmd_out) / (1024**3)
-        if platform.system() == "Linux":
-            with open("/proc/meminfo", "r") as f:
-                for line in f:
-                    if "MemTotal" in line:
-                        kb = int(line.split()[1])
-                        return kb / (1024**2)
-    except Exception:
-        return None
-
     return None
 
 
-def get_vram_gb() -> Optional[float]:
-    if not torch.cuda.is_available():
-        return None
+def _get_vram_gb() -> float | None:
     try:
-        props = torch.cuda.get_device_properties(0)
-        return props.total_memory / (1024**3)
+        if torch.cuda.is_available():
+            props = torch.cuda.get_device_properties(0)
+            return props.total_memory / (1024 ** 3)
     except Exception:
-        return None
+        pass
+    return None
 
 
-def has_sdnq() -> bool:
-    return _sdnq_available
+def _has_sdnq() -> bool:
+    try:
+        from sdnq import SDNQConfig  # noqa: F401
+        return True
+    except Exception:
+        return False
 
 
-def get_available_models() -> dict:
-    """Return available model variants by task with hardware-based recommendations."""
-    global _cached_available_models
-    if _cached_available_models:
-        log_info("Using cached available models.")
-        return _cached_available_models
 
-    device = detect_device()  # "mps" / "cuda" / "cpu"
-    ram_gb = get_ram_gb()
-    vram_gb = get_vram_gb()
-    sdnq_ok = has_sdnq()
+# -------------------------------
+# 主逻辑：返回可用模型 + 推荐
+# -------------------------------
 
-    models = {
-        "full": {"available": True, "recommended": True},
-        "q8": {"available": False, "recommended": False},
-        "q4": {"available": False, "recommended": False},
+_cached_models_response: ModelsResponse | None = None
+
+
+def get_available_models() -> ModelsResponse:
+    """
+    返回当前机器“可以用哪些精度”的信息。
+    结构：
+    {
+      "device": "mps" | "cuda" | "cpu",
+      "ram_gb": float | None,
+      "vram_gb": float | None,
+      "models": [
+        { "id": "full", "hf_model_id": "...", "available": True, "recommended": True },
+        ...
+      ]
+    }
+    """
+    global _cached_models_response
+    if _cached_models_response is not None:
+        return _cached_models_response
+
+    device = _detect_device()
+    ram_gb = _get_ram_gb()
+    vram_gb = _get_vram_gb()
+    sdnq_ok = _has_sdnq()
+
+    # 初始：full 总是“逻辑上”可用，推荐先设 True，后面再按设备修正。
+    models: dict[PrecisionId, ModelInfo] = {
+        "full": {
+            "id": "full",
+            "hf_model_id": MODEL_ID_MAP["full"],
+            "available": True,
+            "recommended": True,
+        },
+        "q8": {
+            "id": "q8",
+            "hf_model_id": MODEL_ID_MAP["q8"],
+            "available": False,
+            "recommended": False,
+        },
+        "q4": {
+            "id": "q4",
+            "hf_model_id": MODEL_ID_MAP["q4"],
+            "available": False,
+            "recommended": False,
+        },
     }
 
-    # Quantized models require SDNQ
+    # 量化模型前提：必须安装 SDNQ
     if sdnq_ok:
         models["q8"]["available"] = True
         models["q4"]["available"] = True
 
+    # ------- 按设备 & 内存调整逻辑 -------
+
     if device == "mps":
+        # Mac / Apple Silicon：按系统 RAM 做比较，保守一点
         if ram_gb is None:
+            # 不知道内存大小：保守策略，推荐 q8（如果有），full 不推荐
             models["full"]["recommended"] = False
             if sdnq_ok:
                 models["q8"]["recommended"] = True
         else:
             if ram_gb < 16:
+                # 8～16G Mac：full 很容易爆，直接隐藏，强制量化
                 models["full"]["available"] = False
+                models["full"]["recommended"] = False
                 if sdnq_ok:
                     models["q8"]["recommended"] = True
             elif ram_gb < 32:
+                # 16～32G Mac：full 勉强可用但不推荐；q8 默认
                 models["full"]["recommended"] = False
                 if sdnq_ok:
                     models["q8"]["recommended"] = True
             else:
+                # >=32G：full & q8 都算合理选择
                 models["full"]["recommended"] = True
                 if sdnq_ok:
                     models["q8"]["recommended"] = True
+                # q4 永远留给“高级/极限压缩用户”，不主动推荐
 
     elif device == "cuda":
+        # CUDA：按 VRAM 判断
         if vram_gb is None:
+            # 不知道 VRAM：保守策略，不把 full 当默认
             models["full"]["recommended"] = False
             if sdnq_ok:
                 models["q8"]["recommended"] = True
         else:
             if vram_gb < 8:
+                # <8GB 显存：full 几乎可以视为不可用，只给量化
                 models["full"]["available"] = False
+                models["full"]["recommended"] = False
                 if sdnq_ok:
+                    models["q8"]["available"] = True
                     models["q8"]["recommended"] = True
                     models["q4"]["available"] = True
             elif vram_gb < 16:
+                # 8～16GB：full 可用但不推荐；q8 当主力
                 models["full"]["recommended"] = False
                 if sdnq_ok:
+                    models["q8"]["available"] = True
                     models["q8"]["recommended"] = True
                     models["q4"]["available"] = True
             else:
+                # >=16GB：full & q8 都推荐
                 models["full"]["recommended"] = True
                 if sdnq_ok:
+                    models["q8"]["available"] = True
                     models["q8"]["recommended"] = True
+                # q4 依然不默认推荐
 
-    else:  # CPU
+    else:  # CPU-only
+        # 理论上 full 可以跑，但会非常慢，所以不推荐
         models["full"]["recommended"] = False
         if sdnq_ok:
             models["q8"]["available"] = True
             models["q8"]["recommended"] = True
             models["q4"]["available"] = True
+            # 看你心情，可以把 q4 也标成 recommended
 
-    categorized: dict[str, list[dict]] = {}
+    # 构造响应：过滤掉 available=False 的
+    result: ModelsResponse = {
+        "device": device,
+        "ram_gb": ram_gb,
+        "vram_gb": vram_gb,
+        "models": [
+            m for m in models.values() if m["available"]
+        ],
+    }
 
-    for model_def in MODEL_DEFINITIONS:
-        status = models.get(model_def["precision"])
-        if not status or not status["available"]:
-            continue
-
-        model_info = model_def.copy()
-        model_info.update(status)
-        model_info["device"] = device
-        model_info["ram_gb"] = ram_gb
-        model_info["vram_gb"] = vram_gb
-
-        for task in model_def.get("tasks", []):
-            categorized.setdefault(task, []).append(model_info)
-
-    _cached_available_models = categorized
-    return categorized
+    _cached_models_response = result
+    return result
 
 def should_enable_attention_slicing(device: str) -> bool:
     """
@@ -238,24 +292,16 @@ def should_enable_attention_slicing(device: str) -> bool:
     # Default safe fallback
     return True
 
-def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
+def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePipeline:
     global _cached_pipe, _cached_precision
     
-    # Look up model definition for "generate" task
-    model_def = next((m for m in MODEL_DEFINITIONS if m["precision"] == precision and "generate" in m["tasks"]), None)
-    
-    if not model_def:
-        log_warn(f"Unknown precision '{precision}' for generation, falling back to 'q8'")
-        precision = "q8"
-        model_def = next((m for m in MODEL_DEFINITIONS if m["precision"] == "q8" and "generate" in m["tasks"]), None)
-    
-    model_id = model_def["hf_id"]
-    # Cache key uses model_id to be specific
-    cache_key = model_id
+    # Cache key uses precision directly now
+    cache_key = precision
 
     if _cached_pipe is not None and _cached_precision == cache_key:
         return _cached_pipe
     
+    # If we are switching models, unload the old one first to free memory
     if _cached_pipe is not None:
         log_info(f"Switching model. Unloading old model...")
         del _cached_pipe
@@ -275,6 +321,9 @@ def load_pipeline(device: str = None, precision: str = "q8") -> ZImagePipeline:
             device = "cpu"
     
     log_info(f"using device: {device}")
+
+    # Directly use MODEL_ID_MAP
+    model_id = MODEL_ID_MAP[precision] # This will raise KeyError if precision is not valid, let it
     log_info(f"using model: {model_id} (precision={precision})")
 
     # Select optimal dtype based on device capabilities

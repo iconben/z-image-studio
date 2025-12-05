@@ -453,9 +453,6 @@
                 model_desc_full: "Best and slower (full)",
                 model_desc_q8: "Great and faster (q8)",
                 model_desc_q4: "Faster and Good (q4)",
-                "model_desc_turbo-full": "Best and slower (full)",
-                "model_desc_turbo-q8": "Great and faster (q8)",
-                "model_desc_turbo-q4": "Faster and Good (q4)",
                 model_recommended_suffix: " (Recommended)"
             },
             zh: {
@@ -473,9 +470,6 @@
                 precision_full: "最佳画质但较慢 ( full)",
                 precision_q8: "优秀画质且较快 (较快 q8)",
                 precision_q4: "很快但画质略差 (q4)",
-                "model_desc_turbo-full": "最佳画质但较慢 (full)",
-                "model_desc_turbo-q8": "优秀画质且较快 (q8)",
-                "model_desc_turbo-q4": "很快但画质略差 (q4)",
                 steps_tooltip: "采样步数决定图像质量。9步很快，15-25步可获得更好质量。建议高级用户调整。",
                 generate_btn: "生成图片",
                 generating_btn: "生成中...",
@@ -514,9 +508,6 @@
                 precision_full: "最高画質 (遅い full)",
                 precision_q8: "高画質 (速い q8)",
                 precision_q4: "高速 (q4)",
-                "model_desc_turbo-full": "最高画質 (遅い full)",
-                "model_desc_turbo-q8": "高画質 (速い q8)",
-                "model_desc_turbo-q4": "高速 (q4)",
                 steps_tooltip: "サンプリングステップ数は画像の品質を決定します。9ステップは高速ですが、15～25ステップでより高品質になります。上級者向けです。",
                 generate_btn: "画像を生成",
                 generating_btn: "生成中...",
@@ -640,17 +631,17 @@
             try {
                 const res = await fetch('/models');
                 const data = await res.json();
-                const models = data.generate || []; // Use 'generate' task specific models
+                const models = data.models || []; // Use 'models' list from the new response structure
                 window.availableModels = models; // Cache for language switching
                 renderModelOptions(models);
                 
                 // Set initial value AFTER models are loaded (from localStorage or recommended)
                 const savedPrecision = localStorage.getItem('zimage_precision');
                 // Find the recommended model precision
-                const recommended = models.find(m => m.recommended)?.precision || 'q8';
+                const recommended = models.find(m => m.recommended)?.id || 'q8'; // 'id' is now the precision string
                 
                 // Use saved precision if it's available, otherwise use recommended
-                if (savedPrecision && models.some(m => m.precision === savedPrecision)) {
+                if (savedPrecision && models.some(m => m.id === savedPrecision)) {
                     precisionInput.value = savedPrecision;
                 } else {
                     precisionInput.value = recommended;
@@ -673,24 +664,23 @@
             
             precisionInput.innerHTML = '';
             models.forEach(m => {
-                // Try specific key (model_desc_turbo-q8) then generic (model_desc_q8) then raw ID
-                const specificKey = `model_desc_${m.id}`;
-                const genericKey = `model_desc_${m.precision}`;
-                let label = t[specificKey] || t[genericKey] || m.id;
+                // Use m.id (which is precision string) for translation and value
+                const translationKey = `model_desc_${m.id}`;
+                let label = t[translationKey] || m.id;
                 
                 if (m.recommended) {
                     label += t.model_recommended_suffix;
                 }
                 const opt = document.createElement('option');
-                opt.value = m.precision; // Send "q8", "full" to backend (API contract)
+                opt.value = m.id; // value is "full", "q8", "q4"
                 opt.textContent = label;
                 precisionInput.appendChild(opt);
             });
             
-            if (currentVal && models.some(m => m.precision === currentVal)) {
+            if (currentVal && models.some(m => m.id === currentVal)) {
                 precisionInput.value = currentVal;
             } else {
-                const recommended = models.find(m => m.recommended)?.precision;
+                const recommended = models.find(m => m.recommended)?.id;
                 if (recommended) {
                     precisionInput.value = recommended;
                 }
