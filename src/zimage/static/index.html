@@ -692,94 +692,137 @@
         });
 
         // --- History Logic ---
-        async function loadHistory() {
+        let historyOffset = 0;
+        const historyLimit = 20;
+        let historyTotal = 0;
+        let isHistoryLoading = false;
+        let historyObserver;
+
+        async function loadHistory(append = false) {
+            if (isHistoryLoading) return;
+            
+            if (!append) {
+                historyOffset = 0;
+                historyTotal = 0;
+                // Clear lists immediately if reloading from scratch
+                historyListOffcanvas.innerHTML = '';
+                historyListSidebar.innerHTML = '';
+            }
+
+            isHistoryLoading = true;
+
+            // Remove sentinel if it exists (so we don't trigger it while loading)
+            removeSentinels();
+
             try {
-                const res = await fetch('/history');
+                const res = await fetch(`/history?limit=${historyLimit}&offset=${historyOffset}`);
+                
+                // Read headers
+                const totalStr = res.headers.get('X-Total-Count');
+                if (totalStr) historyTotal = parseInt(totalStr);
+
                 const items = await res.json();
-                renderHistory(items);
+                renderHistory(items, append);
+                
+                // Update offset for next batch
+                historyOffset += items.length;
+
+                // Re-attach sentinel if we have more data
+                if (historyOffset < historyTotal) {
+                    addSentinels();
+                }
+
             } catch (e) {
                 console.error("Failed to load history", e);
+            } finally {
+                isHistoryLoading = false;
             }
         }
 
-        function renderHistory(items) {
-            // Determine which container to use
-            let container;
-            if (isHistoryPinned && window.innerWidth >= 992) {
-                container = historyListSidebar;
-            } else {
-                container = historyListOffcanvas;
-            }
-            
-            // Clear BOTH to prevent duplicates or stale data
-            historyListOffcanvas.innerHTML = '';
-            historyListSidebar.innerHTML = '';
-            
-            if (items.length === 0) {
+        function removeSentinels() {
+             document.querySelectorAll('.history-sentinel').forEach(el => el.remove());
+        }
+
+        function addSentinels() {
+            // Add sentinel to BOTH lists
+            [historyListOffcanvas, historyListSidebar].forEach(container => {
+                const sentinel = document.createElement('div');
+                sentinel.className = 'history-sentinel p-3 text-center text-muted small';
+                sentinel.textContent = 'Loading more...';
+                container.appendChild(sentinel);
+                if (historyObserver) historyObserver.observe(sentinel);
+            });
+        }
+
+        function renderHistory(items, append) {
+            const containers = [historyListOffcanvas, historyListSidebar];
+
+            if (items.length === 0 && !append) {
                 const emptyMsg = `<div class="text-center text-muted p-3" data-i18n="history_empty">${translations[languageSelect.value].history_empty}</div>`;
-                container.innerHTML = emptyMsg;
+                containers.forEach(c => c.innerHTML = emptyMsg);
                 return;
             }
 
             items.forEach(item => {
-                const el = document.createElement('a');
-                el.href = '#';
-                el.className = 'list-group-item list-group-item-action d-flex gap-3 py-3';
-                el.onclick = (e) => {
-                    e.preventDefault();
-                    loadFromHistory(item);
-                };
-                
                 const date = formatSmartDate(item.created_at);
                 const shortPrompt = item.prompt.length > 60 ? item.prompt.substring(0, 60) + '...' : item.prompt;
                 const imageUrl = `/outputs/${item.filename}`;
-
-                el.innerHTML = `
-                    <img src="${imageUrl}" alt="thumb" width="80" height="80" class="rounded object-fit-cover flex-shrink-0 bg-light">
-                    <div class="d-flex flex-column gap-1 w-100" style="min-width: 0;">
-                        <h6 class="mb-0 small text-truncate">${shortPrompt}</h6>
-                        <p class="mb-0 opacity-75 small">${item.width}x${item.height} · ${formatFileSize(item.file_size_kb, languageSelect.value)}</p>
-                        <small class="text-muted" style="line-height: 0.9rem">${date}</small>
-                        <small class="text-muted" style="line-height: 0.9rem">${formatValueWithOneDecimal(item.generation_time)}s · ${item.precision} · ${item.steps} steps</small>
-                    </div>
-                    <button class="btn btn-sm btn-outline-secondary ms-auto delete-history-item" data-id="${item.id}" title="${translations[languageSelect.value].delete_btn_tooltip}">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                
+                // Using HTML string for easier dual-appending
+                const itemHtml = `
+                    <a href="#" class="list-group-item list-group-item-action d-flex gap-3 py-3 history-item-link">
+                        <img src="${imageUrl}" alt="thumb" width="80" height="80" class="rounded object-fit-cover flex-shrink-0 bg-light" loading="lazy">
+                        <div class="d-flex flex-column gap-1 w-100" style="min-width: 0;">
+                            <h6 class="mb-0 small text-truncate">${shortPrompt}</h6>
+                            <p class="mb-0 opacity-75 small">${item.width}x${item.height} · ${formatFileSize(item.file_size_kb, languageSelect.value)}</p>
+                            <small class="text-muted" style="line-height: 0.9rem">${date}</small>
+                            <small class="text-muted" style="line-height: 0.9rem">${formatValueWithOneDecimal(item.generation_time)}s · ${item.precision} · ${item.steps} steps</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary ms-auto delete-history-item" data-id="${item.id}" title="${translations[languageSelect.value].delete_btn_tooltip}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </a>
                 `;
-                container.appendChild(el);
-            });
 
-            // Add event delegation for delete buttons (to the active container)
-            container.querySelectorAll('.delete-history-item').forEach(button => {
-                button.addEventListener('click', async (e) => {
-                    e.stopPropagation(); // Prevent loading history item
-                    e.preventDefault();
+                containers.forEach(container => {
+                    // Create a temp div to parse HTML
+                    const temp = document.createElement('div');
+                    temp.innerHTML = itemHtml;
+                    const el = temp.firstElementChild;
                     
-                    const btn = e.currentTarget;
-                    const itemId = btn.dataset.id;
+                    el.onclick = (e) => {
+                        // Only trigger load if not clicking delete button
+                        if (!e.target.closest('.delete-history-item')) {
+                            e.preventDefault();
+                            loadFromHistory(item);
+                        }
+                    };
 
-                    if (btn.dataset.armed === "true") {
-                        // Confirmed deletion
-                        await deleteHistoryItem(itemId);
-                    } else {
-                        // Arm the button
-                        btn.dataset.armed = "true";
-                        
-                        // Change style to "Danger" state
-                        btn.classList.remove('btn-outline-secondary');
-                        btn.classList.add('btn-danger');
-                        btn.innerHTML = '<i class="bi bi-trash-fill"></i>'; // Filled icon for emphasis
-                        
-                        // Reset after 3 seconds
-                        setTimeout(() => {
-                            if (btn && document.body.contains(btn)) { // Check if button still exists
-                                btn.dataset.armed = "false";
-                                btn.classList.remove('btn-danger');
-                                btn.classList.add('btn-outline-secondary');
-                                btn.innerHTML = '<i class="bi bi-trash"></i>';
-                            }
-                        }, 3000);
-                    }
+                    // Add delete handler
+                    const delBtn = el.querySelector('.delete-history-item');
+                    delBtn.onclick = async (e) => {
+                        e.stopPropagation(); 
+                        e.preventDefault();
+                        const btn = e.currentTarget;
+                        if (btn.dataset.armed === "true") {
+                            await deleteHistoryItem(item.id);
+                        } else {
+                            btn.dataset.armed = "true";
+                            btn.classList.remove('btn-outline-secondary');
+                            btn.classList.add('btn-danger');
+                            btn.innerHTML = '<i class="bi bi-trash-fill"></i>';
+                            setTimeout(() => {
+                                if (document.body.contains(btn)) {
+                                    btn.dataset.armed = "false";
+                                    btn.classList.remove('btn-danger');
+                                    btn.classList.add('btn-outline-secondary');
+                                    btn.innerHTML = '<i class="bi bi-trash"></i>';
+                                }
+                            }, 3000);
+                        }
+                    };
+
+                    container.appendChild(el);
                 });
             });
         }
@@ -790,12 +833,19 @@
                     method: 'DELETE'
                 });
                 if (!res.ok) throw new Error('Failed to delete history item');
-                loadHistory(); // Reload history after deletion
+                loadHistory(); // Reload history after deletion (resets to page 1)
             } catch (e) {
                 console.error("Error deleting history item:", e);
                 alert("Failed to delete item.");
             }
         }
+
+        // Initialize Intersection Observer
+        historyObserver = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !isHistoryLoading) {
+                loadHistory(true); // Load next page
+            }
+        }, { rootMargin: '200px' });
 
         function loadFromHistory(item) {
             // Auto-stash if dirty

@@ -81,23 +81,27 @@ def add_generation(
     conn.close()
     return new_id
 
-def get_history(limit: int = 50) -> List[Dict[str, Any]]:
-    """Get recent generations."""
+def get_history(limit: int = 50, offset: int = 0) -> tuple[List[Dict[str, Any]], int]:
+    """Get recent generations with pagination."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # Allows accessing columns by name
     cursor = conn.cursor()
     
+    # Get total count
+    cursor.execute("SELECT COUNT(*) FROM generations WHERE status = 'succeeded'")
+    total_count = cursor.fetchone()[0]
+
     cursor.execute('''
         SELECT * FROM generations 
         WHERE status = 'succeeded' 
         ORDER BY created_at DESC 
-        LIMIT ?
-    ''', (limit,))
+        LIMIT ? OFFSET ?
+    ''', (limit, offset))
     
     rows = cursor.fetchall()
     result = [dict(row) for row in rows]
     conn.close()
-    return result
+    return result, total_count
 
 def delete_generation(item_id: int):
     """Delete a generation record by its ID."""

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -165,8 +165,12 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history")
-async def get_history():
-    return db.get_history()
+async def get_history(response: Response, limit: int = 20, offset: int = 0):
+    items, total = db.get_history(limit, offset)
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Page-Size"] = str(limit)
+    response.headers["X-Page-Offset"] = str(offset)
+    return items
 
 @app.delete("/history/{item_id}")
 async def delete_history_item(item_id: int):
