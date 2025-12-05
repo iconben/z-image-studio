@@ -110,7 +110,7 @@ Once started, open your browser to the displayed URL.
 ### Subcommand: `models`
 | Argument | Short | Type | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| (None)   |       |       |         | Lists available image generation models and highlights the one recommended for your system's hardware. |
+| (None)   |       |       |         | Lists available image generation models, highlights the one recommended for your system's hardware, and displays their corresponding Hugging Face model IDs. |
 
 ## Screenshots
 
