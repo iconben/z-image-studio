@@ -614,7 +614,7 @@
         const seedFixedRadio = document.getElementById('seedFixed');
         const precisionInput = document.getElementById('precision');
 
-        // Load saved values
+        // Load saved values (prompt, steps, width, height)
         if (localStorage.getItem('zimage_prompt')) promptInput.value = localStorage.getItem('zimage_prompt');
         
         if (localStorage.getItem('zimage_steps')) {
@@ -634,11 +634,12 @@
                 window.availableModels = models; // Cache for language switching
                 renderModelOptions(models);
                 
-                // Set initial value AFTER models are loaded
+                // Set initial value AFTER models are loaded (from localStorage or recommended)
                 const savedPrecision = localStorage.getItem('zimage_precision');
+                // Find the recommended model ID, default to 'q8' if none found (shouldn't happen if models array is properly populated)
                 const recommended = models.find(m => m.recommended)?.id || 'q8';
                 
-                // Use saved if it exists in available models, otherwise use recommended
+                // Use saved precision if it's available in the dynamically loaded options, otherwise use recommended
                 if (savedPrecision && models.some(m => m.id === savedPrecision)) {
                     precisionInput.value = savedPrecision;
                 } else {
@@ -652,6 +653,7 @@
                     <option value="q8">Great and faster (q8)</option>
                     <option value="full">Best and slower (full)</option>
                 `;
+                precisionInput.value = "q8"; // Explicitly set default value for fallback
             }
         }
 
@@ -660,7 +662,7 @@
             // Save current selection to restore it if possible
             const currentVal = precisionInput.value;
             
-            precisionInput.innerHTML = '';
+            precisionInput.innerHTML = ''; // Clear existing options
             models.forEach(m => {
                 const descKey = `model_desc_${m.id}`;
                 let label = t[descKey] || m.id;
@@ -673,12 +675,19 @@
                 precisionInput.appendChild(opt);
             });
             
+            // Restore previous selection or set recommended
             if (currentVal && models.some(m => m.id === currentVal)) {
                 precisionInput.value = currentVal;
+            } else {
+                 // If previous selection isn't available, try to set the recommended one
+                const recommended = models.find(m => m.recommended)?.id;
+                if (recommended) {
+                    precisionInput.value = recommended;
+                }
             }
         }
 
-        loadModels(); // Trigger load
+        loadModels(); // Trigger load of models immediately on page load
 
 
         // Load saved Seed State

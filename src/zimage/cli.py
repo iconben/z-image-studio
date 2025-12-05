@@ -28,9 +28,12 @@ except ImportError:
 def run_models(args):
     models = get_available_models()
     print("Available Models:")
+    # Import MODEL_ID_MAP from engine
+    from .engine import MODEL_ID_MAP
     for m in models:
         rec_str = f" {GREEN}(Recommended){RESET}" if m['recommended'] else ""
-        print(f"  * {m['id']}{rec_str}")
+        model_hf_id = MODEL_ID_MAP.get(m['id'], "Unknown Model ID")
+        print(f"  * {m['id']} -> {model_hf_id}{rec_str}")
 
 def run_generation(args):
     print(f"DEBUG: cwd: {Path.cwd().resolve()}")
@@ -124,7 +127,10 @@ def main():
     parser_models.set_defaults(func=run_models)
 
     args = parser.parse_args()
-    args.func(args)
+    if hasattr(args, "func"):
+        args.func(args)
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
     main()

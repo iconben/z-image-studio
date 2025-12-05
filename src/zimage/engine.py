@@ -42,10 +42,23 @@ MODEL_ID_MAP = {
     "q4": "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
 }
 
+_cached_available_models = None
+try:
+    from sdnq import SDNQConfig # Import to check for availability
+    _sdnq_available = True
+except ImportError:
+    _sdnq_available = False
+
 def get_available_models() -> list[dict]:
     """
     Returns a list of available models with hardware-based recommendations.
+    This function caches its result as hardware specs typically don't change during runtime.
     """
+    global _cached_available_models
+    if _cached_available_models:
+        log_info("Using cached available models.")
+        return _cached_available_models
+
     # 1. Detect available RAM/VRAM
     total_ram_gb = 0
     
@@ -78,19 +91,25 @@ def get_available_models() -> list[dict]:
              pass
 
     # 2. Determine recommended precision
-    recommended_id = "full"
-    if total_ram_gb < 8:
-        recommended_id = "q4"
-    elif total_ram_gb < 16:
-        recommended_id = "q8"
-    else:
-        recommended_id = "full" # or q8 if we want to be conservative
+    # Default to q8 if RAM detection fails or is very low
+    recommended_id = "q8" 
+    if total_ram_gb > 0: # Only apply specific recommendations if RAM was detected
+        if total_ram_gb < 8:
+            recommended_id = "q4"
+        elif total_ram_gb < 16:
+            recommended_id = "q8"
+        else:
+            recommended_id = "full" # or q8 if we want to be conservative
 
     # 3. Build result list
     models = []
-    # Define order
-    order = ["full", "q8", "q4"]
-    
+    # Define order and filter by SDNQ availability
+    order = ["full"]
+    if _sdnq_available:
+        order.extend(["q8", "q4"])
+    else:
+        log_warn("sdnq library not found. Quantized models (q8, q4) will not be available.")
+
     for pid in order:
         if pid in MODEL_ID_MAP:
             models.append({
@@ -98,7 +117,9 @@ def get_available_models() -> list[dict]:
                 "recommended": (pid == recommended_id)
             })
             
+    _cached_available_models = models # Cache the result
     return models
+
 
 def should_enable_attention_slicing(device: str) -> bool:
     """
