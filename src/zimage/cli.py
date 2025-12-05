@@ -27,14 +27,19 @@ except ImportError:
 
 def run_models(args):
     models_dict = get_available_models()
-    
+
+    if not models_dict:
+        log_warn("No models available for this hardware.")
+        return
+
+    print("Available models:")
     for category, models in models_dict.items():
-        if not models: continue
-        print(f"\nCategory: {category.capitalize()}")
+        if not models:
+            continue
+        print(f"\nCategory: {category}")
         for m in models:
             rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
-            tasks_str = ",".join(m['tasks'])
-            print(f"  * {m['id']} ({m['precision']}) -> {m['hf_id']} [Tasks: {tasks_str}]{rec_str}")
+            print(f"  * {m['id']} ({m['precision']}) -> {m['hf_id']}{rec_str}")
 
 def run_generation(args):
     print(f"DEBUG: cwd: {Path.cwd().resolve()}")

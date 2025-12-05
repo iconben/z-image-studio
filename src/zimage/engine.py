@@ -10,6 +10,7 @@ warnings.filterwarnings(
 import torch
 import subprocess
 import platform
+from typing import Optional
 from diffusers import ZImagePipeline
 from sdnq import SDNQConfig
 from sdnq.common import use_torch_compile as triton_is_available
@@ -59,73 +60,146 @@ MODEL_DEFINITIONS = [
 
 _cached_available_models = None
 try:
-    from sdnq import SDNQConfig # Import to check for availability
+    from sdnq import SDNQConfig  # Import to check for availability
     _sdnq_available = True
 except ImportError:
     _sdnq_available = False
 
+
+def detect_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def get_ram_gb() -> Optional[float]:
+    try:
+        import psutil
+
+        return psutil.virtual_memory().total / (1024**3)
+    except Exception:
+        pass
+
+    try:
+        if platform.system() == "Darwin":
+            cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
+            return int(cmd_out) / (1024**3)
+        if platform.system() == "Linux":
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    if "MemTotal" in line:
+                        kb = int(line.split()[1])
+                        return kb / (1024**2)
+    except Exception:
+        return None
+
+    return None
+
+
+def get_vram_gb() -> Optional[float]:
+    if not torch.cuda.is_available():
+        return None
+    try:
+        props = torch.cuda.get_device_properties(0)
+        return props.total_memory / (1024**3)
+    except Exception:
+        return None
+
+
+def has_sdnq() -> bool:
+    return _sdnq_available
+
+
 def get_available_models() -> dict:
-    """
-    Returns a categorized dictionary of available models with hardware-based recommendations.
-    Format: {"generate": [...], "edit": [...]}
-    """
+    """Return available model variants by task with hardware-based recommendations."""
     global _cached_available_models
     if _cached_available_models:
         log_info("Using cached available models.")
         return _cached_available_models
 
-    # 1. Detect available RAM/VRAM
-    total_ram_gb = 0
-    try:
-        if platform.system() == "Darwin":
-            cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
-            total_ram_gb = int(cmd_out) / (1024**3)
-        elif platform.system() == "Linux":
-             with open('/proc/meminfo', 'r') as f:
-                 for line in f:
-                     if 'MemTotal' in line:
-                         kb = int(line.split()[1])
-                         total_ram_gb = kb / (1024**2)
-                         break
-    except Exception:
-        pass
-    
-    if torch.cuda.is_available():
-         try:
-            props = torch.cuda.get_device_properties(0)
-            total_ram_gb = props.total_memory / (1024**3)
-         except:
-             pass
+    device = detect_device()  # "mps" / "cuda" / "cpu"
+    ram_gb = get_ram_gb()
+    vram_gb = get_vram_gb()
+    sdnq_ok = has_sdnq()
 
-    # 2. Determine recommended precision
-    recommended_precision = "q8" 
-    if total_ram_gb > 0:
-        if total_ram_gb < 8:
-            recommended_precision = "q4"
-        elif total_ram_gb < 16:
-            recommended_precision = "q8"
+    models = {
+        "full": {"available": True, "recommended": True},
+        "q8": {"available": False, "recommended": False},
+        "q4": {"available": False, "recommended": False},
+    }
+
+    # Quantized models require SDNQ
+    if sdnq_ok:
+        models["q8"]["available"] = True
+        models["q4"]["available"] = True
+
+    if device == "mps":
+        if ram_gb is None:
+            models["full"]["recommended"] = False
+            if sdnq_ok:
+                models["q8"]["recommended"] = True
         else:
-            recommended_precision = "full"
+            if ram_gb < 16:
+                models["full"]["available"] = False
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+            elif ram_gb < 32:
+                models["full"]["recommended"] = False
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+            else:
+                models["full"]["recommended"] = True
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
 
-    # 3. Build and categorize list
-    result = {"generate": [], "edit": []}
-    
-    for m in MODEL_DEFINITIONS:
-        # Filter by SDNQ availability
-        if m["precision"] != "full" and not _sdnq_available:
+    elif device == "cuda":
+        if vram_gb is None:
+            models["full"]["recommended"] = False
+            if sdnq_ok:
+                models["q8"]["recommended"] = True
+        else:
+            if vram_gb < 8:
+                models["full"]["available"] = False
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+                    models["q4"]["available"] = True
+            elif vram_gb < 16:
+                models["full"]["recommended"] = False
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+                    models["q4"]["available"] = True
+            else:
+                models["full"]["recommended"] = True
+                if sdnq_ok:
+                    models["q8"]["recommended"] = True
+
+    else:  # CPU
+        models["full"]["recommended"] = False
+        if sdnq_ok:
+            models["q8"]["available"] = True
+            models["q8"]["recommended"] = True
+            models["q4"]["available"] = True
+
+    categorized: dict[str, list[dict]] = {}
+
+    for model_def in MODEL_DEFINITIONS:
+        status = models.get(model_def["precision"])
+        if not status or not status["available"]:
             continue
-            
-        model_info = m.copy()
-        model_info["recommended"] = (m["precision"] == recommended_precision)
-        
-        # Add to task-specific lists
-        for task in m["tasks"]:
-            if task not in result:
-                result[task] = []
-            result[task].append(model_info)
-            
-    _cached_available_models = result
-    return result
+
+        model_info = model_def.copy()
+        model_info.update(status)
+        model_info["device"] = device
+        model_info["ram_gb"] = ram_gb
+        model_info["vram_gb"] = vram_gb
+
+        for task in model_def.get("tasks", []):
+            categorized.setdefault(task, []).append(model_info)
+
+    _cached_available_models = categorized
+    return categorized
 
 def should_enable_attention_slicing(device: str) -> bool:
     """
