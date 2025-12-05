@@ -5,44 +5,6 @@ from typing import Optional, List, Dict, Any
 
 DB_PATH = Path("zimage.db")
 
-def init_db():
-    """Initialize the database and create table if not exists."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS generations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            prompt TEXT,
-            negative_prompt TEXT,
-            steps INTEGER,
-            width INTEGER,
-            height INTEGER,
-            cfg_scale REAL,
-            seed INTEGER,
-            model TEXT,
-            status TEXT, -- queued, running, succeeded, failed
-            filename TEXT,
-            error_message TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            generation_time REAL,
-            file_size_kb REAL,
-            precision TEXT
-        )
-    ''')
-    
-    # Migration: Add 'precision' column if it doesn't exist
-    cursor.execute("PRAGMA table_info(generations)")
-    columns = [info[1] for info in cursor.fetchall()]
-    if "precision" not in columns:
-        cursor.execute("ALTER TABLE generations ADD COLUMN precision TEXT DEFAULT 'full'")
-    
-    # Handle historical data normalization
-    cursor.execute("UPDATE generations SET precision = 'full' WHERE precision IS NULL")
-    cursor.execute("UPDATE generations SET model = 'Tongyi-MAI/Z-Image-Turbo' WHERE model IS NULL")
-    
-    conn.commit()
-    conn.close()
 
 def add_generation(
     prompt: str,

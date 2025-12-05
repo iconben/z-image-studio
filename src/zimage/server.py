@@ -11,14 +11,16 @@ import sqlite3
 try:
     from .engine import generate_image, MODEL_ID_MAP
     from . import db
+    from . import migrations
 except ImportError:
     from engine import generate_image, MODEL_ID_MAP
     import db
+    import migrations
 
 app = FastAPI()
 
-# Initialize Database
-db.init_db()
+# Initialize Database Schema
+migrations.init_db()
 
 # Ensure outputs directory exists
 OUTPUTS_DIR = Path("outputs")
