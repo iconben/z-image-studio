@@ -24,19 +24,35 @@ db.init_db()
 OUTPUTS_DIR = Path("outputs")
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Simple lock to prevent concurrent GPU usage issues
-# (MPS/CUDA can sometimes be unhappy with parallel inference requests if not managed)
-gpu_lock = threading.Lock()
+# Dedicated worker thread for MPS/GPU operations
+# MPS on macOS is thread-sensitive. Accessing the model from multiple threads
+# (even sequentially) can cause resource leaks (semaphores) and crashes.
+# We use a single worker thread to ensure the model is always accessed from the same thread.
+import queue
+job_queue = queue.Queue()
 
-def _run_generation(prompt: str, steps: int, width: int, height: int, seed: int = None):
-    with gpu_lock:
-        return generate_image(
-            prompt=prompt,
-            steps=steps,
-            width=width,
-            height=height,
-            seed=seed,
-        )
+def worker_loop():
+    while True:
+        task = job_queue.get()
+        if task is None:
+            break
+        func, args, kwargs, future, loop = task
+        try:
+            result = func(*args, **kwargs)
+            loop.call_soon_threadsafe(future.set_result, result)
+        except Exception as e:
+            loop.call_soon_threadsafe(future.set_exception, e)
+        finally:
+            job_queue.task_done()
+
+worker_thread = threading.Thread(target=worker_loop, daemon=True)
+worker_thread.start()
+
+async def run_in_worker(func, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
+    job_queue.put((func, args, kwargs, future, loop))
+    return await future
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -67,9 +83,9 @@ async def generate(req: GenerateRequest):
         
         start_time = time.time()
         
-        # Run generation in a separate thread to avoid blocking the event loop
-        image = await asyncio.to_thread(
-            _run_generation,
+        # Run generation in the dedicated worker thread
+        image = await run_in_worker(
+            generate_image,
             prompt=req.prompt,
             steps=req.steps,
             width=width,
