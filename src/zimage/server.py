@@ -91,6 +91,11 @@ class GenerateResponse(BaseModel):
     precision: str
     model_id: str
 
+@app.get("/models")
+async def get_models():
+    """Get list of available models with hardware recommendations."""
+    return engine.get_available_models()
+
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:

@@ -19,11 +19,18 @@ def log_error(message: str):
     print(f"{RED}ERROR{RESET}: {message}")
 
 try:
-    from .engine import generate_image
+    from .engine import generate_image, get_available_models
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
-    from engine import generate_image
+    from engine import generate_image, get_available_models
+
+def run_models(args):
+    models = get_available_models()
+    print("Available Models:")
+    for m in models:
+        rec_str = f" {GREEN}(Recommended){RESET}" if m['recommended'] else ""
+        print(f"  * {m['id']}{rec_str}")
 
 def run_generation(args):
     print(f"DEBUG: cwd: {Path.cwd().resolve()}")
@@ -111,6 +118,10 @@ def main():
     parser_serve.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
     parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
     parser_serve.set_defaults(func=run_server)
+
+    # Subcommand: models
+    parser_models = subparsers.add_parser("models", help="List available models and recommendations")
+    parser_models.set_defaults(func=run_models)
 
     args = parser.parse_args()
     args.func(args)

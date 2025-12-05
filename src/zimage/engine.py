@@ -42,6 +42,64 @@ MODEL_ID_MAP = {
     "q4": "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
 }
 
+def get_available_models() -> list[dict]:
+    """
+    Returns a list of available models with hardware-based recommendations.
+    """
+    # 1. Detect available RAM/VRAM
+    total_ram_gb = 0
+    
+    # Check System RAM (macOS/Linux) as a baseline
+    try:
+        if platform.system() == "Darwin":
+            cmd_out = subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip()
+            total_ram_gb = int(cmd_out) / (1024**3)
+        elif platform.system() == "Linux":
+             # Basic Linux memory check (fallback)
+             with open('/proc/meminfo', 'r') as f:
+                 for line in f:
+                     if 'MemTotal' in line:
+                         # MemTotal:        16329508 kB
+                         kb = int(line.split()[1])
+                         total_ram_gb = kb / (1024**2)
+                         break
+    except Exception:
+        pass
+    
+    # If CUDA is available, VRAM overrides system RAM for recommendation logic
+    # (usually, though for offloading, system RAM still matters. Let's stick to a simple heuristic)
+    if torch.cuda.is_available():
+         try:
+            props = torch.cuda.get_device_properties(0)
+            vram_gb = props.total_memory / (1024**3)
+            # Use VRAM as the primary constraint factor if using GPU
+            total_ram_gb = vram_gb
+         except:
+             pass
+
+    # 2. Determine recommended precision
+    recommended_id = "full"
+    if total_ram_gb < 8:
+        recommended_id = "q4"
+    elif total_ram_gb < 16:
+        recommended_id = "q8"
+    else:
+        recommended_id = "full" # or q8 if we want to be conservative
+
+    # 3. Build result list
+    models = []
+    # Define order
+    order = ["full", "q8", "q4"]
+    
+    for pid in order:
+        if pid in MODEL_ID_MAP:
+            models.append({
+                "id": pid,
+                "recommended": (pid == recommended_id)
+            })
+            
+    return models
+
 def should_enable_attention_slicing(device: str) -> bool:
     """
     Determine if attention slicing should be enabled based on hardware specs.
