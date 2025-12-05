@@ -243,17 +243,33 @@ def get_available_models() -> ModelsResponse:
             # 看你心情，可以把 q4 也标成 recommended
 
     # 构造响应：过滤掉 available=False 的
-    result: ModelsResponse = {
-        "device": device,
-        "ram_gb": ram_gb,
-        "vram_gb": vram_gb,
-        "models": [
-            m for m in models.values() if m["available"]
-        ],
+    # Safety check: If no SDNQ, we MUST enable full precision regardless of RAM/VRAM,
+    # otherwise the user has no models to run.
+    if not sdnq_ok:
+        models["full"]["available"] = True
+        models["full"]["recommended"] = True
+
+    categorized: dict[str, list[dict]] = {
+        "device_info": {
+            "device": device,
+            "ram_gb": ram_gb,
+            "vram_gb": vram_gb,
+        }
     }
 
-    _cached_models_response = result
-    return result
+    for model_def in MODEL_DEFINITIONS:
+        status = models.get(model_def["precision"])
+        if not status or not status["available"]:
+            continue
+
+        model_info = model_def.copy()
+        model_info.update(status)
+        
+        for task in model_def.get("tasks", []):
+            categorized.setdefault(task, []).append(model_info)
+
+    _cached_available_models = categorized
+    return categorized
 
 def should_enable_attention_slicing(device: str) -> bool:
     """
