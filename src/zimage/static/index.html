@@ -642,26 +642,41 @@
                 const data = await res.json();
                 
                 // Capture device info
-                if (data.device_info) {
+                if (data.device) {
+                    window.currentDevice = data.device;
+                } else if (data.device_info) {
                     window.currentDevice = data.device_info.device;
                 }
 
-                const models = data.generate || []; // Use 'generate' task specific models
-                window.availableModels = models; // Cache for language switching
-                renderModelOptions(models);
-                
-                // Set initial value AFTER models are loaded (from localStorage or recommended)
-                const savedPrecision = localStorage.getItem('zimage_precision');
-                // Find the recommended model precision
-                const recommended = models.find(m => m.recommended)?.precision || 'q8';
-                
-                // Use saved precision if it's available, otherwise use recommended
-                if (savedPrecision && models.some(m => m.precision === savedPrecision)) {
-                    precisionInput.value = savedPrecision;
-                }
-                else {
-                    precisionInput.value = recommended;
-                }
+                                const models = data.models || []; // Use 'models' list from the new response structure
+
+                                window.availableModels = models; // Cache for language switching
+
+                                renderModelOptions(models);
+
+                                
+
+                                // Set initial value AFTER models are loaded (from localStorage or recommended)
+
+                                const savedPrecision = localStorage.getItem('zimage_precision');
+
+                                // Find the recommended model precision
+
+                                const recommended = models.find(m => m.recommended)?.id || 'q8';
+
+                                
+
+                                // Use saved precision if it's available, otherwise use recommended
+
+                                if (savedPrecision && models.some(m => m.id === savedPrecision)) {
+
+                                    precisionInput.value = savedPrecision;
+
+                                } else {
+
+                                    precisionInput.value = recommended;
+
+                                }
 
             } catch (e) {
                 console.error("Failed to load models", e);
@@ -674,73 +689,73 @@
             }
         }
 
-                function renderModelOptions(models) {
+                        function renderModelOptions(models) {
 
-                    const t = translations[languageSelect.value];
+                            const t = translations[languageSelect.value];
 
-                    const currentVal = precisionInput.value;
+                            const currentVal = precisionInput.value;
 
-                    
+                            
 
-                    precisionInput.innerHTML = '';
+                            precisionInput.innerHTML = '';
 
-                    models.forEach(m => {
+                            models.forEach(m => {
 
-                        // Use m.precision (e.g. "q8") for translation lookup, not the internal id
+                                // Use m.id (e.g. "q8") for translation lookup
 
-                        let deviceKey = null;
+                                let deviceKey = null;
 
-                        if (window.currentDevice) {
+                                if (window.currentDevice) {
 
-                            deviceKey = `model_desc_${m.precision}_${window.currentDevice}`;
+                                    deviceKey = `model_desc_${m.id}_${window.currentDevice}`;
+
+                                }
+
+                                const genericKey = `model_desc_${m.id}`;
+
+                                // Fallback: try translation keys, then specific ID translation (if any), then raw precision string
+
+                                let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.id);
+
+                                
+
+                                if (m.recommended) {
+
+                                    label += t.model_recommended_suffix;
+
+                                }
+
+                                const opt = document.createElement('option');
+
+                                opt.value = m.id; // Send "q8", "full" to backend (API contract)
+
+                                opt.textContent = label;
+
+                                precisionInput.appendChild(opt);
+
+                            });
+
+                            
+
+                            if (currentVal && models.some(m => m.id === currentVal)) {
+
+                                precisionInput.value = currentVal;
+
+                            }
+
+                            else {
+
+                                const recommended = models.find(m => m.recommended)?.id;
+
+                                if (recommended) {
+
+                                    precisionInput.value = recommended;
+
+                                }
+
+                            }
 
                         }
-
-                        const genericKey = `model_desc_${m.precision}`;
-
-                        // Fallback: try translation keys, then specific ID translation (if any), then raw precision string
-
-                        let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.precision);
-
-                        
-
-                        if (m.recommended) {
-
-                            label += t.model_recommended_suffix;
-
-                        }
-
-                        const opt = document.createElement('option');
-
-                        opt.value = m.precision; // Send "q8", "full" to backend (API contract)
-
-                        opt.textContent = label;
-
-                        precisionInput.appendChild(opt);
-
-                    });
-
-                    
-
-                    if (currentVal && models.some(m => m.precision === currentVal)) {
-
-                        precisionInput.value = currentVal;
-
-                    }
-
-                    else {
-
-                        const recommended = models.find(m => m.recommended)?.precision;
-
-                        if (recommended) {
-
-                            precisionInput.value = recommended;
-
-                        }
-
-                    }
-
-                }
 
         loadModels(); // Trigger load of models immediately on page load
 
