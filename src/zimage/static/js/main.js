@@ -894,9 +894,9 @@
                 let seedVal = null;
                 if (seedFixedRadio && seedFixedRadio.checked) {
                     seedVal = parseInt(seedInput.value);
-                    if (isNaN(seedVal)) seedVal = Math.floor(Math.random() * 2147483647);
+                    if (isNaN(seedVal)) seedVal = crypto.getRandomValues(new Uint32Array(1))[0];
                 } else {
-                    seedVal = Math.floor(Math.random() * 2147483647);
+                    seedVal = crypto.getRandomValues(new Uint32Array(1))[0];
                 }
                 
                 if (generateBtn) {
