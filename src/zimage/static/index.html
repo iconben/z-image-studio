@@ -147,6 +147,20 @@
             border-left: 4px solid #0d6efd;
         }
 
+        /* Styles for precision dropdown button text ellipsis */
+        #precisionDropdownButton {
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+            display: block; /* Ensures ellipsis works */
+            text-align: left; /* Aligns text left in the button */
+            padding-right: 2.5rem; /* Space for the caret */
+        }
+        /* Styles for dynamic width of precision dropdown menu */
+        #precisionDropdownMenu {
+            min-width: max-content; /* Adjust width to fit content */
+        }
+
         /* Dark Mode Overrides */
         [data-bs-theme="dark"] body {
             background-color: #212529;
@@ -292,14 +306,18 @@
                                                             </div>
                                                         </div>
                                                         
-                                                        <div class="mb-2">
-                                                            <label for="precision" class="form-label" data-i18n="precision_label">Model Precision</label>
-                                                            <select class="form-select" id="precision">
-                                                                <option value="full" data-i18n="precision_full">Best and slower</option>
-                                                                <option value="q8" data-i18n="precision_q8">Great and faster</option>
-                                                                <option value="q4" data-i18n="precision_q4">Faster and Great</option>
-                                                            </select>
-                                                        </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="precision_label">Model Precision</label>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="precisionDropdownButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <!-- Selected precision will be set by JS -->
+                                        Select Precision
+                                    </button>
+                                    <ul class="dropdown-menu w-100" aria-labelledby="precisionDropdownButton" id="precisionDropdownMenu">
+                                        <!-- Options will be dynamically rendered here by JS -->
+                                    </ul>
+                                </div>
+                            </div>
 
                                                         <div class="mb-2">
                                                             <label for="steps" class="form-label">                                    <span data-i18n="steps_label">Steps</span>: <span id="stepsVal">9</span>
@@ -446,8 +464,8 @@
                 iconEl.className = `bi ${iconClass}`;
             }
 
-            // Update active dropdown item state
-            document.querySelectorAll('[data-theme-value]').forEach(item => {
+            // Update active dropdown item state for the theme switcher dropdown
+            document.querySelectorAll('#themeToggleButton + .dropdown-menu .dropdown-item').forEach(item => {
                 if (item.getAttribute('data-theme-value') === theme) {
                     item.classList.add('active');
                 } else {
@@ -459,8 +477,8 @@
         // Initialize Theme
         setTheme(getPreferredTheme());
 
-        // Theme Event Listeners
-        document.querySelectorAll('[data-theme-value]').forEach(toggle => {
+        // Theme Event Listeners for the theme dropdown menu items
+        document.querySelectorAll('#themeToggleButton + .dropdown-menu .dropdown-item').forEach(toggle => {
             toggle.addEventListener('click', () => {
                 const theme = toggle.getAttribute('data-theme-value');
                 setStoredTheme(theme);
@@ -560,7 +578,7 @@
                 precision_label: "Model Precision",
                 precision_full: "Best and slower (full)",
                 precision_q8: "Great and faster (q8)",
-                precision_q4: "Faster and Good (q4)",
+                precision_q4: "Faster and Great (q4)",
                 steps_tooltip: "Sampling steps determine image quality. 9 is fast, 15-25 for better quality. Advanced users only.",
                 generate_btn: "Generate Image",
                 generating_btn: "Generating...",
@@ -696,7 +714,7 @@
             
             // Re-render model options if needed to update descriptions
             if (window.availableModels) {
-                renderModelOptions(window.availableModels);
+                renderModelOptions(window.availableModels, currentPrecisionValue); // Pass current value
             }
 
             // Save preference
@@ -754,7 +772,10 @@
         const seedInput = document.getElementById('seedInput');
         const seedRandomRadio = document.getElementById('seedRandom');
         const seedFixedRadio = document.getElementById('seedFixed');
-        const precisionInput = document.getElementById('precision');
+        let currentPrecisionValue = "q8"; // Default value, will be set by loadModels/localStorage
+        const precisionDropdownButton = document.getElementById('precisionDropdownButton');
+        const precisionDropdownMenu = document.getElementById('precisionDropdownMenu');
+
 
         // Load saved values (prompt, steps, width, height)
         if (localStorage.getItem('zimage_prompt')) promptInput.value = localStorage.getItem('zimage_prompt');
@@ -787,99 +808,101 @@
 
                 const models = data.models || []; // Use 'models' list from the new response structure
                 window.availableModels = models; // Cache for language switching
-                renderModelOptions(models);
                 
-                // Set initial value AFTER models are loaded (from localStorage or default_precision)
+                // Determine initial precision value
                 const savedPrecision = localStorage.getItem('zimage_precision');
-                
-                // Use saved precision if it's available and valid, otherwise use data.default_precision
                 if (savedPrecision && models.some(m => m.precision === savedPrecision)) {
-                    precisionInput.value = savedPrecision;
+                    currentPrecisionValue = savedPrecision;
                 } else if (window.defaultPrecision) {
-                    precisionInput.value = window.defaultPrecision;
+                    currentPrecisionValue = window.defaultPrecision;
                 } else {
-                    // Fallback to 'q8' if all else fails
-                    precisionInput.value = 'q8';
+                    currentPrecisionValue = 'q8'; // Fallback
                 }
 
+                renderModelOptions(models, currentPrecisionValue); // Pass current value to renderer
+                
             } catch (e) {
                 console.error("Failed to load models", e);
-                // Fallback options if fetch fails
-                precisionInput.innerHTML = `
-                    <option value="q8">Great and faster (q8)</option>
-                    <option value="full">Best and slower (full)</option>
-                `;
-                precisionInput.value = "q8"; 
+                // Fallback options for dropdown, if fetch fails
+                const fallbackModels = [
+                    { precision: "q8", recommended: true },
+                    { precision: "full", recommended: false }
+                ];
+                window.availableModels = fallbackModels;
+                currentPrecisionValue = "q8";
+                renderModelOptions(fallbackModels, currentPrecisionValue);
             }
         }
 
-                        function renderModelOptions(models) {
+        function renderModelOptions(models, selectedValue) {
 
-                            const t = translations[currentLanguage];
+            const t = translations[currentLanguage];
+            
+            precisionDropdownMenu.innerHTML = ''; // Clear existing options
 
-                            const currentVal = precisionInput.value;
+            let displayLabelForButton = "Select Precision"; // Default for button text
 
-                            
+            models.forEach(m => {
 
-                            precisionInput.innerHTML = '';
+                let deviceKey = null;
 
-                            models.forEach(m => {
+                if (window.currentDevice) {
 
-                                // Use m.precision (e.g. "q8") for translation lookup
+                    deviceKey = `model_desc_${m.precision}_${window.currentDevice}`;
 
-                                let deviceKey = null;
+                }
 
-                                if (window.currentDevice) {
+                const genericKey = `model_desc_${m.precision}`;
 
-                                    deviceKey = `model_desc_${m.precision}_${window.currentDevice}`;
+                let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.precision);
 
-                                }
+                
 
-                                const genericKey = `model_desc_${m.precision}`;
+                if (m.recommended) {
 
-                                // Fallback: try translation keys, then specific ID translation (if any), then raw precision string
+                    label += t.model_recommended_suffix;
 
-                                let label = (deviceKey && t[deviceKey]) ? t[deviceKey] : (t[genericKey] || m.precision);
+                }
 
-                                
+                const listItem = document.createElement('li');
+                const button = document.createElement('button');
+                button.className = 'dropdown-item';
+                button.type = 'button';
+                button.setAttribute('data-value', m.precision);
+                button.textContent = label;
+                
+                // Set active class and update button display if this is the selected value
+                if (m.precision === selectedValue) {
+                    button.classList.add('active');
+                    displayLabelForButton = label;
+                }
 
-                                if (m.recommended) {
+                // Event listener for each dropdown item
+                button.addEventListener('click', (e) => {
+                    // Check if event.target has data-value, if not, it's the <i> inside the button
+                    const clickedElement = e.target.closest('[data-value]');
+                    const newValue = clickedElement.getAttribute('data-value');
+                    currentPrecisionValue = newValue; // Update our JS variable
+                    localStorage.setItem('zimage_precision', newValue); // Persist
+                    precisionDropdownButton.textContent = clickedElement.textContent; // Update button text
+                    
+                    // Remove active from all and add to clicked
+                    precisionDropdownMenu.querySelectorAll('.dropdown-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    clickedElement.classList.add('active');
 
-                                    label += t.model_recommended_suffix;
+                    isDirty = true; // Mark form as dirty
+                });
 
-                                }
+                listItem.appendChild(button);
+                precisionDropdownMenu.appendChild(listItem);
 
-                                const opt = document.createElement('option');
+            });
 
-                                opt.value = m.precision; // Send "q8", "full" to backend (API contract)
-
-                                opt.textContent = label;
-
-                                precisionInput.appendChild(opt);
-
-                            });
-
-                            
-
-                            if (currentVal && models.some(m => m.precision === currentVal)) {
-
-                                precisionInput.value = currentVal;
-
-                            }
-
-                            else {
-
-                                const recommended = models.find(m => m.recommended)?.precision;
-
-                                if (recommended) {
-
-                                    precisionInput.value = recommended;
-
-                                }
-
-                            }
-
-                        }
+            // Set the dropdown button's text to the selected precision's label
+            precisionDropdownButton.textContent = displayLabelForButton;
+        }
 
         loadModels(); // Trigger load of models immediately on page load
 
@@ -924,11 +947,6 @@
             isDirty = true;
         });
         
-        precisionInput.addEventListener('change', (e) => {
-            localStorage.setItem('zimage_precision', e.target.value);
-            isDirty = true;
-        });
-
         // Save on change
         promptInput.addEventListener('input', (e) => {
             localStorage.setItem('zimage_prompt', e.target.value);
@@ -1123,7 +1141,7 @@
                 localStorage.setItem('zimage_stash_height', heightInput.value);
                 localStorage.setItem('zimage_stash_seed_mode', seedRandomRadio.checked ? 'random' : 'fixed');
                 localStorage.setItem('zimage_stash_seed_value', seedInput.value);
-                localStorage.setItem('zimage_stash_precision', precisionInput.value);
+                localStorage.setItem('zimage_stash_precision', currentPrecisionValue); // Use currentPrecisionValue
                 restoreDraftBtn.classList.remove('d-none');
             }
             isDirty = false; // Now we are in "clean" history state
@@ -1159,9 +1177,6 @@
             img.className = 'img-fluid';
             img.style.cursor = 'pointer';
             img.onclick = () => {
-                modalImage.src = data.image_url; // BUG: this line is problematic in history load context. 'data' is not defined.
-                // Should use imageUrl. But wait, the onclick handler in loadFromHistory was already there.
-                // Let's fix it.
                 modalImage.src = imageUrl;
                 imageModal.show();
             };
@@ -1206,8 +1221,10 @@
                 localStorage.setItem('zimage_height', heightInput.value);
             }
             if (localStorage.getItem('zimage_stash_precision')) {
-                precisionInput.value = localStorage.getItem('zimage_stash_precision');
-                localStorage.setItem('zimage_precision', precisionInput.value);
+                currentPrecisionValue = localStorage.getItem('zimage_stash_precision'); // Use new variable
+                localStorage.setItem('zimage_precision', currentPrecisionValue);
+                // Re-render model options to update button text and active state
+                renderModelOptions(window.availableModels, currentPrecisionValue);
             }
             if (localStorage.getItem('zimage_stash_seed_mode')) {
                 const stashSeedMode = localStorage.getItem('zimage_stash_seed_mode');
@@ -1273,7 +1290,7 @@
                 width: parseInt(document.getElementById('width').value),
                 height: parseInt(document.getElementById('height').value),
                 seed: seedVal,
-                precision: precisionInput.value
+                precision: currentPrecisionValue // Use new variable
             };
 
             try {
@@ -1308,6 +1325,7 @@
                     metaSize.textContent = formatFileSize(data.file_size_kb, currentLanguage);
                     metaSeed.textContent = `${t.seed_label}: ${data.seed}`;
                     metaPrecision.textContent = `${data.precision}`;
+                    metaSteps.textContent = `${data.steps} ${t.steps_label}`;
                     
                     resultInfo.classList.remove('d-none');
                     
