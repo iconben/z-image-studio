@@ -31,25 +31,30 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   Python >= 3.11
 *   `uv` (recommended for dependency management)
 
-## Installation
+## Global installation (as a CLI tool)
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/iconben/z-image-studio.git
-    cd z-image-studio
-    ```
-2. **Create and activate virtual environment**
-    ```bash
-    uv venv
-    source .venv/bin/activate          # Windows: .venv\Scripts\activate
-    ```
-3.  **Install dependencies and package in editable mode:**
-    Using `uv` (recommended):
-    ```bash
-    uv pip install -e .
-    ```
+If you just want the `zimg` CLI to be available from anywhere, install it as a uv tool:
 
-    This will install all dependencies and make the `zimg` command available in virtual environment.
+```bash
+uv tool install git+https://github.com/iconben/z-image-studio.git
+# or, if you have the repo cloned locally:
+# git clone https://github.com/iconben/z-image-studio.git
+# cd z-image-studio
+# uv tool install .
+```
+
+After this, the `zimg` command is available globally:
+
+```bash
+zimg --help
+```
+
+To update z-image-studio:
+```bash
+uv tool upgrade z-image-studio
+# or, if you have the repo cloned locally, you pull the latest source code:
+# git pull
+```
 
 ## Usage
 
@@ -124,9 +129,24 @@ Once started, open your browser to the displayed URL.
 
 ![Screenshot 3](docs/images/screenshot3.png)
 
+
 ## Development
 
-To run the source code directly without installation:
+### Installation in Project Virtual Environment
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/iconben/z-image-studio.git
+    cd z-image-studio
+    ```
+
+2. **Create and activate the project virtual environment**
+    ```bash
+    uv venv
+    source .venv/bin/activate  # Under Windows: .venv\Scripts\activate
+    ```
+
+### To run the source code directly without installation:
 
 1.  **Run CLI:**
     ```bash
@@ -142,6 +162,13 @@ To run the source code directly without installation:
     ```bash
     uv run python -m unittest tests/manual_test_mps.py
     ```
+
+### Optional: Install in editable mode:**
+    Using `uv` (recommended):
+    ```bash
+    uv pip install -e .
+    ```
+    After this, the `zimg` command is available **inside this virtual environment**:
 
 ## Notes
 
