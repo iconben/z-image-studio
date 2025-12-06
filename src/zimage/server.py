@@ -9,11 +9,13 @@ import threading
 import sqlite3
 
 try:
-    from .engine import generate_image, get_available_models, MODEL_ID_MAP
+    from .engine import generate_image
+    from .hardware import get_available_models, MODEL_ID_MAP
     from . import db
     from . import migrations
 except ImportError:
-    from engine import generate_image, get_available_models, MODEL_ID_MAP
+    from engine import generate_image
+    from hardware import get_available_models, MODEL_ID_MAP
     import db
     import migrations
 

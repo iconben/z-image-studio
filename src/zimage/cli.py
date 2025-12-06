@@ -19,11 +19,13 @@ def log_error(message: str):
     print(f"{RED}ERROR{RESET}: {message}")
 
 try:
-    from .engine import generate_image, get_available_models
+    from .engine import generate_image
+    from .hardware import get_available_models
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
-    from engine import generate_image, get_available_models
+    from engine import generate_image
+    from hardware import get_available_models
 
 def run_models(args):
     models_response = get_available_models()
