@@ -38,14 +38,18 @@ This tool is designed to run efficiently on local machines, with specific optimi
     git clone https://github.com/iconben/z-image-studio.git
     cd z-image-studio
     ```
-
-2.  **Install dependencies and package in editable mode:**
+2. **Create and activate virtual environment**
+    ```bash
+    uv venv
+    source .venv/bin/activate          # Windows: .venv\Scripts\activate
+    ```
+3.  **Install dependencies and package in editable mode:**
     Using `uv` (recommended):
     ```bash
     uv pip install -e .
     ```
 
-    This will install all dependencies and make the `zimg` command available globally.
+    This will install all dependencies and make the `zimg` command available in virtual environment.
 
 ## Usage
 

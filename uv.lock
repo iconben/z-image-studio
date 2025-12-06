@@ -1302,7 +1302,7 @@ wheels = [
 ]
 
 [[package]]
-name = "zimage-cli"
+name = "z-image-studio"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

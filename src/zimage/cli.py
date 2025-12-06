@@ -115,7 +115,7 @@ def run_server(args):
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def main():
-    parser = argparse.ArgumentParser(description="Z-Image Turbo CLI (zimg)")
+    parser = argparse.ArgumentParser(description="Z-Image Studio: local image toolkit (CLI + Web UI)")
     subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
 
     # Subcommand: generate (aliases: gen)

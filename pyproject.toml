@@ -1,7 +1,11 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "zimage-cli"
+name = "z-image-studio"
 version = "0.1.0"
-description = "Command tool for z-image model"
+description = "Z-Image Studio: local image toolkit (CLI + Web UI)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -20,4 +24,7 @@ zimg = "zimage.cli:main"
 [tool.uv.sources]
 diffusers = { git = "https://github.com/huggingface/diffusers" }
 sdnq = { git = "https://github.com/Disty0/sdnq" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zimage"]
 
