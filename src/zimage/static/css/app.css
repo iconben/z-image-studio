@@ -1,0 +1,194 @@
+body { background-color: #f8f9fa; }
+        .preview-area {
+            min-height: 400px;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 2px dashed #ced4da;
+            cursor: pointer; /* Add cursor pointer to indicate clickable */
+        }
+        .preview-area img {
+            max-width: 100%;
+            max-height: 75vh;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            cursor: pointer; /* Also for the image itself */
+        }
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+        }
+        .lang-switch {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+        }
+        .tooltip-icon {
+            cursor: pointer;
+        }
+        /* Style for the modal image to ensure it fits the screen */
+        .modal-dialog-custom {
+            max-width: 95vw;
+            margin: 1rem auto;
+        }
+        .modal-content-custom {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+        .modal-body-custom {
+            padding: 0;
+            position: relative;
+            text-align: center;
+        }
+        .modal-image-full {
+            max-height: 90vh;
+            max-width: 100%;
+            width: auto;
+            display: inline-block;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 4px;
+        }
+        .close-btn-custom {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            z-index: 1060;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            color: white;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+        .close-btn-custom:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+        .delete-history-item {
+            color: #6c757d;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            padding: 0.25rem 0.5rem; /* Bootstrap's py-1 px-2 approx */
+            align-self: center; 
+        }
+        .delete-history-item:not(.btn-danger):hover {
+            color: #dc3545 !important;
+            border-color: #dc3545;
+            background: rgba(220, 53, 69, 0.05);
+        }
+        
+        /* --- History Sidebar Styles --- */
+        .history-sidebar-col {
+            display: none; /* Hidden by default */
+            border-right: 1px solid #dee2e6;
+            background: #fff;
+            height: calc(100vh - 2rem); /* Approx full height minus padding */
+            overflow-y: auto;
+            position: sticky;
+            top: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 .125rem .25rem rgba(0,0,0,.075);
+        }
+
+        /* When pinned mode is active (Desktop only) */
+        @media (min-width: 992px) {
+            body.history-pinned .history-sidebar-col {
+                display: block;
+            }
+            body.history-pinned .controls-col {
+                width: 25%; /* Shrink controls slightly */
+                .top-buttons {
+                    min-height: 1.95rem; /* Keep height consistent */
+                }
+            }
+            body.history-pinned .preview-col {
+                width: 50%; /* Shrink preview slightly */
+            }
+            /* Hide the offcanvas toggle button when pinned */
+            body.history-pinned .offcanvas-toggle-btn {
+                display: none !important;
+            }
+        }
+        /* When pinned mode is active (Desktop only) */
+        @media (max-width: 1024px) {
+            body.history-pinned .preview-col {
+                .header-title {
+                    font-size: 1.2rem;
+                    margin-top: 0.55rem;
+                }
+                .header-subtitle {
+                    font-size: 0.8rem;
+                }
+            }
+        }
+        .history-item-active {
+            background-color: #e9ecef;
+            border-left: 4px solid #0d6efd;
+        }
+
+        /* Styles for precision dropdown button text ellipsis */
+        #precisionDropdownButton {
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+            display: block; /* Ensures ellipsis works */
+            text-align: left; /* Aligns text left in the button */
+            padding-right: 2.5rem; /* Space for the caret */
+        }
+        /* Styles for dynamic width of precision dropdown menu */
+        #precisionDropdownMenu {
+            min-width: max-content; /* Adjust width to fit content */
+        }
+
+        /* Dark Mode Overrides */
+        [data-bs-theme="dark"] body {
+            background-color: #212529;
+        }
+        [data-bs-theme="dark"] .bg-light {
+            background-color: #343a40 !important;
+            color: #f8f9fa;
+        }
+        [data-bs-theme="dark"] .preview-area {
+            background: #2b3035;
+            border-color: #495057;
+        }
+        [data-bs-theme="dark"] .history-sidebar-col {
+            background: #212529;
+            border-right-color: #495057;
+        }
+        [data-bs-theme="dark"] .history-item-active {
+            background-color: #343a40;
+            border-left-color: #0d6efd;
+            color: #f8f9fa;
+        }
+        [data-bs-theme="dark"] .list-group-item-action:hover {
+            background-color: #343a40;
+            color: #f8f9fa;
+        }
+        [data-bs-theme="dark"] .text-secondary {
+            color: #adb5bd !important;
+        }
+        [data-bs-theme="dark"] .text-muted {
+            color: #adb5bd !important;
+        }
+        [data-bs-theme="dark"] .delete-history-item:hover {
+            background: rgba(220, 53, 69, 0.2);
+        }
+        [data-bs-theme="dark"] .close-btn-custom {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        [data-bs-theme="dark"] .close-btn-custom:hover {
+            background: rgba(0, 0, 0, 0.6);
+        }
