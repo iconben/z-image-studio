@@ -206,11 +206,16 @@
                 <i class="bi bi-pc-display"></i>
             </button>
         </div>
-        <select class="form-select form-select-sm" id="languageSelect">
-            <option value="en">🇺🇸 English</option>
-            <option value="zh">🇨🇳 中文</option>
-            <option value="jp">🇯🇵 日本語</option>
-        </select>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle text-uppercase" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                EN
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" style="min-width: auto;">
+                <li><button class="dropdown-item" type="button" data-lang="en">EN - English</button></li>
+                <li><button class="dropdown-item" type="button" data-lang="zh">ZH - 中文</button></li>
+                <li><button class="dropdown-item" type="button" data-lang="ja">JA - 日本語</button></li>
+            </ul>
+        </div>
     </div>
 
     <div class="container-fluid px-4 py-4"> <!-- Changed to fluid for better 3-col layout -->
@@ -391,7 +396,8 @@
         const metaDims = document.getElementById('metaDims');
         const metaSize = document.getElementById('metaSize');
         const metaSeed = document.getElementById('metaSeed');
-        const languageSelect = document.getElementById('languageSelect');
+        const languageDropdownBtn = document.getElementById('languageDropdown');
+        let currentLanguage = 'en';
         const metaPrecision = document.getElementById('metaPrecision');
         const metaSteps = document.getElementById('metaSteps');
         const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
@@ -509,7 +515,7 @@
             if (itemDate.getTime() === today.getTime()) {
                 return date.toLocaleTimeString();
             } else if (itemDate.getTime() === yesterday.getTime()) {
-                const t = translations[languageSelect.value];
+                const t = translations[currentLanguage];
                 const yesterdayText = t.yesterday || "Yesterday";
                 return yesterdayText + ", " + date.toLocaleTimeString();
             } else {
@@ -601,7 +607,7 @@
                 model_desc_q4: "很快但画质略差 (q4)",
                 model_recommended_suffix: " (推荐)"
             },
-            jp: {
+            ja: {
                 subtitle: "高品質な画像生成（ローカル）",
                 settings_title: "設定",
                 prompt_label: "プロンプト",
@@ -645,6 +651,8 @@
         };
 
         function updateLanguage(lang) {
+            currentLanguage = lang;
+            languageDropdownBtn.textContent = lang.toUpperCase();
             const t = translations[lang];
             
             // Update Text Content
@@ -699,20 +707,22 @@
             if (browserLang.startsWith('zh')) {
                 initialLang = 'zh';
             } else if (browserLang.startsWith('ja')) {
-                initialLang = 'jp';
+                initialLang = 'ja';
             } else {
                 initialLang = 'en';
             }
         }
-        languageSelect.value = initialLang;
         updateLanguage(initialLang);
 
-        languageSelect.addEventListener('change', (e) => {
-            updateLanguage(e.target.value);
-            // Reinitialize tooltips after language change to update titles
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-              return new bootstrap.Tooltip(tooltipTriggerEl);
+        document.querySelectorAll('.dropdown-item[data-lang]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const lang = e.target.getAttribute('data-lang');
+                updateLanguage(lang);
+                // Reinitialize tooltips after language change to update titles
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                  return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
             });
         });
 
@@ -784,7 +794,7 @@
 
                         function renderModelOptions(models) {
 
-                            const t = translations[languageSelect.value];
+                            const t = translations[currentLanguage];
 
                             const currentVal = precisionInput.value;
 
@@ -994,7 +1004,7 @@
             const containers = [historyListOffcanvas, historyListSidebar];
 
             if (items.length === 0 && !append) {
-                const emptyMsg = `<div class="text-center text-muted p-3" data-i18n="history_empty">${translations[languageSelect.value].history_empty}</div>`;
+                const emptyMsg = `<div class="text-center text-muted p-3" data-i18n="history_empty">${translations[currentLanguage].history_empty}</div>`;
                 containers.forEach(c => c.innerHTML = emptyMsg);
                 return;
             }
@@ -1010,11 +1020,11 @@
                         <img src="${imageUrl}" alt="thumb" width="80" height="80" class="rounded object-fit-cover flex-shrink-0 bg-light" loading="lazy">
                         <div class="d-flex flex-column gap-1 w-100" style="min-width: 0;">
                             <h6 class="mb-0 small text-truncate">${shortPrompt}</h6>
-                            <p class="mb-0 opacity-75 small">${item.width}x${item.height} · ${formatFileSize(item.file_size_kb, languageSelect.value)}</p>
+                            <p class="mb-0 opacity-75 small">${item.width}x${item.height} · ${formatFileSize(item.file_size_kb, currentLanguage)}</p>
                             <small class="text-muted" style="line-height: 0.9rem">${date}</small>
                             <small class="text-muted" style="line-height: 0.9rem">${formatValueWithOneDecimal(item.generation_time)}s · ${item.precision} · ${item.steps} steps</small>
                         </div>
-                        <button class="btn btn-sm btn-outline-secondary ms-auto delete-history-item" data-id="${item.id}" title="${translations[languageSelect.value].delete_btn_tooltip}">
+                        <button class="btn btn-sm btn-outline-secondary ms-auto delete-history-item" data-id="${item.id}" title="${translations[currentLanguage].delete_btn_tooltip}">
                             <i class="bi bi-trash"></i>
                         </button>
                     </a>
@@ -1139,11 +1149,11 @@
             downloadBtn.href = imageUrl;
             
             // Format meta info using current translations
-            const t = translations[languageSelect.value];
+            const t = translations[currentLanguage];
             timeTaken.textContent = t.time_taken.replace('{0}', formatValueWithOneDecimal(item.generation_time));
             metaDims.textContent = `${item.width}x${item.height}`;
-            metaSize.textContent = formatFileSize(item.file_size_kb, languageSelect.value);
-            metaSeed.textContent = `${translations[languageSelect.value].seed_label}: ${item.seed}`;
+            metaSize.textContent = formatFileSize(item.file_size_kb, currentLanguage);
+            metaSeed.textContent = `${translations[currentLanguage].seed_label}: ${item.seed}`;
             metaPrecision.textContent = `${item.precision || 'full'}`; // Default to 'full' for old entries
             metaSteps.textContent = `${item.steps} ${t.steps_label}`;
             
@@ -1197,7 +1207,7 @@
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const currentLang = languageSelect.value;
+            const currentLang = currentLanguage;
             const t = translations[currentLang];
             
             isDirty = false; // Generation commits the state
@@ -1274,7 +1284,7 @@
                     // Format meta info
                     timeTaken.textContent = t.time_taken.replace('{0}', formatValueWithOneDecimal(data.generation_time));
                     metaDims.textContent = `${data.width}x${data.height}`;
-                    metaSize.textContent = formatFileSize(data.file_size_kb, languageSelect.value);
+                    metaSize.textContent = formatFileSize(data.file_size_kb, currentLanguage);
                     metaSeed.textContent = `${t.seed_label}: ${data.seed}`;
                     metaPrecision.textContent = `${data.precision}`;
                     
