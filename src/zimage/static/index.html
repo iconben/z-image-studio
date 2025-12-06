@@ -195,16 +195,21 @@
 <body>
     <!-- Language Selector & Theme Switcher -->
     <div class="lang-switch d-flex gap-2">
-        <div class="btn-group btn-group-sm" role="group" aria-label="Theme toggle">
-            <button type="button" class="btn btn-outline-secondary" data-bs-theme-value="light" title="Light">
-                <i class="bi bi-sun-fill"></i>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="themeToggleButton" data-bs-toggle="dropdown" aria-expanded="false" title="Theme">
+                <i class="bi bi-circle-half"></i>
             </button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-theme-value="dark" title="Dark">
-                <i class="bi bi-moon-stars-fill"></i>
-            </button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-theme-value="auto" title="Auto">
-                <i class="bi bi-pc-display"></i>
-            </button>
+            <ul class="dropdown-menu dropdown-menu-end" style="min-width: auto;">
+                <li><button class="dropdown-item d-flex align-items-center" type="button" data-theme-value="light">
+                    <i class="bi bi-sun-fill me-2"></i>Light
+                </button></li>
+                <li><button class="dropdown-item d-flex align-items-center" type="button" data-theme-value="dark">
+                    <i class="bi bi-moon-stars-fill me-2"></i>Dark
+                </button></li>
+                <li><button class="dropdown-item d-flex align-items-center" type="button" data-theme-value="auto">
+                    <i class="bi bi-circle-half me-2"></i>Auto
+                </button></li>
+            </ul>
         </div>
         <div class="dropdown">
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle text-uppercase" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -254,9 +259,9 @@
                 </div>
                 <div class="card shadow-sm">
                     <div class="card-body">
-                        <h5 class="card-title mb-4" data-i18n="settings_title">Settings</h5>
+                        <h5 class="card-title mb-3" data-i18n="settings_title">Settings</h5>
                         <form id="generateForm">
-                            <div class="mb-3">
+                            <div class="mb-2">
                                 <label for="prompt" class="form-label fw-bold" data-i18n="prompt_label">Prompt</label>
                                 <textarea class="form-control" id="prompt" rows="6" placeholder="Describe your image..." data-i18n-placeholder="prompt_placeholder" data-i18n-value="default_prompt" required></textarea>
                             </div>
@@ -272,9 +277,9 @@
                                 </div>
                             </div>
                             
-                                                        <div class="mb-3">
+                                                        <div class="mb-2">
                                                             <label class="form-label" data-i18n="seed_label">Seed</label>
-                                                            <div class="d-flex align-items-center flex-wrap gap-3 mb-2">
+                                                            <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
                                                                 <div class="form-check">
                                                                     <input class="form-check-input " type="radio" name="seedMode" id="seedRandom" value="random" checked>
                                                                     <label class="form-check-label ms-1 me-2" for="seedRandom" data-i18n="seed_random">Random</label>
@@ -287,7 +292,7 @@
                                                             </div>
                                                         </div>
                                                         
-                                                        <div class="mb-3">
+                                                        <div class="mb-2">
                                                             <label for="precision" class="form-label" data-i18n="precision_label">Model Precision</label>
                                                             <select class="form-select" id="precision">
                                                                 <option value="full" data-i18n="precision_full">Best and slower</option>
@@ -296,7 +301,7 @@
                                                             </select>
                                                         </div>
 
-                                                        <div class="mb-3">
+                                                        <div class="mb-2">
                                                             <label for="steps" class="form-label">                                    <span data-i18n="steps_label">Steps</span>: <span id="stepsVal">9</span>
                                     <span class="d-inline-block ms-2 tooltip-icon" tabindex="0" data-bs-toggle="tooltip" data-bs-placement="top" data-i18n-title="steps_tooltip">
                                         <i class="bi bi-question-circle"></i>
@@ -405,6 +410,12 @@
         const historyListOffcanvas = document.getElementById('historyList');
         const historyListSidebar = document.getElementById('historyListSidebar');
         const restoreDraftBtn = document.getElementById('restoreDraftBtn');
+        const themeToggleButton = document.getElementById('themeToggleButton');
+        const themeIconMap = {
+            'light': 'bi-sun-fill',
+            'dark': 'bi-moon-stars-fill',
+            'auto': 'bi-circle-half'
+        };
         
         // --- Theme Switcher Logic ---
         const getStoredTheme = () => localStorage.getItem('zimage_theme');
@@ -419,18 +430,28 @@
         };
 
         const setTheme = theme => {
+            let actualTheme = theme;
             if (theme === 'auto') {
-                document.documentElement.setAttribute('data-bs-theme', (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+                actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-bs-theme', actualTheme);
             } else {
                 document.documentElement.setAttribute('data-bs-theme', theme);
             }
 
-            // Update active button state
-            document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
-                if (toggle.getAttribute('data-bs-theme-value') === theme) {
-                    toggle.classList.add('active');
+            // Update toggle button icon
+            const iconClass = themeIconMap[theme] || 'bi-circle-half';
+            // We only change the icon class, keep 'bi'
+            const iconEl = themeToggleButton.querySelector('i');
+            if(iconEl) {
+                iconEl.className = `bi ${iconClass}`;
+            }
+
+            // Update active dropdown item state
+            document.querySelectorAll('[data-theme-value]').forEach(item => {
+                if (item.getAttribute('data-theme-value') === theme) {
+                    item.classList.add('active');
                 } else {
-                    toggle.classList.remove('active');
+                    item.classList.remove('active');
                 }
             });
         };
@@ -439,9 +460,9 @@
         setTheme(getPreferredTheme());
 
         // Theme Event Listeners
-        document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
+        document.querySelectorAll('[data-theme-value]').forEach(toggle => {
             toggle.addEventListener('click', () => {
-                const theme = toggle.getAttribute('data-bs-theme-value');
+                const theme = toggle.getAttribute('data-theme-value');
                 setStoredTheme(theme);
                 setTheme(theme);
             });
@@ -450,7 +471,7 @@
         // Listen for system preference changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
             const storedTheme = getStoredTheme();
-            if (storedTheme !== 'light' && storedTheme !== 'dark') {
+            if (!storedTheme || storedTheme === 'auto') {
                 setTheme('auto');
             }
         });
