@@ -1,12 +1,15 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
+from typing import Optional, List
 import asyncio
 import time
 import threading
 import sqlite3
+import shutil
+import hashlib
 
 try:
     from .engine import generate_image
@@ -27,6 +30,10 @@ migrations.init_db()
 # Ensure outputs directory exists
 OUTPUTS_DIR = Path("outputs")
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Ensure LoRAs directory exists
+LORAS_DIR = Path("loras")
+LORAS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Dedicated worker thread for MPS/GPU operations
 # MPS on macOS is thread-sensitive. Accessing the model from multiple threads
@@ -83,6 +90,8 @@ class GenerateRequest(BaseModel):
     height: int = 720
     seed: int = None
     precision: str = "q8"
+    lora_filename: Optional[str] = None
+    lora_strength: float = 1.0
 
 class GenerateResponse(BaseModel):
     id: int
@@ -94,11 +103,94 @@ class GenerateResponse(BaseModel):
     seed: int = None
     precision: str
     model_id: str
+    lora_filename: Optional[str] = None
+    lora_strength: float = 0.0
 
 @app.get("/models")
 async def get_models():
     """Get list of available models with hardware recommendations."""
     return get_available_models()
+
+@app.get("/loras")
+async def get_loras():
+    """List available LoRA files."""
+    return db.list_loras()
+
+@app.post("/loras")
+async def upload_lora(
+    file: UploadFile = File(...),
+    display_name: Optional[str] = Form(None),
+    trigger_word: Optional[str] = Form(None)
+):
+    """Upload a new LoRA file."""
+    if not file.filename.endswith(".safetensors"):
+         raise HTTPException(status_code=400, detail="Only .safetensors files are supported")
+    
+    # Sanitize filename (basic)
+    filename = Path(file.filename).name
+    target_path = LORAS_DIR / filename
+    
+    # Check duplicate by content hash to be safe? Or just overwrite?
+    # Let's write to temp first, check hash, then move.
+    temp_path = LORAS_DIR / f"{filename}.tmp"
+    
+    try:
+        hasher = hashlib.sha256()
+        with temp_path.open("wb") as buffer:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                hasher.update(chunk)
+                buffer.write(chunk)
+        
+        file_hash = hasher.hexdigest()
+        
+        # Move to final location (overwrite if exists is fine for file, but need DB sync)
+        if target_path.exists():
+             # If exact same file, no op. If different, maybe warn?
+             # For now, we allow overwrite on disk but need to ensure DB is consistent
+             pass
+
+        temp_path.rename(target_path)
+        
+        # Add to DB
+        new_id = db.add_lora(filename, display_name, trigger_word, file_hash)
+        
+        return {"id": new_id, "filename": filename, "display_name": display_name or filename}
+        
+    except Exception as e:
+        if temp_path.exists():
+            temp_path.unlink()
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@app.delete("/loras/{lora_id}")
+async def delete_lora(lora_id: int):
+    """Delete a LoRA file and record."""
+    conn = sqlite3.connect(db.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT filename FROM lora_files WHERE id = ?", (lora_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="LoRA not found")
+        
+    filename = row['filename']
+    file_path = LORAS_DIR / filename
+    
+    db.delete_lora(lora_id)
+    
+    if file_path.exists():
+        try:
+            file_path.unlink()
+        except OSError as e:
+            print(f"Error deleting LoRA file {file_path}: {e}")
+            # We already deleted from DB, so it's a "soft" failure
+            
+    return {"message": "LoRA deleted"}
+
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
@@ -118,6 +210,23 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         width = max(16, width)
         height = max(16, height)
         
+        # Resolve LoRA
+        lora_path_str = None
+        lora_file_id = None
+        
+        if req.lora_filename:
+            # Check if it exists in DB/disk
+            lora_info = db.get_lora_by_filename(req.lora_filename)
+            if not lora_info:
+                 return JSONResponse(status_code=400, content={"error": f"LoRA '{req.lora_filename}' not found"})
+            
+            lora_file_id = lora_info['id']
+            lora_full_path = LORAS_DIR / req.lora_filename
+            if not lora_full_path.exists():
+                return JSONResponse(status_code=500, content={"error": f"LoRA file missing on disk: {req.lora_filename}"})
+            
+            lora_path_str = str(lora_full_path.resolve())
+
         start_time = time.time()
         
         # Run generation in the dedicated worker thread
@@ -128,7 +237,9 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             width=width,
             height=height,
             seed=req.seed,
-            precision=req.precision
+            precision=req.precision,
+            lora_path=lora_path_str,
+            lora_strength=req.lora_strength
         )
         
         # Save file
@@ -165,7 +276,9 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             cfg_scale=0.0,
             seed=req.seed,
             status="succeeded",
-            precision=req.precision
+            precision=req.precision,
+            lora_file_id=lora_file_id,
+            lora_strength=req.lora_strength if lora_file_id else 0.0
         )
         
         # Schedule cleanup to run AFTER the response is sent
@@ -180,7 +293,9 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             "file_size_kb": round(file_size_kb, 1),
             "seed": req.seed,
             "precision": req.precision,
-            "model_id": model_id
+            "model_id": model_id,
+            "lora_filename": req.lora_filename,
+            "lora_strength": req.lora_strength if req.lora_filename else 0.0
         }
     except Exception as e:
         print(f"Error generating image: {e}")

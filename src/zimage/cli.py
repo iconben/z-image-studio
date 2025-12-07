@@ -21,11 +21,15 @@ def log_error(message: str):
 try:
     from .engine import generate_image
     from .hardware import get_available_models
+    from . import db
+    from . import migrations
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
     from engine import generate_image
     from hardware import get_available_models
+    import db
+    import migrations
 
 def run_models(args):
     models_response = get_available_models()
@@ -48,6 +52,17 @@ def run_models(args):
         # The 'tasks' field is gone from ModelInfo.
         # So we just print id, hf_model_id and recommendation.
         print(f"  * {m['id']} -> {m['hf_model_id']}{rec_str}")
+
+def run_list_loras(args):
+    loras = db.list_loras()
+    if not loras:
+        print("No LoRAs found in database.")
+        print("Use the web UI to upload LoRAs or place .safetensors files in the 'loras' folder and upload via API.")
+        return
+
+    print("Available LoRAs:")
+    for l in loras:
+        print(f"  * {l['display_name']} (File: {l['filename']}, ID: {l['id']})")
 
 def run_generation(args):
     print(f"DEBUG: cwd: {Path.cwd().resolve()}")
@@ -81,6 +96,25 @@ def run_generation(args):
 
     print(f"DEBUG: final output path will be: {output_path.resolve()}")
 
+    # Resolve LoRA Path
+    lora_path = None
+    if args.lora:
+        # 1. Check if it's a direct file path
+        p = Path(args.lora)
+        if p.exists() and p.is_file():
+             lora_path = str(p.resolve())
+        else:
+            # 2. Check if it's a filename in loras/ directory
+            loras_dir = Path("loras")
+            p_local = loras_dir / args.lora
+            if p_local.exists() and p_local.is_file():
+                lora_path = str(p_local.resolve())
+            else:
+                # 3. Check DB for display name match? For now, just warn and fail
+                 log_error(f"LoRA file not found: {args.lora}")
+                 log_info(f"Searched: {p.resolve()} and {p_local.resolve()}")
+                 return
+
     # Generate image with strong logging & error handling
     try:
         image = generate_image(
@@ -90,6 +124,8 @@ def run_generation(args):
             height=args.height,
             seed=args.seed,
             precision=args.precision,
+            lora_path=lora_path,
+            lora_strength=args.lora_strength
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
@@ -115,6 +151,9 @@ def run_server(args):
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def main():
+    # Ensure DB is initialized
+    migrations.init_db()
+
     parser = argparse.ArgumentParser(description="Z-Image Studio: local image toolkit (CLI + Web UI)")
     subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
 
@@ -127,6 +166,8 @@ def main():
     parser_gen.add_argument("--height", "-H", type=int, default=720, help="Image height (must be multiple of 16), default 720")
     parser_gen.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     parser_gen.add_argument("--precision", type=str, default="q8", choices=["full", "q8", "q4"], help="Model precision (full, q8, q4), default q8")
+    parser_gen.add_argument("--lora", type=str, default=None, help="LoRA filename (in loras/ folder) or full path to .safetensors file")
+    parser_gen.add_argument("--lora-strength", type=float, default=1.0, help="Strength of LoRA application (0.0 - 1.0+)")
     parser_gen.set_defaults(func=run_generation)
 
     # Subcommand: serve
@@ -139,6 +180,14 @@ def main():
     # Subcommand: models
     parser_models = subparsers.add_parser("models", help="List available models and recommendations")
     parser_models.set_defaults(func=run_models)
+    
+    # Subcommand: loras
+    parser_loras = subparsers.add_parser("loras", help="Manage LoRA models")
+    loras_subparsers = parser_loras.add_subparsers(dest="subcommand", required=True)
+    
+    # loras list
+    parser_loras_list = loras_subparsers.add_parser("list", help="List available LoRAs")
+    parser_loras_list.set_defaults(func=run_list_loras)
 
     args = parser.parse_args()
     if hasattr(args, "func"):

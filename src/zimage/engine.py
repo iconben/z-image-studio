@@ -154,32 +154,59 @@ def generate_image(
     height: int,
     seed: int = None,
     precision: str = "q4",
+    lora_path: str = None,
+    lora_strength: float = 1.0,
 ):
     pipe = load_pipeline(precision=precision)
     
     log_info(f"generating image for prompt: {prompt!r}")
+    if lora_path:
+        log_info(f"using LoRA: {lora_path} (strength={lora_strength})")
+
     print(
         f"DEBUG: steps={steps}, width={width}, "
-        f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}"
+        f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}, "
+        f"lora={lora_path}, strength={lora_strength}"
     )
+
+    if lora_path:
+        try:
+            # load_lora_weights can take a path to a file or a directory
+            pipe.load_lora_weights(lora_path, adapter_name="default")
+        except Exception as e:
+            log_warn(f"Failed to load LoRA weights from {lora_path}: {e}")
+            raise e
 
     generator = None
     if seed is not None:
         generator = torch.Generator(device=pipe.device).manual_seed(seed)
 
+    # Prepare kwargs for generation
+    gen_kwargs = {
+        "prompt": prompt,
+        "num_inference_steps": steps,
+        "height": height,
+        "width": width,
+        "guidance_scale": 0.0, 
+        "generator": generator,
+    }
+
+    if lora_path:
+        gen_kwargs["cross_attention_kwargs"] = {"scale": lora_strength}
+
     try:
         with torch.inference_mode():
-            image = pipe(
-                prompt,
-                num_inference_steps=steps,
-                height=height,
-                width=width,
-                guidance_scale=0.0, 
-                generator=generator,
-            ).images[0]
+            image = pipe(**gen_kwargs).images[0]
         
         return image
     finally:
+        if lora_path:
+            try:
+                log_info("unloading LoRA weights")
+                pipe.unload_lora_weights()
+            except Exception as e:
+                log_warn(f"Failed to unload LoRA weights: {e}")
+
         import gc
         gc.collect()
         if torch.backends.mps.is_available():
