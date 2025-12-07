@@ -5,6 +5,11 @@ from typing import Optional, List, Dict, Any
 
 DB_PATH = Path("zimage.db")
 
+def _get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # Allows accessing columns by name
+    conn.execute("PRAGMA foreign_keys = ON") # Enable foreign key enforcement
+    return conn
 
 def add_generation(
     prompt: str,
@@ -24,28 +29,19 @@ def add_generation(
     loras: List[Dict[str, Any]] = None, # List of {id: int, strength: float}
 ) -> int:
     """Insert a new generation record."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _get_db_connection()
     cursor = conn.cursor()
     
-    # Legacy support: store first LoRA in main table columns if exists
-    legacy_lora_id = None
-    legacy_lora_strength = 0.0
-    if loras and len(loras) > 0:
-        legacy_lora_id = loras[0].get('id')
-        legacy_lora_strength = loras[0].get('strength', 1.0)
-
     cursor.execute('''
         INSERT INTO generations (
             prompt, negative_prompt, steps, width, height, 
             cfg_scale, seed, model, status, filename, 
-            error_message, generation_time, file_size_kb, created_at, precision,
-            lora_file_id, lora_strength
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            error_message, generation_time, file_size_kb, created_at, precision
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         prompt, negative_prompt, steps, width, height,
         cfg_scale, seed, model, status, filename,
-        error_message, generation_time, file_size_kb, datetime.now(), precision,
-        legacy_lora_id, legacy_lora_strength
+        error_message, generation_time, file_size_kb, datetime.now(), precision
     ))
     
     new_id = cursor.lastrowid
@@ -65,8 +61,7 @@ def add_generation(
 
 def get_history(limit: int = 50, offset: int = 0) -> tuple[List[Dict[str, Any]], int]:
     """Get recent generations with pagination."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Allows accessing columns by name
+    conn = _get_db_connection()
     cursor = conn.cursor()
     
     # Get total count
@@ -77,7 +72,6 @@ def get_history(limit: int = 50, offset: int = 0) -> tuple[List[Dict[str, Any]],
     # We left join generation_loras and lora_files.
     # Note: This requires SQLite 3.38.0+ (bundled with Python 3.10+ usually).
     # If json_group_array is not available, this will fail. 
-    # Fallback logic: Just simple query and python fetch if needed? 
     # Let's try the robust query.
     try:
         cursor.execute('''
@@ -114,15 +108,6 @@ def get_history(limit: int = 50, offset: int = 0) -> tuple[List[Dict[str, Any]],
             else:
                 d['loras'] = []
             
-            # Fallback for legacy single-lora items if list is empty but legacy columns exist
-            if not d['loras'] and d.get('lora_file_id'):
-                 # We need to fetch the legacy lora info... or just rely on the left join above?
-                 # The left join above covers the legacy table structure IF we migrated data.
-                 # But we didn't migrate data from `generations.lora_file_id` to `generation_loras`.
-                 # So for old items, we might want to shim it.
-                 # Actually, the `lora_name` and `lora_filename` from previous query are gone.
-                 pass
-            
             result.append(d)
             
     except sqlite3.OperationalError:
@@ -141,7 +126,7 @@ def get_history(limit: int = 50, offset: int = 0) -> tuple[List[Dict[str, Any]],
 
 def delete_generation(item_id: int):
     """Delete a generation record by its ID."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('DELETE FROM generations WHERE id = ?', (item_id,))
@@ -154,7 +139,7 @@ def add_lora(filename: str, display_name: str = None, trigger_word: str = None, 
     if display_name is None:
         display_name = filename
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = _get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute('''
@@ -175,10 +160,19 @@ def add_lora(filename: str, display_name: str = None, trigger_word: str = None, 
     finally:
         conn.close()
 
+def get_lora_by_hash(hash_val: str) -> Optional[Dict[str, Any]]:
+    """Get LoRA details by its hash."""
+    conn = _get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM lora_files WHERE hash = ?", (hash_val,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 def list_loras() -> List[Dict[str, Any]]:
     """List all available LoRAs."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute("SELECT * FROM lora_files ORDER BY display_name ASC")
@@ -188,8 +182,7 @@ def list_loras() -> List[Dict[str, Any]]:
     return result
 
 def get_lora_by_filename(filename: str) -> Optional[Dict[str, Any]]:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute("SELECT * FROM lora_files WHERE filename = ?", (filename,))
@@ -199,7 +192,7 @@ def get_lora_by_filename(filename: str) -> Optional[Dict[str, Any]]:
 
 def delete_lora(lora_id: int):
     """Delete a LoRA record."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM lora_files WHERE id = ?", (lora_id,))
     conn.commit()

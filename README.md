@@ -21,6 +21,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **MPS Acceleration**: Optimized for Mac users with Apple Silicon.
 *   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
+*   **Multiple LoRA Support**: Upload/manage LoRAs in the web UI, apply up to 4 with per-LoRA strengths in a single generation; CLI supports multiple `--lora` entries with optional strengths.
 *   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 16).
 *   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified are supported.
 *   **History Pagination and Infinite Scroll**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
@@ -108,6 +109,7 @@ Once started, open your browser to the displayed URL.
 | `--height` | `-H` | `int` | `720` | Image height (automatically adjusted to be a multiple of 8). |
 | `--seed` | | `int` | `None` | Random seed for reproducible generation. |
 | `--precision` | | `str` | `q8` | Model precision (`full`, `q8`, `q4`). `q8` is the default and balanced, `full` is higher quality but slower, `q4` is fastest and uses less memory. |
+| `--lora` | | `str` | `[]` | LoRA filename or path, optionally with strength (`name.safetensors:0.8`). Can be passed multiple times (max 4); strength is clamped to -1.0..2.0. |
 
 ### Subcommand: `serve`
 | Argument | Type | Default | Description |

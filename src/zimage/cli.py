@@ -2,12 +2,18 @@ import argparse
 import sys
 from pathlib import Path
 import traceback
+# Removed: import os # Import os for environment variables
 
 # ANSI escape codes for colors
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
 RESET = "\033[0m"
+
+# Directory Configuration
+# Reverted to hardcoded relative paths
+OUTPUTS_DIR = Path("outputs")
+LORAS_DIR = Path("loras")
 
 def log_info(message: str):
     print(f"{GREEN}INFO{RESET}: {message}")
@@ -77,7 +83,7 @@ def run_generation(args):
             setattr(args, name, fixed)
 
     # Determine output path
-    outputs_dir = Path("outputs")
+    outputs_dir = OUTPUTS_DIR
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
     if args.output is None:
@@ -99,34 +105,18 @@ def run_generation(args):
     # Resolve LoRA Paths
     loras = []
     if args.lora:
-        loras_dir = Path("loras")
-        for lora_str in args.lora:
-            # Parse "filename:strength" or "path:strength" or just "filename"
-            parts = lora_str.rsplit(':', 1)
-            strength = 1.0
-            
-            # Basic check if the last part is a float
-            if len(parts) == 2:
-                try:
-                    strength = float(parts[1])
-                    lora_input = parts[0]
-                except ValueError:
-                    # Maybe filename includes colon? assume entire string is filename
-                    lora_input = lora_str
-            else:
-                lora_input = lora_str
-
-            # Resolve file
+        for filename, strength in args.lora:
+            # Resolve file (loras_dir is global, if relative file paths are given)
             lora_path = None
-            p = Path(lora_input)
+            p = Path(filename)
             if p.exists() and p.is_file():
                  lora_path = str(p.resolve())
             else:
-                p_local = loras_dir / lora_input
+                p_local = LORAS_DIR / filename # Use global LORAS_DIR
                 if p_local.exists() and p_local.is_file():
                     lora_path = str(p_local.resolve())
                 else:
-                     log_error(f"LoRA file not found: {lora_input}")
+                     log_error(f"LoRA file not found: {filename}")
                      continue # Skip invalid ones
             
             loras.append((lora_path, strength))
@@ -151,18 +141,19 @@ def run_generation(args):
         print(e)
         traceback.print_exc()
 
+
 def run_server(args):
+    """Start the FastAPI server via uvicorn."""
     import uvicorn
+
     log_info(f"Starting web server at http://{args.host}:{args.port}")
-    
+
     # Determine app string based on execution mode
     if not __package__:
-        # Running as script (flat layout simulation)
         app_str = "server:app"
     else:
-        # Running as package
         app_str = "zimage.server:app"
-        
+
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def main():
@@ -181,7 +172,31 @@ def main():
     parser_gen.add_argument("--height", "-H", type=int, default=720, help="Image height (must be multiple of 16), default 720")
     parser_gen.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     parser_gen.add_argument("--precision", type=str, default="q8", choices=["full", "q8", "q4"], help="Model precision (full, q8, q4), default q8")
-    parser_gen.add_argument("--lora", action='append', default=[], help="LoRA filename or path, optionally with strength (e.g. 'pixel.safetensors:0.8'). Can be used multiple times.")
+    
+    def lora_strength_type(value):
+        fvalue = float(value)
+        if fvalue < -1.0 or fvalue > 2.0:
+            raise argparse.ArgumentTypeError(f"strength must be between -1.0 and 2.0 (inclusive), got {fvalue}")
+        return fvalue
+
+    class LoraAction(argparse.Action):
+        def __call__(self, parser, namespace, value, option_string=None):
+            parts = value.rsplit(':', 1)
+            filename = parts[0]
+            strength = 1.0
+            
+            if len(parts) == 2:
+                try:
+                    strength = lora_strength_type(parts[1])
+                except argparse.ArgumentTypeError as e:
+                    raise argparse.ArgumentTypeError(f"Invalid strength for LoRA '{filename}': {e}")
+            
+            # Get the list of loras, or initialize if not present
+            loras = getattr(namespace, self.dest, [])
+            loras.append((filename, strength))
+            setattr(namespace, self.dest, loras)
+
+    parser_gen.add_argument("--lora", action=LoraAction, default=[], help="LoRA filename or path, optionally with strength (e.g. 'pixel.safetensors:0.8'). Strength must be between -1.0 and 2.0. Can be used multiple times.")
     parser_gen.set_defaults(func=run_generation)
 
     # Subcommand: serve

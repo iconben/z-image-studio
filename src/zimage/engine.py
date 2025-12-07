@@ -177,11 +177,12 @@ def generate_image(
     if loras:
         log_info(f"using LoRAs: {loras}")
 
-    print(
-        f"DEBUG: steps={steps}, width={width}, "
-        f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}, "
-        f"loras={loras}"
-    )
+    # Removed: DEBUG print statement
+    # print(
+    #     f"DEBUG: steps={steps}, width={width}, "
+    #     f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}, "
+    #     f"loras={loras}"
+    # )
 
     active_adapters = []
     adapter_weights = []
@@ -203,13 +204,6 @@ def generate_image(
                         new_key = key
                     new_state_dict[new_key] = value
                 
-                # DEBUG: Inspect keys
-                print("DEBUG: LoRA keys (first 5):", list(new_state_dict.keys())[:5])
-                # Filter to see structure
-                transformer_keys = list(pipe.transformer.state_dict().keys())
-                print("DEBUG: Transformer keys (first 5):", transformer_keys[:5])
-                print("DEBUG: Transformer keys (filtered 'weight' subset):", [k for k in transformer_keys if "weight" in k][:20])
-
                 pipe.load_lora_weights(new_state_dict, adapter_name=adapter_name)
                 active_adapters.append(adapter_name)
                 adapter_weights.append(strength)

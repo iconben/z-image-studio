@@ -47,7 +47,6 @@ def init_db():
     
     # Run schema migrations
     _migrate_add_precision_column(cursor)
-    _migrate_add_lora_columns(cursor)
     _migrate_create_generation_loras_table(cursor)
     _normalize_historical_data(cursor)
     
@@ -62,18 +61,6 @@ def _migrate_add_precision_column(cursor: sqlite3.Cursor):
     
     if "precision" not in columns:
         cursor.execute("ALTER TABLE generations ADD COLUMN precision TEXT DEFAULT 'full'")
-
-
-def _migrate_add_lora_columns(cursor: sqlite3.Cursor):
-    """Add 'lora_file_id' and 'lora_strength' columns if they don't exist."""
-    cursor.execute("PRAGMA table_info(generations)")
-    columns = [info[1] for info in cursor.fetchall()]
-    
-    if "lora_file_id" not in columns:
-        cursor.execute("ALTER TABLE generations ADD COLUMN lora_file_id INTEGER REFERENCES lora_files(id) ON DELETE SET NULL")
-    
-    if "lora_strength" not in columns:
-        cursor.execute("ALTER TABLE generations ADD COLUMN lora_strength REAL DEFAULT 0.0")
 
 def _migrate_create_generation_loras_table(cursor: sqlite3.Cursor):
     """Create table for many-to-many relationship between generations and LoRAs."""
