@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+import traceback
 
 # Silence the noisy CUDA autocast warning on Mac
 warnings.filterwarnings(
@@ -13,6 +14,8 @@ import torch
 from diffusers import ZImagePipeline
 from sdnq.common import use_torch_compile as triton_is_available
 from sdnq.loader import apply_sdnq_options_to_model
+from safetensors.torch import load_file
+from diffusers.loaders.peft import _SET_ADAPTER_SCALE_FN_MAPPING
 
 # Import from hardware module
 try:
@@ -124,6 +127,17 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         low_cpu_mem_usage=low_cpu_mem_usage,
     )
     pipe = pipe.to(device)
+    
+    # Compatibility shim for SD3LoraLoaderMixin which expects text_encoder_2 and 3
+    if not hasattr(pipe, "text_encoder_2"):
+        pipe.text_encoder_2 = None
+    if not hasattr(pipe, "text_encoder_3"):
+        pipe.text_encoder_3 = None
+
+    # Monkey-patch peft scale mapping for ZImageTransformer2DModel
+    if "ZImageTransformer2DModel" not in _SET_ADAPTER_SCALE_FN_MAPPING:
+        log_info("Monkey-patching PEFT mapping for ZImageTransformer2DModel")
+        _SET_ADAPTER_SCALE_FN_MAPPING["ZImageTransformer2DModel"] = lambda model_cls, weights: weights
 
     # Enable INT8 MatMul for AMD, Intel ARC and Nvidia GPUs:
     if triton_is_available and (torch.cuda.is_available() or torch.xpu.is_available()):
@@ -154,27 +168,59 @@ def generate_image(
     height: int,
     seed: int = None,
     precision: str = "q4",
-    lora_path: str = None,
-    lora_strength: float = 1.0,
+    loras: list[tuple[str, float]] = None,
 ):
     pipe = load_pipeline(precision=precision)
     
     log_info(f"generating image for prompt: {prompt!r}")
-    if lora_path:
-        log_info(f"using LoRA: {lora_path} (strength={lora_strength})")
+    
+    if loras:
+        log_info(f"using LoRAs: {loras}")
 
     print(
         f"DEBUG: steps={steps}, width={width}, "
         f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}, "
-        f"lora={lora_path}, strength={lora_strength}"
+        f"loras={loras}"
     )
 
-    if lora_path:
+    active_adapters = []
+    adapter_weights = []
+
+    if loras:
         try:
-            # load_lora_weights can take a path to a file or a directory
-            pipe.load_lora_weights(lora_path, adapter_name="default")
+            for i, (path, strength) in enumerate(loras):
+                adapter_name = f"lora_{i}"
+                
+                # Load raw state dict
+                state_dict = load_file(path)
+                
+                # Remap keys: diffusion_model -> transformer
+                new_state_dict = {}
+                for key, value in state_dict.items():
+                    if key.startswith("diffusion_model."):
+                        new_key = key.replace("diffusion_model.", "transformer.")
+                    else:
+                        new_key = key
+                    new_state_dict[new_key] = value
+                
+                # DEBUG: Inspect keys
+                print("DEBUG: LoRA keys (first 5):", list(new_state_dict.keys())[:5])
+                # Filter to see structure
+                transformer_keys = list(pipe.transformer.state_dict().keys())
+                print("DEBUG: Transformer keys (first 5):", transformer_keys[:5])
+                print("DEBUG: Transformer keys (filtered 'weight' subset):", [k for k in transformer_keys if "weight" in k][:20])
+
+                pipe.load_lora_weights(new_state_dict, adapter_name=adapter_name)
+                active_adapters.append(adapter_name)
+                adapter_weights.append(strength)
+            
+            if active_adapters:
+                pipe.set_adapters(active_adapters, adapter_weights=adapter_weights)
+
         except Exception as e:
-            log_warn(f"Failed to load LoRA weights from {lora_path}: {e}")
+            log_warn(f"Failed to load LoRA weights: {e}")
+            traceback.print_exc()
+            # Clean up any loaded adapters if possible, though finally block should handle it
             raise e
 
     generator = None
@@ -191,16 +237,13 @@ def generate_image(
         "generator": generator,
     }
 
-    if lora_path:
-        gen_kwargs["cross_attention_kwargs"] = {"scale": lora_strength}
-
     try:
         with torch.inference_mode():
             image = pipe(**gen_kwargs).images[0]
         
         return image
     finally:
-        if lora_path:
+        if loras:
             try:
                 log_info("unloading LoRA weights")
                 pipe.unload_lora_weights()

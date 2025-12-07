@@ -96,24 +96,40 @@ def run_generation(args):
 
     print(f"DEBUG: final output path will be: {output_path.resolve()}")
 
-    # Resolve LoRA Path
-    lora_path = None
+    # Resolve LoRA Paths
+    loras = []
     if args.lora:
-        # 1. Check if it's a direct file path
-        p = Path(args.lora)
-        if p.exists() and p.is_file():
-             lora_path = str(p.resolve())
-        else:
-            # 2. Check if it's a filename in loras/ directory
-            loras_dir = Path("loras")
-            p_local = loras_dir / args.lora
-            if p_local.exists() and p_local.is_file():
-                lora_path = str(p_local.resolve())
+        loras_dir = Path("loras")
+        for lora_str in args.lora:
+            # Parse "filename:strength" or "path:strength" or just "filename"
+            parts = lora_str.rsplit(':', 1)
+            strength = 1.0
+            
+            # Basic check if the last part is a float
+            if len(parts) == 2:
+                try:
+                    strength = float(parts[1])
+                    lora_input = parts[0]
+                except ValueError:
+                    # Maybe filename includes colon? assume entire string is filename
+                    lora_input = lora_str
             else:
-                # 3. Check DB for display name match? For now, just warn and fail
-                 log_error(f"LoRA file not found: {args.lora}")
-                 log_info(f"Searched: {p.resolve()} and {p_local.resolve()}")
-                 return
+                lora_input = lora_str
+
+            # Resolve file
+            lora_path = None
+            p = Path(lora_input)
+            if p.exists() and p.is_file():
+                 lora_path = str(p.resolve())
+            else:
+                p_local = loras_dir / lora_input
+                if p_local.exists() and p_local.is_file():
+                    lora_path = str(p_local.resolve())
+                else:
+                     log_error(f"LoRA file not found: {lora_input}")
+                     continue # Skip invalid ones
+            
+            loras.append((lora_path, strength))
 
     # Generate image with strong logging & error handling
     try:
@@ -124,8 +140,7 @@ def run_generation(args):
             height=args.height,
             seed=args.seed,
             precision=args.precision,
-            lora_path=lora_path,
-            lora_strength=args.lora_strength
+            loras=loras
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(output_path)
@@ -166,8 +181,7 @@ def main():
     parser_gen.add_argument("--height", "-H", type=int, default=720, help="Image height (must be multiple of 16), default 720")
     parser_gen.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     parser_gen.add_argument("--precision", type=str, default="q8", choices=["full", "q8", "q4"], help="Model precision (full, q8, q4), default q8")
-    parser_gen.add_argument("--lora", type=str, default=None, help="LoRA filename (in loras/ folder) or full path to .safetensors file")
-    parser_gen.add_argument("--lora-strength", type=float, default=1.0, help="Strength of LoRA application (0.0 - 1.0+)")
+    parser_gen.add_argument("--lora", action='append', default=[], help="LoRA filename or path, optionally with strength (e.g. 'pixel.safetensors:0.8'). Can be used multiple times.")
     parser_gen.set_defaults(func=run_generation)
 
     # Subcommand: serve

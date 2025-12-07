@@ -83,6 +83,10 @@ def cleanup_gpu():
     if torch.backends.mps.is_available():
         torch.mps.empty_cache()
 
+class LoraInput(BaseModel):
+    filename: str
+    strength: float = 1.0
+
 class GenerateRequest(BaseModel):
     prompt: str
     steps: int = 9
@@ -90,8 +94,7 @@ class GenerateRequest(BaseModel):
     height: int = 720
     seed: int = None
     precision: str = "q8"
-    lora_filename: Optional[str] = None
-    lora_strength: float = 1.0
+    loras: List[LoraInput] = []
 
 class GenerateResponse(BaseModel):
     id: int
@@ -103,8 +106,7 @@ class GenerateResponse(BaseModel):
     seed: int = None
     precision: str
     model_id: str
-    lora_filename: Optional[str] = None
-    lora_strength: float = 0.0
+    loras: List[LoraInput] = []
 
 @app.get("/models")
 async def get_models():
@@ -210,22 +212,25 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         width = max(16, width)
         height = max(16, height)
         
-        # Resolve LoRA
-        lora_path_str = None
-        lora_file_id = None
-        
-        if req.lora_filename:
+        # Validate LoRAs
+        if len(req.loras) > 4:
+             return JSONResponse(status_code=400, content={"error": "Maximum 4 LoRAs allowed."})
+
+        resolved_loras = [] # List of (path, strength) for engine
+        db_loras = [] # List of {id, strength} for DB
+
+        for lora_input in req.loras:
             # Check if it exists in DB/disk
-            lora_info = db.get_lora_by_filename(req.lora_filename)
+            lora_info = db.get_lora_by_filename(lora_input.filename)
             if not lora_info:
-                 return JSONResponse(status_code=400, content={"error": f"LoRA '{req.lora_filename}' not found"})
+                 return JSONResponse(status_code=400, content={"error": f"LoRA '{lora_input.filename}' not found"})
             
-            lora_file_id = lora_info['id']
-            lora_full_path = LORAS_DIR / req.lora_filename
+            lora_full_path = LORAS_DIR / lora_input.filename
             if not lora_full_path.exists():
-                return JSONResponse(status_code=500, content={"error": f"LoRA file missing on disk: {req.lora_filename}"})
+                return JSONResponse(status_code=500, content={"error": f"LoRA file missing on disk: {lora_input.filename}"})
             
-            lora_path_str = str(lora_full_path.resolve())
+            resolved_loras.append((str(lora_full_path.resolve()), lora_input.strength))
+            db_loras.append({"id": lora_info['id'], "strength": lora_input.strength})
 
         start_time = time.time()
         
@@ -238,8 +243,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             height=height,
             seed=req.seed,
             precision=req.precision,
-            lora_path=lora_path_str,
-            lora_strength=req.lora_strength
+            loras=resolved_loras
         )
         
         # Save file
@@ -277,8 +281,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             seed=req.seed,
             status="succeeded",
             precision=req.precision,
-            lora_file_id=lora_file_id,
-            lora_strength=req.lora_strength if lora_file_id else 0.0
+            loras=db_loras
         )
         
         # Schedule cleanup to run AFTER the response is sent
@@ -294,8 +297,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             "seed": req.seed,
             "precision": req.precision,
             "model_id": model_id,
-            "lora_filename": req.lora_filename,
-            "lora_strength": req.lora_strength if req.lora_filename else 0.0
+            "loras": req.loras
         }
     except Exception as e:
         print(f"Error generating image: {e}")
