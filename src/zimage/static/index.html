@@ -97,21 +97,21 @@
                                 </div>
                             </div>
                             
-                                                        <div class="mb-2">
-                                                            <label class="form-label" data-i18n="seed_label">Seed</label>
-                                                            <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
-                                                                <div class="form-check">
-                                                                    <input class="form-check-input " type="radio" name="seedMode" id="seedRandom" value="random" checked>
-                                                                    <label class="form-check-label ms-1 me-2" for="seedRandom" data-i18n="seed_random">Random</label>
-                                                                </div>
-                                                                <div class="form-check d-flex align-items-center">
-                                                                    <input class="form-check-input" type="radio" name="seedMode" id="seedFixed" value="fixed">
-                                                                    <label class="form-check-label ms-1 me-2" for="seedFixed" data-i18n="seed_fixed">Fixed</label>
-                                                                    <input type="number" class="form-control" id="seedInput" placeholder="Enter seed..." disabled style="width: 136px;">
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        
+                            <div class="mb-2">
+                                <label class="form-label" data-i18n="seed_label">Seed</label>
+                                <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input " type="radio" name="seedMode" id="seedRandom" value="random" checked>
+                                        <label class="form-check-label ms-1 me-2" for="seedRandom" data-i18n="seed_random">Random</label>
+                                    </div>
+                                    <div class="form-check d-flex align-items-center">
+                                        <input class="form-check-input" type="radio" name="seedMode" id="seedFixed" value="fixed">
+                                        <label class="form-check-label ms-1 me-2" for="seedFixed" data-i18n="seed_fixed">Fixed</label>
+                                        <input type="number" class="form-control" id="seedInput" placeholder="Enter seed..." disabled style="width: 136px;">
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="mb-3">
                                 <label class="form-label" data-i18n="precision_label">Model Precision</label>
                                 <div class="dropdown">
@@ -125,13 +125,76 @@
                                 </div>
                             </div>
 
-                                                        <div class="mb-2">
-                                                            <label for="steps" class="form-label">                                    <span data-i18n="steps_label">Steps</span>: <span id="stepsVal">9</span>
+                            <div class="mb-2">
+                                <label for="steps" class="form-label">
+                                    <span data-i18n="steps_label">Steps</span>: <span id="stepsVal">9</span>
                                     <span class="d-inline-block ms-2 tooltip-icon" tabindex="0" data-bs-toggle="tooltip" data-bs-placement="top" data-i18n-title="steps_tooltip">
                                         <i class="bi bi-question-circle"></i>
                                     </span>
                                 </label>
                                 <input type="range" class="form-range" id="steps" min="1" max="50" value="9">
+                            </div>
+
+                            <!-- LoRA Controls -->
+                            <div class="mb-3 border p-2 rounded bg-light">
+                                <div class="d-flex align-items-center gap-2 mb-2 cursor-pointer" data-bs-toggle="collapse" data-bs-target="#loraControls" aria-expanded="true">
+                                    <label class="form-label fw-bold mb-0" data-i18n="lora_label">LoRA Models</label>
+                                    <span class="badge bg-secondary rounded-pill ms-auto" id="loraCountBadge">0/4</span>
+                                    <i class="bi bi-chevron-down text-muted" style="font-size: 0.9em;"></i>
+                                </div>
+                                
+                                <div class="collapse show" id="loraControls">
+                                    <!-- Active LoRA List -->
+                                    <div id="activeLoraList" class="d-flex flex-column gap-2 mb-3"></div>
+
+                                    <!-- Add LoRA Area -->
+                                    <div id="addLoraContainer" class="border-top pt-2">
+                                        <div class="d-flex justify-content-between align-items-center mb-2" id="toggleAddLoraBtn">
+                                            <small class="text-primary fw-bold"><i class="bi bi-plus-circle me-1"></i><span data-i18n="add_lora_btn">Add LoRA</span></small>
+                                        </div>
+                                        
+                                        <div id="addLoraForm">
+                                            <div class="position-relative rounded" id="loraDropZone">
+                                                <!-- Drop Overlay -->
+                                                <div id="loraDropOverlay" class="position-absolute top-0 start-0 w-100 h-100 bg-white bg-opacity-90 border border-primary border-3 d-flex align-items-center justify-content-center rounded d-none" style="z-index: 10; border-style: dashed !important; pointer-events: none;">
+                                                    <span class="text-primary fw-bold"><i class="bi bi-cloud-upload-fill me-2"></i>Drop .safetensors</span>
+                                                </div>
+
+                                                <div class="d-flex gap-2 mb-2">
+                                                    <button type="button" class="btn btn-outline-primary flex-grow-1" id="openLoraModalBtn">
+                                                        <i class="bi bi-search me-1"></i> <span data-i18n="select_lora_btn">Select LoRA...</span>
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary" type="button" id="uploadLoraBtn" title="Upload" data-bs-toggle="tooltip" data-i18n-title="lora_upload_tooltip">
+                                                        <i class="bi bi-upload"></i>
+                                                        <input type="file" id="loraFileInput" accept=".safetensors" style="display: none;">
+                                                    </button>
+                                                </div>
+                                                
+                                                <div id="uploadProgressContainer" class="progress d-none mb-2" style="height: 3px;">
+                                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Selected LoRA Preview (Temporary before adding) -->
+                                            <div id="pendingLoraDisplay" class="d-none alert alert-secondary py-1 px-2 mb-2 d-flex justify-content-between align-items-center">
+                                                <small class="text-truncate fw-bold" id="pendingLoraName"></small>
+                                                <button type="button" class="btn-close btn-sm small" aria-label="Close" id="clearPendingLoraBtn"></button>
+                                            </div>
+
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between">
+                                                    <label for="newLoraStrength" class="form-label small text-muted mb-0" data-i18n="lora_strength_label">Strength</label>
+                                                    <span class="small text-muted" id="newLoraStrengthVal">1.0</span>
+                                                </div>
+                                                <input type="range" class="form-range" id="newLoraStrength" min="0" max="2.0" step="0.05" value="1.0">
+                                            </div>
+
+                                            <button type="button" class="btn btn-sm btn-primary w-100" id="confirmAddLoraBtn" disabled>
+                                                <i class="bi bi-plus-lg"></i> <span data-i18n="add_btn">Add</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="generateBtn" data-i18n="generate_btn">
@@ -170,6 +233,8 @@
                                     <span id="metaPrecision"></span>
                                     <span class="mx-2">|</span>
                                     <span id="metaSteps"></span>
+                                    <span class="mx-2">|</span>
+                                    <span id="metaLoras"></span>
                                 </div>
                                 <a href="#" id="downloadBtn" class="btn btn-success" download data-i18n="download_btn">Download</a>
                             </div>
@@ -208,6 +273,27 @@
                         <i class="bi bi-x-lg"></i>
                     </button>
                     <img id="modalImage" src="" alt="Generated Image Preview" class="modal-image-full">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LoRA Selection Modal -->
+    <div class="modal fade" id="loraSelectionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="select_lora_title">Select LoRA</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-3" id="loraSearchInput" placeholder="Search..." data-i18n-placeholder="search_placeholder">
+                    <div id="loraListGroup" class="list-group">
+                        <!-- LoRA items injected here -->
+                    </div>
+                    <div id="loraLoading" class="text-center p-3 d-none">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    </div>
                 </div>
             </div>
         </div>
