@@ -5,6 +5,16 @@
 - Translations are loaded via `js/i18n-loader.js` into `window.translations` and consumed by `js/main.js`; add new locales by dropping JSON files in `i18n/`.
 - Theme/helpers live in `js/theme.js` and `js/utils.js`; main app logic is in `js/main.js`.
 
+## Development Guidelines
+
+### Repository, Issues, and Merge Requests
+The remote repository not only hosts source code, but also provides features such as issue tracking, merge requests/pull requests management etc. You should use mcp server to access issues, managing merge requests/pull requests.
+
+### Development
+
+Use context7 for the most up-to-date documentation of the specific version of related frameworks and libraries.  
+
+Add necessary docs in comments, for classes and methods please use comment blocks.
 
 ## Commit Message Policy
 

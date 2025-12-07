@@ -1,19 +1,24 @@
-(function loadTranslationsSync() {
+async function loadTranslations() {
     const langs = ['en', 'zh', 'ja'];
-    const translations = {};
-    langs.forEach((lang) => {
-        try {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', `i18n/${lang}.json`, false);
-            xhr.send(null);
-            if (xhr.status >= 200 && xhr.status < 300) {
-                translations[lang] = JSON.parse(xhr.responseText);
-            } else {
-                console.error('Failed to load translations', lang, xhr.status);
-            }
-        } catch (err) {
-            console.error('Error loading translations', lang, err);
-        }
-    });
-    window.translations = translations;
-})();
+    window.translations = {};
+
+    const promises = langs.map(lang => 
+        fetch(`i18n/${lang}.json`)
+            .then(res => {
+                if (!res.ok) throw new Error(`Failed to load ${lang}`);
+                return res.json();
+            })
+            .then(data => {
+                window.translations[lang] = data;
+            })
+            .catch(err => {
+                console.warn(`Translation missing for ${lang}`, err);
+                window.translations[lang] = {}; 
+            })
+    );
+
+    await Promise.all(promises);
+}
+
+// Expose promise for main.js to wait on
+window.translationLoader = loadTranslations();
