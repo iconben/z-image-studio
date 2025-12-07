@@ -10,11 +10,6 @@ YELLOW = "\033[93m"
 RED = "\033[91m"
 RESET = "\033[0m"
 
-# Directory Configuration
-# Reverted to hardcoded relative paths
-OUTPUTS_DIR = Path("outputs")
-LORAS_DIR = Path("loras")
-
 def log_info(message: str):
     print(f"{GREEN}INFO{RESET}: {message}")
 
@@ -29,6 +24,7 @@ try:
     from .hardware import get_available_models
     from . import db
     from . import migrations
+    from .paths import get_outputs_dir, get_loras_dir
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
@@ -36,6 +32,11 @@ except ImportError:
     from hardware import get_available_models
     import db
     import migrations
+    from paths import get_outputs_dir, get_loras_dir
+
+# Directory Configuration
+OUTPUTS_DIR = get_outputs_dir()
+LORAS_DIR = get_loras_dir()
 
 def run_models(args):
     models_response = get_available_models()

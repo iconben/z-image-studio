@@ -57,6 +57,22 @@ uv tool upgrade z-image-studio
 # git pull
 ```
 
+## Data Directory
+
+By default, Z-Image Studio stores generated images, LoRAs, and the database in your system's user data directory (e.g., `~/.local/share/z-image-studio` on Linux, `~/Library/Application Support/z-image-studio` on macOS).
+
+You can override this location by setting the `ZIMAGE_DATA_DIR` environment variable:
+
+```bash
+export ZIMAGE_DATA_DIR=./my-data
+zimg gen "A prompt"
+```
+
+The directory structure is:
+*   `outputs/`: Generated images
+*   `loras/`: LoRA models
+*   `zimage.db`: SQLite database
+
 ## Usage
 
 After installation, you can use the `zimg` command directly from your terminal.
@@ -103,7 +119,7 @@ Once started, open your browser to the displayed URL.
 | Argument | Short | Type | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `prompt` | | `str` | Required | The text prompt for image generation. |
-| `--output` | `-o` | `str` | `None` | Custom output filename. Defaults to `outputs/<prompt-slug>.png`. |
+| `--output` | `-o` | `str` | `None` | Custom output filename. Defaults to `outputs/<prompt-slug>.png` inside the data directory. |
 | `--steps` | | `int` | `9` | Number of inference steps. Higher usually means better quality. |
 | `--width` | `-w` | `int` | `1280` | Image width (automatically adjusted to be a multiple of 8). |
 | `--height` | `-H` | `int` | `720` | Image height (automatically adjusted to be a multiple of 8). |
