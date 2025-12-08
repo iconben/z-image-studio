@@ -61,15 +61,22 @@ uv tool upgrade z-image-studio
 
 By default, Z-Image Studio uses the following directories:
 
-*   **Data Directory** (Database, LoRAs, Models): `~/.local/share/z-image-studio` (Linux), `~/Library/Application Support/z-image-studio` (macOS), or `%LOCALAPPDATA%\z-image-studio` (Windows).
-    *   Override with `ZIMAGE_DATA_DIR`.
-*   **Output Directory** (Generated Images): `~/.z-image-studio` (Linux/macOS/Windows).
-    *   Override with `ZIMAGE_OUTPUT_DIR`.
+*   **Data Directory** (Database, LoRAs): `~/.local/share/z-image-studio` (Linux), `~/Library/Application Support/z-image-studio` (macOS), or `%LOCALAPPDATA%\z-image-studio` (Windows).
+*   **Output Directory** (Generated Images): `<Data Directory>/outputs` by default. 
 
-Directory structure inside Data Directory:
-*   `loras/`: LoRA models
-*   `models/`: Cached models (Z-Image-Turbo)
+### Configure the directory
+*   **Config File**: `~/.z-image-studio/config.json` (created on first run after migration).
+    *   Override the data directory with `Z_IMAGE_STUDIO_DATA_DIR`.
+    *   If you want the output directory sit in another location instead of the data directory, you can override it with `Z_IMAGE_STUDIO_OUTPUT_DIR`.
+
+Directory structure inside Data Directory by default:
 *   `zimage.db`: SQLite database
+*   `loras/`: LoRA models
+*   `outputs/`: Generated image files
+
+### One-time Migration (automatic)
+On first run without an existing config file, the app migrates legacy data by moving:
+*   `outputs/`, `loras/`, and `zimage.db` from the current working directory (old layout) into the new locations.
 
 ## Usage
 
@@ -186,6 +193,10 @@ Once started, open your browser to the displayed URL.
     ```
     After this, the `zimg` command is available **inside this virtual environment**:
 
+### Optional: Override the folder settings with environment variables
+    If you do not want your development data mess up your production data,  
+    You can define environment variable Z_IMAGE_STUDIO_DATA_DIR to change the data folder for
+    You can also define environment variable Z_IMAGE_STUDIO_OUTPUT_DIR to change the output folder to another separate folder
 ## Notes
 
 *   **Guidance Scale**: The script hardcodes `guidance_scale=0.0` as required by the Turbo model distillation process.

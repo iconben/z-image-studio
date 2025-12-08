@@ -27,7 +27,6 @@ try:
         get_ram_gb,
         detect_device,
     )
-    from .paths import get_models_dir
 except ImportError:
     from hardware import (
         PrecisionId,
@@ -37,7 +36,6 @@ except ImportError:
         get_ram_gb,
         detect_device,
     )
-    from paths import get_models_dir
 
 # ANSI escape codes for colors
 GREEN = "\033[92m"
@@ -127,7 +125,6 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         model_id,
         torch_dtype=torch_dtype,
         low_cpu_mem_usage=low_cpu_mem_usage,
-        cache_dir=str(get_models_dir()),
     )
     pipe = pipe.to(device)
     

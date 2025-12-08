@@ -2,7 +2,6 @@ import argparse
 import sys
 from pathlib import Path
 import traceback
-# Removed: import os # Import os for environment variables
 
 # ANSI escape codes for colors
 GREEN = "\033[92m"
@@ -24,7 +23,12 @@ try:
     from .hardware import get_available_models
     from . import db
     from . import migrations
-    from .paths import get_outputs_dir, get_loras_dir
+    from .paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
@@ -32,9 +36,15 @@ except ImportError:
     from hardware import get_available_models
     import db
     import migrations
-    from paths import get_outputs_dir, get_loras_dir, get_data_dir
+    from paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
 
 # Directory Configuration
+ensure_initial_setup()
 OUTPUTS_DIR = get_outputs_dir()
 LORAS_DIR = get_loras_dir()
 
@@ -158,9 +168,6 @@ def run_server(args):
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def main():
-    log_info(f"Data Directory: {get_data_dir()}")
-    log_info(f"Outputs Directory: {get_outputs_dir()}")
-
     # Ensure DB is initialized
     migrations.init_db()
 

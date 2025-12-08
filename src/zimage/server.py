@@ -18,18 +18,40 @@ try:
     from .hardware import get_available_models, MODEL_ID_MAP
     from . import db
     from . import migrations
-    from .paths import get_outputs_dir, get_loras_dir, get_data_dir
+    from .paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
 except ImportError:
     from engine import generate_image
     from hardware import get_available_models, MODEL_ID_MAP
     import db
     import migrations
-    from paths import get_outputs_dir, get_loras_dir, get_data_dir
+    from paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
+
+# ANSI escape codes for colors
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RESET = "\033[0m"
+
+def log_info(message: str):
+    print(f"{GREEN}INFO{RESET}: {message}")
+
+def log_warn(message: str):
+    print(f"{YELLOW}WARN{RESET}: {message}")
 
 # Constants
 MAX_LORA_FILE_SIZE = 1 * 1024 * 1024 * 1024 # 1 GB
 
 # Directory Configuration
+ensure_initial_setup()
 OUTPUTS_DIR = get_outputs_dir()
 LORAS_DIR = get_loras_dir()
 
@@ -40,8 +62,8 @@ migrations.init_db()
 
 @app.on_event("startup")
 async def startup_event():
-    print(f"INFO: Data Directory: {get_data_dir()}")
-    print(f"INFO: Outputs Directory: {get_outputs_dir()}")
+    log_info(f"\t  Data Directory: {get_data_dir()}")
+    log_info(f"\t  Outputs Directory: {get_outputs_dir()}")
 
 # Dedicated worker thread for MPS/GPU operations
 # MPS on macOS is thread-sensitive. Accessing the model from multiple threads
