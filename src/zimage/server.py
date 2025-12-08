@@ -41,6 +41,7 @@ migrations.init_db()
 @app.on_event("startup")
 async def startup_event():
     print(f"INFO: Data Directory: {get_data_dir()}")
+    print(f"INFO: Outputs Directory: {get_outputs_dir()}")
 
 # Dedicated worker thread for MPS/GPU operations
 # MPS on macOS is thread-sensitive. Accessing the model from multiple threads

@@ -57,20 +57,18 @@ uv tool upgrade z-image-studio
 # git pull
 ```
 
-## Data Directory
+## Data Directory and Configuration
 
-By default, Z-Image Studio stores generated images, LoRAs, and the database in your system's user data directory (e.g., `~/.local/share/.z-image-studio` on Linux, `~/Library/Application Support/.z-image-studio` on macOS).
+By default, Z-Image Studio uses the following directories:
 
-You can override this location by setting the `ZIMAGE_DATA_DIR` environment variable:
+*   **Data Directory** (Database, LoRAs, Models): `~/.local/share/z-image-studio` (Linux), `~/Library/Application Support/z-image-studio` (macOS), or `%LOCALAPPDATA%\z-image-studio` (Windows).
+    *   Override with `ZIMAGE_DATA_DIR`.
+*   **Output Directory** (Generated Images): `~/.z-image-studio` (Linux/macOS/Windows).
+    *   Override with `ZIMAGE_OUTPUT_DIR`.
 
-```bash
-export ZIMAGE_DATA_DIR=./my-data
-zimg gen "A prompt"
-```
-
-The directory structure is:
-*   `outputs/`: Generated images
+Directory structure inside Data Directory:
 *   `loras/`: LoRA models
+*   `models/`: Cached models (Z-Image-Turbo)
 *   `zimage.db`: SQLite database
 
 ## Usage

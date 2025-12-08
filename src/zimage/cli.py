@@ -159,6 +159,7 @@ def run_server(args):
 
 def main():
     log_info(f"Data Directory: {get_data_dir()}")
+    log_info(f"Outputs Directory: {get_outputs_dir()}")
 
     # Ensure DB is initialized
     migrations.init_db()
