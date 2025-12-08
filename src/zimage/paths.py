@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 import platformdirs
 
+APP_NAME = "z-image-studio"
+
 def get_data_dir() -> Path:
     """
     Returns the main data directory for the application.
@@ -13,7 +15,8 @@ def get_data_dir() -> Path:
     if env_path:
         path = Path(env_path).expanduser().resolve()
     else:
-        path = Path(platformdirs.user_data_dir(appname="z-image-studio", appauthor=False))
+        # Use a dot-prefixed directory for hidden/config style storage
+        path = Path(platformdirs.user_data_dir(appname=f".{APP_NAME}", appauthor=False))
 
     path.mkdir(parents=True, exist_ok=True)
     return path
