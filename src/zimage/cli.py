@@ -2,18 +2,12 @@ import argparse
 import sys
 from pathlib import Path
 import traceback
-# Removed: import os # Import os for environment variables
 
 # ANSI escape codes for colors
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
 RESET = "\033[0m"
-
-# Directory Configuration
-# Reverted to hardcoded relative paths
-OUTPUTS_DIR = Path("outputs")
-LORAS_DIR = Path("loras")
 
 def log_info(message: str):
     print(f"{GREEN}INFO{RESET}: {message}")
@@ -29,6 +23,12 @@ try:
     from .hardware import get_available_models
     from . import db
     from . import migrations
+    from .paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
@@ -36,6 +36,17 @@ except ImportError:
     from hardware import get_available_models
     import db
     import migrations
+    from paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
+
+# Directory Configuration
+ensure_initial_setup()
+OUTPUTS_DIR = get_outputs_dir()
+LORAS_DIR = get_loras_dir()
 
 def run_models(args):
     models_response = get_available_models()

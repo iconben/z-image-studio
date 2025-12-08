@@ -18,30 +18,52 @@ try:
     from .hardware import get_available_models, MODEL_ID_MAP
     from . import db
     from . import migrations
+    from .paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
 except ImportError:
     from engine import generate_image
     from hardware import get_available_models, MODEL_ID_MAP
     import db
     import migrations
+    from paths import (
+        ensure_initial_setup,
+        get_data_dir,
+        get_loras_dir,
+        get_outputs_dir,
+    )
+
+# ANSI escape codes for colors
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RESET = "\033[0m"
+
+def log_info(message: str):
+    print(f"{GREEN}INFO{RESET}: {message}")
+
+def log_warn(message: str):
+    print(f"{YELLOW}WARN{RESET}: {message}")
 
 # Constants
 MAX_LORA_FILE_SIZE = 1 * 1024 * 1024 * 1024 # 1 GB
 
 # Directory Configuration
-# Reverted to hardcoded relative paths
-OUTPUTS_DIR = Path("outputs")
-LORAS_DIR = Path("loras")
+ensure_initial_setup()
+OUTPUTS_DIR = get_outputs_dir()
+LORAS_DIR = get_loras_dir()
 
 app = FastAPI()
 
 # Initialize Database Schema
 migrations.init_db()
 
-# Ensure outputs directory exists
-OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-
-# Ensure LoRAs directory exists
-LORAS_DIR.mkdir(parents=True, exist_ok=True)
+@app.on_event("startup")
+async def startup_event():
+    log_info(f"\t  Data Directory: {get_data_dir()}")
+    log_info(f"\t  Outputs Directory: {get_outputs_dir()}")
 
 # Dedicated worker thread for MPS/GPU operations
 # MPS on macOS is thread-sensitive. Accessing the model from multiple threads
@@ -244,11 +266,6 @@ async def upload_lora(
 @app.delete("/loras/{lora_id}")
 async def delete_lora(lora_id: int):
     """Delete a LoRA file and record."""
-    conn = sqlite3.connect(db.DB_PATH)
-
-@app.delete("/loras/{lora_id}")
-async def delete_lora(lora_id: int):
-    """Delete a LoRA file and record."""
     conn = db._get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT filename FROM lora_files WHERE id = ?", (lora_id,))
@@ -417,7 +434,7 @@ async def delete_history_item(item_id: int):
     return {"message": "History item and associated file deleted successfully"}
 
 # Serve generated images
-app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+app.mount("/outputs", StaticFiles(directory=OUTPUTS_DIR), name="outputs")
 
 # Serve frontend
 # Use absolute path for package-internal static files

@@ -3,7 +3,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-DB_PATH = Path("zimage.db")
+try:
+    from .paths import get_db_path
+except ImportError:
+    from paths import get_db_path
+
+DB_PATH = get_db_path()
 
 def _get_db_connection():
     conn = sqlite3.connect(DB_PATH)
