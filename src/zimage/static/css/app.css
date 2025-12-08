@@ -44,6 +44,10 @@ body { background-color: #f8f9fa; }
             position: relative;
             text-align: center;
         }
+        .modal-image-wrapper {
+            position: relative;
+            display: inline-block;
+        }
         .modal-image-full {
             max-height: 90vh;
             max-width: 100%;
