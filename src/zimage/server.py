@@ -18,13 +18,13 @@ try:
     from .hardware import get_available_models, MODEL_ID_MAP
     from . import db
     from . import migrations
-    from .paths import get_outputs_dir, get_loras_dir
+    from .paths import get_outputs_dir, get_loras_dir, get_data_dir
 except ImportError:
     from engine import generate_image
     from hardware import get_available_models, MODEL_ID_MAP
     import db
     import migrations
-    from paths import get_outputs_dir, get_loras_dir
+    from paths import get_outputs_dir, get_loras_dir, get_data_dir
 
 # Constants
 MAX_LORA_FILE_SIZE = 1 * 1024 * 1024 * 1024 # 1 GB
@@ -37,6 +37,10 @@ app = FastAPI()
 
 # Initialize Database Schema
 migrations.init_db()
+
+@app.on_event("startup")
+async def startup_event():
+    print(f"INFO: Data Directory: {get_data_dir()}")
 
 # Dedicated worker thread for MPS/GPU operations
 # MPS on macOS is thread-sensitive. Accessing the model from multiple threads

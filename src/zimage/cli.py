@@ -32,7 +32,7 @@ except ImportError:
     from hardware import get_available_models
     import db
     import migrations
-    from paths import get_outputs_dir, get_loras_dir
+    from paths import get_outputs_dir, get_loras_dir, get_data_dir
 
 # Directory Configuration
 OUTPUTS_DIR = get_outputs_dir()
@@ -158,6 +158,8 @@ def run_server(args):
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def main():
+    log_info(f"Data Directory: {get_data_dir()}")
+
     # Ensure DB is initialized
     migrations.init_db()
 
