@@ -20,7 +20,6 @@ except ImportError:
     from logger import get_logger, setup_logging
 
 # Ensure logging is set up to write to stderr
-setup_logging()
 logger = get_logger("zimage.mcp")
 
 # Initialize DB if not already (it handles if exists)
@@ -169,6 +168,7 @@ async def list_history(limit: int = 10, offset: int = 0) -> str:
     return "\n".join(lines)
 
 def run(transport: Literal["stdio", "sse"] = "stdio", host: str = "0.0.0.0", port: int = 8000):
+    setup_logging()
     if transport == "stdio":
         mcp.run(transport="stdio")
     elif transport == "sse":

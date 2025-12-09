@@ -9,6 +9,12 @@ def setup_logging():
         return
 
     # Configure root logger to write to stderr
+    # basicConfig is idempotent if handlers exist, unless force=True
+    # We want to ensure stderr logging for our app.
+    # Check if handlers already exist to avoid overriding if embedded
+    if logging.root.handlers:
+        return
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(levelname)s: %(message)s",
@@ -17,6 +23,5 @@ def setup_logging():
     _setup_done = True
 
 def get_logger(name: str):
-    if not _setup_done:
-        setup_logging()
+    # Do not auto-setup logging to allow embedding
     return logging.getLogger(name)

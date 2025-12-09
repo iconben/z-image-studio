@@ -23,7 +23,7 @@ def worker_loop():
                     loop.call_soon_threadsafe(future.set_result, result)
         except Exception as e:
             if future and loop:
-                 if not loop.is_closed():
+                if not loop.is_closed():
                     loop.call_soon_threadsafe(future.set_exception, e)
         finally:
             job_queue.task_done()

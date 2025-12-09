@@ -41,7 +41,6 @@ ensure_initial_setup()
 OUTPUTS_DIR = get_outputs_dir()
 LORAS_DIR = get_loras_dir()
 
-setup_logging()
 logger = get_logger("zimage.cli")
 
 def log_info(message: str):
@@ -177,6 +176,7 @@ def run_mcp(args):
     run(transport=args.transport, host=args.host, port=args.port)
 
 def main():
+    setup_logging()
     # Ensure DB is initialized
     migrations.init_db()
 
