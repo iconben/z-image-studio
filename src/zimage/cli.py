@@ -3,20 +3,11 @@ import sys
 from pathlib import Path
 import traceback
 
-# ANSI escape codes for colors
+# ANSI escape codes for colors (kept for stdout output in run_models)
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
 RESET = "\033[0m"
-
-def log_info(message: str):
-    print(f"{GREEN}INFO{RESET}: {message}")
-
-def log_warn(message: str):
-    print(f"{YELLOW}WARN{RESET}: {message}")
-
-def log_error(message: str):
-    print(f"{RED}ERROR{RESET}: {message}")
 
 try:
     from .engine import generate_image
@@ -29,6 +20,7 @@ try:
         get_loras_dir,
         get_outputs_dir,
     )
+    from .logger import get_logger, setup_logging
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
@@ -42,16 +34,29 @@ except ImportError:
         get_loras_dir,
         get_outputs_dir,
     )
+    from logger import get_logger, setup_logging
 
 # Directory Configuration
 ensure_initial_setup()
 OUTPUTS_DIR = get_outputs_dir()
 LORAS_DIR = get_loras_dir()
 
+setup_logging()
+logger = get_logger("zimage.cli")
+
+def log_info(message: str):
+    logger.info(message)
+
+def log_warn(message: str):
+    logger.warning(message)
+
+def log_error(message: str):
+    logger.error(message)
+
 def run_models(args):
     models_response = get_available_models()
     
-    # Print device info
+    # Print device info to stdout (CLI output)
     print(f"Device: {models_response['device'].upper()}")
     if models_response['ram_gb'] is not None:
         print(f"RAM: {models_response['ram_gb']:.1f} GB")
@@ -65,9 +70,6 @@ def run_models(args):
 
     for m in models_response['models']:
         rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
-        # The 'id' field is now 'full', 'q8', 'q4' again.
-        # The 'tasks' field is gone from ModelInfo.
-        # So we just print id, hf_model_id and recommendation.
         print(f"  * {m['id']} -> {m['hf_model_id']}{rec_str}")
 
 def run_list_loras(args):
@@ -82,7 +84,7 @@ def run_list_loras(args):
         print(f"  * {l['display_name']} (File: {l['filename']}, ID: {l['id']})")
 
 def run_generation(args):
-    print(f"DEBUG: cwd: {Path.cwd().resolve()}")
+    logger.info(f"DEBUG: cwd: {Path.cwd().resolve()}")
 
     # Ensure width/height are multiples of 16
     for name in ["width", "height"]:
@@ -111,7 +113,7 @@ def run_generation(args):
             # If user gives relative path, put it under outputs/ for clarity
             output_path = outputs_dir / output_path
 
-    print(f"DEBUG: final output path will be: {output_path.resolve()}")
+    logger.info(f"DEBUG: final output path will be: {output_path.resolve()}")
 
     # Resolve LoRA Paths
     loras = []
@@ -149,7 +151,7 @@ def run_generation(args):
 
     except Exception as e:
         log_error("exception during generation or saving:")
-        print(e)
+        logger.error(str(e))
         traceback.print_exc()
 
 
@@ -166,6 +168,13 @@ def run_server(args):
         app_str = "zimage.server:app"
 
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
+
+def run_mcp(args):
+    try:
+        from .mcp_server import run
+    except ImportError:
+        from mcp_server import run
+    run(transport=args.transport, host=args.host, port=args.port)
 
 def main():
     # Ensure DB is initialized
@@ -228,6 +237,13 @@ def main():
     # loras list
     parser_loras_list = loras_subparsers.add_parser("list", help="List available LoRAs")
     parser_loras_list.set_defaults(func=run_list_loras)
+
+    # Subcommand: mcp
+    parser_mcp = subparsers.add_parser("mcp", help="Start Z-Image MCP Server")
+    parser_mcp.add_argument("--transport", default="stdio", choices=["stdio", "sse"], help="Transport mode (default: stdio)")
+    parser_mcp.add_argument("--host", default="0.0.0.0", help="Host for SSE")
+    parser_mcp.add_argument("--port", type=int, default=8000, help="Port for SSE")
+    parser_mcp.set_defaults(func=run_mcp)
 
     args = parser.parse_args()
     if hasattr(args, "func"):

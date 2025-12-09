@@ -22,31 +22,30 @@ try:
     from .hardware import (
         PrecisionId,
         MODEL_ID_MAP,
-        get_available_models, # Not used in engine directly but might be imported from engine by others (backward compat? No, I will update callers)
+        get_available_models,
         should_enable_attention_slicing,
         get_ram_gb,
         detect_device,
     )
+    from .logger import get_logger
 except ImportError:
     from hardware import (
         PrecisionId,
         MODEL_ID_MAP,
-        get_available_models, # Not used in engine directly but might be imported from engine by others (backward compat? No, I will update callers)
+        get_available_models,
         should_enable_attention_slicing,
         get_ram_gb,
         detect_device,
     )
+    from logger import get_logger
 
-# ANSI escape codes for colors
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RESET = "\033[0m"
+logger = get_logger("zimage.engine")
 
 def log_info(message: str):
-    print(f"{GREEN}INFO{RESET}: {message}")
+    logger.info(message)
 
 def log_warn(message: str):
-    print(f"{YELLOW}WARN{RESET}: {message}")
+    logger.warning(message)
 
 warnings.filterwarnings(
     "ignore",
@@ -216,6 +215,10 @@ def generate_image(
             traceback.print_exc()
             # Clean up any loaded adapters if possible, though finally block should handle it
             raise e
+    log_info(
+        f"DEBUG: steps={steps}, width={width}, "
+        f"height={height}, guidance_scale=0.0, seed={seed}, precision={precision}"
+    )
 
     generator = None
     if seed is not None:
@@ -248,3 +251,11 @@ def generate_image(
         gc.collect()
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+
+def cleanup_memory():
+    import gc
+    gc.collect()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
