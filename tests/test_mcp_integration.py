@@ -1,5 +1,6 @@
 import unittest
 import subprocess
+from subprocess import TimeoutExpired
 import sys
 import json
 import os
@@ -7,10 +8,26 @@ from pathlib import Path
 
 class TestMCPIntegration(unittest.TestCase):
     def setUp(self):
-        # Path to cli.py
-        self.cli_path = Path("src/zimage/cli.py").resolve()
-        # We use 'uv run' to execute the CLI to ensure environment is set up
-        self.base_cmd = ["uv", "run", str(self.cli_path), "mcp", "--transport", "stdio"]
+        # Skip if heavy deps aren't available (these tests exercise real CLI/MCP)
+        try:
+            import diffusers  # noqa: F401
+        except ImportError:
+            self.skipTest("diffusers not installed; skipping MCP integration test")
+
+        self.repo_root = Path(__file__).resolve().parent.parent
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(self.repo_root / "src") + os.pathsep + env.get("PYTHONPATH", "")
+        self.env = env
+
+        # Use python -m to run module inside package context
+        self.base_cmd = [
+            sys.executable,
+            "-m",
+            "zimage.cli",
+            "mcp",
+            "--transport",
+            "stdio",
+        ]
 
     def run_process(self, input_str):
         process = subprocess.Popen(
@@ -19,10 +36,21 @@ class TestMCPIntegration(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=os.environ
+            env=self.env,
+            cwd=self.repo_root,
         )
 
-        stdout, stderr = process.communicate(input=input_str, timeout=60)
+        try:
+            stdout, stderr = process.communicate(input=input_str, timeout=20)
+        except TimeoutExpired:
+            # If the MCP server stays running after handling the request, terminate to avoid hanging tests
+            process.terminate()
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate(timeout=5)
+
         return stdout, stderr
 
     def test_initialize(self):
