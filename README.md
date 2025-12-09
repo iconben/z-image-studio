@@ -7,6 +7,7 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)
 ![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Diffusers-yellow)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-MPS-gray?logo=apple)
+[![Docs](https://img.shields.io/badge/docs-deepwiki.com-blue)](https://deepwiki.com/iconben/z-image-studio)
 
 A web application and a command-line interface for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo`).
 
