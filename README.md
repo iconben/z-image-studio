@@ -140,7 +140,7 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
    ```json
    {
      "mcpServers": {
-       "zimage": {
+       "z-image-studio": {
          "command": "zimg-mcp",
          "transport": "stdio",
          "args": []
@@ -153,7 +153,7 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
    ```json
    {
      "mcpServers": {
-       "zimage-sse": {
+       "z-image-studio": {
          "url": "http://localhost:8000/mcp",
          "transport": "sse"
        }

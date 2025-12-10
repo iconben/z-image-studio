@@ -85,7 +85,12 @@ async def generate(
         raise RuntimeError(f"Generation failed: {e}")
 
     # Save file
-    outputs_dir = Path("outputs")
+    # Use configured outputs directory (resolved in db/paths); default is user data dir
+    try:
+        from .paths import get_outputs_dir
+    except ImportError:
+        from paths import get_outputs_dir  # type: ignore
+    outputs_dir = Path(get_outputs_dir())
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
     safe_prompt = "".join(c for c in prompt[:30] if c.isalnum() or c in "-_")
