@@ -1,5 +1,5 @@
 async function loadTranslations() {
-    const langs = ['en', 'zh', 'ja'];
+    const langs = ['en', 'zh-CN', 'zh-TW', 'ja'];
     window.translations = {};
 
     const promises = langs.map(lang => 

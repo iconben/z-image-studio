@@ -136,7 +136,22 @@
         function updateLanguage(lang) {
             currentLanguage = lang;
             if (languageDropdownBtn) languageDropdownBtn.textContent = lang.toUpperCase();
-            const t = translations[lang] || translations.en;
+
+            // Enhanced fallback logic for missing translations
+            let t = translations[lang];
+
+            // If language not found, try fallbacks
+            if (!t) {
+                if (lang === 'zh') {
+                    // Fallback for old zh key
+                    t = translations['zh-CN'];
+                }
+                if (!t) {
+                    // Final fallback to English
+                    t = translations.en;
+                    console.warn(`Language '${lang}' not found, falling back to English`);
+                }
+            }
             
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
@@ -179,9 +194,18 @@
 
         // Init Language
         let initialLang = localStorage.getItem('zimage_lang');
+
+        // Migrate old language keys
+        if (initialLang === 'zh') {
+            initialLang = 'zh-CN'; // Migrate old Chinese to Simplified Chinese
+            localStorage.setItem('zimage_lang', initialLang); // Update localStorage
+        }
+
         if (!initialLang) {
             const browserLang = navigator.language;
-            if (browserLang.startsWith('zh')) initialLang = 'zh';
+            if (browserLang.startsWith('zh-CN')) initialLang = 'zh-CN';
+            else if (browserLang.startsWith('zh-TW')) initialLang = 'zh-TW';
+            else if (browserLang.startsWith('zh')) initialLang = 'zh-CN'; // Default to Simplified Chinese
             else if (browserLang.startsWith('ja')) initialLang = 'ja';
             else initialLang = 'en';
         }
