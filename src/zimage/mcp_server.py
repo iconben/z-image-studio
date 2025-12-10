@@ -23,7 +23,6 @@ except ImportError:
     from logger import get_logger, setup_logging
 
 # Silence SDNQ/Triton noisy logs on stdout; keep MCP stdio clean
-os.environ.setdefault("SDNQ_DISABLE_TRITON", "1")
 os.environ.setdefault("SDNQ_LOG_LEVEL", "ERROR")
 
 # Ensure logging is set up to write to stderr

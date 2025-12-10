@@ -19,7 +19,6 @@ def sanitize_prompt(prompt: str, max_len: int = 30) -> str:
     safe = "".join(c for c in prompt[:max_len] if c.isalnum() or c in "-_")
     return safe or "image"
 
-
 def save_image(image, prompt: str, outputs_dir: Optional[str | Path] = None, ext: str = "png") -> Path:
     """
     Save a PIL image to the outputs directory with a prompt-based filename.
@@ -37,7 +36,6 @@ def save_image(image, prompt: str, outputs_dir: Optional[str | Path] = None, ext
 
     image.save(output_path)
     return output_path
-
 
 def record_generation(
     prompt: str,
