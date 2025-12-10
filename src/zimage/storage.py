@@ -19,21 +19,38 @@ def sanitize_prompt(prompt: str, max_len: int = 30) -> str:
     safe = "".join(c for c in prompt[:max_len] if c.isalnum() or c in "-_")
     return safe or "image"
 
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+
+
 def save_image(image, prompt: str, outputs_dir: Optional[str | Path] = None, ext: str = "png") -> Path:
     """
     Save a PIL image to the outputs directory with a prompt-based filename.
 
     Returns the full Path to the saved file.
     """
+    ext_normalized = ext.lower()
+    if ext_normalized not in ALLOWED_EXTENSIONS:
+        raise ValueError(f"Invalid extension '{ext}'. Allowed: {sorted(ALLOWED_EXTENSIONS)}")
+
     base_dir = Path(outputs_dir) if outputs_dir else Path(get_outputs_dir())
     base_dir.mkdir(parents=True, exist_ok=True)
 
     safe_prompt = sanitize_prompt(prompt)
     timestamp = int(time.time())
-    filename = f"{safe_prompt}_{timestamp}.{ext}"
+    filename = f"{safe_prompt}_{timestamp}.{ext_normalized}"
     output_path = base_dir / filename
-    logger.info(f"Saving image to {output_path}")
 
+    # Defensive: Ensure output_path is within base_dir
+    try:
+        base_dir_resolved = base_dir.resolve()
+        output_path_resolved = output_path.resolve()
+        if not str(output_path_resolved).startswith(str(base_dir_resolved)):
+            raise ValueError("Attempt to save image outside of output directory")
+    except Exception as e:
+        logger.error(f"Path safety check failed: {e}")
+        raise
+
+    logger.info(f"Saving image to {output_path}")
     image.save(output_path)
     return output_path
 
