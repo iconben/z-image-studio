@@ -167,23 +167,31 @@ async def list_history(limit: int = 10, offset: int = 0) -> str:
         lines.append(f"ID: {item['id']}, Prompt: {item['prompt']}, File: {item['filename']}, Time: {item['created_at']}")
     return "\n".join(lines)
 
-def run(transport: Literal["stdio", "sse"] = "stdio", host: str = "0.0.0.0", port: int = 8000):
+def get_sse_app():
+    """Return ASGI app for MCP SSE transport (mount under FastAPI)."""
     setup_logging()
+    return mcp.sse_app
+
+def run_stdio():
+    """Run MCP over stdio (used by zimg-mcp and `zimg mcp`)."""
+    setup_logging()
+    mcp.run(transport="stdio")
+
+# Legacy helper; prefer run_stdio or get_sse_app.
+def run(transport: Literal["stdio", "sse"] = "stdio", host: str = "0.0.0.0", port: int = 8000):
     if transport == "stdio":
-        mcp.run(transport="stdio")
+        run_stdio()
     elif transport == "sse":
-        # FastMCP run method supports sse
+        setup_logging()
         mcp.run(transport="sse", host=host, port=port)
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Z-Image MCP Server")
-    parser.add_argument("--transport", default="stdio", choices=["stdio", "sse"], help="Transport mode")
-    parser.add_argument("--host", default="0.0.0.0", help="Host for SSE")
-    parser.add_argument("--port", type=int, default=8000, help="Port for SSE")
+    parser = argparse.ArgumentParser(description="Z-Image MCP Server (stdio only)")
+    parser.add_argument("--transport", default="stdio", choices=["stdio"], help="Transport mode (stdio only)")
     args = parser.parse_args()
 
-    run(transport=args.transport, host=args.host, port=args.port)
+    run_stdio()
 
 if __name__ == "__main__":
     main()

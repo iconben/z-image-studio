@@ -17,6 +17,7 @@ try:
     from .worker import run_in_worker, run_in_worker_nowait
     from .hardware import get_available_models, MODEL_ID_MAP
     from .logger import get_logger
+    from .mcp_server import get_sse_app
     from . import db
     from . import migrations
     from .paths import (
@@ -30,6 +31,7 @@ except ImportError:
     from worker import run_in_worker, run_in_worker_nowait
     from hardware import get_available_models, MODEL_ID_MAP
     from logger import get_logger
+    from mcp_server import get_sse_app
     import db
     import migrations
     from paths import (
@@ -64,6 +66,15 @@ app = FastAPI()
 
 # Initialize Database Schema
 migrations.init_db()
+
+# Mount MCP SSE endpoint by default unless disabled via env flag
+ENABLE_MCP_SSE = os.getenv("ZIMAGE_DISABLE_MCP_SSE", "0") != "1"
+if ENABLE_MCP_SSE:
+    try:
+        app.mount("/mcp", get_sse_app())
+        logger.info("Mounted MCP SSE endpoint at /mcp")
+    except Exception as e:
+        logger.error(f"Failed to mount MCP SSE endpoint: {e}")
 
 @app.on_event("startup")
 async def startup_event():

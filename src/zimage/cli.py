@@ -1,5 +1,6 @@
 import argparse
 import sys
+import os
 from pathlib import Path
 import traceback
 
@@ -166,14 +167,17 @@ def run_server(args):
     else:
         app_str = "zimage.server:app"
 
+    if args.disable_mcp_sse:
+        os.environ["ZIMAGE_DISABLE_MCP_SSE"] = "1"
+
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
 def run_mcp(args):
     try:
-        from .mcp_server import run
+        from .mcp_server import run_stdio
     except ImportError:
-        from mcp_server import run
-    run(transport=args.transport, host=args.host, port=args.port)
+        from mcp_server import run_stdio
+    run_stdio()
 
 def main():
     setup_logging()
@@ -224,6 +228,7 @@ def main():
     parser_serve.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0)")
     parser_serve.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
     parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
+    parser_serve.add_argument("--disable-mcp-sse", action="store_true", help="Disable MCP SSE endpoint mounted at /mcp")
     parser_serve.set_defaults(func=run_server)
 
     # Subcommand: models
@@ -239,10 +244,7 @@ def main():
     parser_loras_list.set_defaults(func=run_list_loras)
 
     # Subcommand: mcp
-    parser_mcp = subparsers.add_parser("mcp", help="Start Z-Image MCP Server")
-    parser_mcp.add_argument("--transport", default="stdio", choices=["stdio", "sse"], help="Transport mode (default: stdio)")
-    parser_mcp.add_argument("--host", default="0.0.0.0", help="Host for SSE")
-    parser_mcp.add_argument("--port", type=int, default=8000, help="Port for SSE")
+    parser_mcp = subparsers.add_parser("mcp", help="Start Z-Image MCP Server (stdio only)")
     parser_mcp.set_defaults(func=run_mcp)
 
     args = parser.parse_args()
