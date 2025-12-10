@@ -17,6 +17,7 @@ try:
     from .worker import run_in_worker, run_in_worker_nowait
     from .hardware import get_available_models, MODEL_ID_MAP
     from .logger import get_logger
+    from .storage import save_image, record_generation
     from .mcp_server import get_sse_app
     from . import db
     from . import migrations
@@ -31,6 +32,7 @@ except ImportError:
     from worker import run_in_worker, run_in_worker_nowait
     from hardware import get_available_models, MODEL_ID_MAP
     from logger import get_logger
+    from storage import save_image, record_generation
     from mcp_server import get_sse_app
     import db
     import migrations
@@ -298,14 +300,8 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         )
         
         # Save file
-        safe_prompt = "".join(c for c in req.prompt[:30] if c.isalnum() or c in "-_")
-        if not safe_prompt:
-            safe_prompt = "image"
-        timestamp = int(time.time())
-        filename = f"{safe_prompt}_{timestamp}.png"
-        output_path = OUTPUTS_DIR / filename
-        
-        image.save(output_path)
+        output_path = save_image(image, req.prompt, outputs_dir=OUTPUTS_DIR)
+        filename = output_path.name
         
         duration = time.time() - start_time
         file_size_kb = output_path.stat().st_size / 1024
@@ -319,7 +315,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             )
 
         # Record to DB
-        new_id = db.add_generation(
+        new_id = record_generation(
             prompt=req.prompt,
             steps=req.steps,
             width=width,
@@ -330,11 +326,10 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             model=model_id,
             cfg_scale=0.0,
             seed=req.seed,
-            status="succeeded",
             precision=req.precision,
-            loras=db_loras
         )
-        
+        new_id = new_id or -1
+
         # Schedule cleanup to run AFTER the response is sent
         background_tasks.add_task(run_in_worker_nowait, cleanup_memory)
         

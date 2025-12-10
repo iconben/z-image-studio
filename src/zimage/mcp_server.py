@@ -12,12 +12,14 @@ try:
     from .worker import run_in_worker, run_in_worker_nowait
     from .hardware import get_available_models
     from . import db
+    from .storage import save_image, record_generation
     from .logger import get_logger, setup_logging
 except ImportError:
     from engine import generate_image, cleanup_memory, MODEL_ID_MAP
     from worker import run_in_worker, run_in_worker_nowait
     from hardware import get_available_models
     import db
+    from storage import save_image, record_generation
     from logger import get_logger, setup_logging
 
 # Silence SDNQ/Triton noisy logs on stdout; keep MCP stdio clean
@@ -84,46 +86,28 @@ async def generate(
         logger.error(f"Generation failed: {e}")
         raise RuntimeError(f"Generation failed: {e}")
 
-    # Save file
-    # Use configured outputs directory (resolved in db/paths); default is user data dir
-    try:
-        from .paths import get_outputs_dir
-    except ImportError:
-        from paths import get_outputs_dir  # type: ignore
-    outputs_dir = Path(get_outputs_dir())
-    outputs_dir.mkdir(parents=True, exist_ok=True)
-
-    safe_prompt = "".join(c for c in prompt[:30] if c.isalnum() or c in "-_")
-    if not safe_prompt:
-        safe_prompt = "image"
-    timestamp = int(time.time())
-    filename = f"{safe_prompt}_{timestamp}.png"
-    output_path = outputs_dir / filename
-
-    image.save(output_path)
+    # Save file via shared storage helper
+    output_path = save_image(image, prompt)
+    filename = output_path.name
 
     duration = time.time() - start_time
     file_size_kb = output_path.stat().st_size / 1024
     model_id = MODEL_ID_MAP[precision]
 
     # Record to DB (Best effort)
-    try:
-        db.add_generation(
-            prompt=prompt,
-            steps=steps,
-            width=width,
-            height=height,
-            filename=filename,
-            generation_time=duration,
-            file_size_kb=file_size_kb,
-            model=model_id,
-            cfg_scale=0.0,
-            seed=seed,
-            status="succeeded",
-            precision=precision
-        )
-    except Exception as e:
-        logger.warning(f"Failed to record generation to DB: {e}")
+    record_generation(
+        prompt=prompt,
+        steps=steps,
+        width=width,
+        height=height,
+        filename=filename,
+        generation_time=duration,
+        file_size_kb=file_size_kb,
+        model=model_id,
+        cfg_scale=0.0,
+        seed=seed,
+        precision=precision,
+    )
 
     # Cleanup
     run_in_worker_nowait(cleanup_memory)

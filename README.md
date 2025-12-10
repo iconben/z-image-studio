@@ -105,6 +105,9 @@ zimg gen "A majestic dragon" --seed 12345
 
 # Select model precision (full, q8, q4)
 zimg gen "A futuristic city" --precision q8
+
+# Skip writing to history DB
+zimg gen "Quick scratch" --no-history
 ```
 
 ### 2. Web Server Mode
@@ -175,6 +178,7 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
 | `--seed` | | `int` | `None` | Random seed for reproducible generation. |
 | `--precision` | | `str` | `q8` | Model precision (`full`, `q8`, `q4`). `q8` is the default and balanced, `full` is higher quality but slower, `q4` is fastest and uses less memory. |
 | `--lora` | | `str` | `[]` | LoRA filename or path, optionally with strength (`name.safetensors:0.8`). Can be passed multiple times (max 4); strength is clamped to -1.0..2.0. |
+| `--no-history` | | `bool` | `False` | Do not record this generation in the history database. |
 
 ### Subcommand: `serve`
 | Argument | Type | Default | Description |

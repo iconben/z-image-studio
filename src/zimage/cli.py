@@ -15,6 +15,7 @@ try:
     from .hardware import get_available_models
     from . import db
     from . import migrations
+    from .storage import save_image, record_generation
     from .paths import (
         ensure_initial_setup,
         get_data_dir,
@@ -29,6 +30,7 @@ except ImportError:
     from hardware import get_available_models
     import db
     import migrations
+    from storage import save_image, record_generation
     from paths import (
         ensure_initial_setup,
         get_data_dir,
@@ -95,25 +97,8 @@ def run_generation(args):
             log_warn(f"{name}={v} is not a multiple of 16, adjust to {fixed}")
             setattr(args, name, fixed)
 
-    # Determine output path
-    outputs_dir = OUTPUTS_DIR
-    outputs_dir.mkdir(parents=True, exist_ok=True)
-
-    if args.output is None:
-        safe_prompt = "".join(
-            c for c in args.prompt[:30] if c.isalnum() or c in "-_"
-        )
-        if not safe_prompt:
-            safe_prompt = "image"
-        filename = f"{safe_prompt}.png"
-        output_path = outputs_dir / filename
-    else:
-        output_path = Path(args.output)
-        if not output_path.is_absolute():
-            # If user gives relative path, put it under outputs/ for clarity
-            output_path = outputs_dir / output_path
-
-    logger.info(f"DEBUG: final output path will be: {output_path.resolve()}")
+    # Determine output path (default via storage helper)
+    output_path = Path(args.output) if args.output else None
 
     # Resolve LoRA Paths
     loras = []
@@ -145,9 +130,31 @@ def run_generation(args):
             precision=args.precision,
             loras=loras
         )
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        image.save(output_path)
-        log_info(f"image saved to: {output_path.resolve()}")
+        if output_path is None:
+            final_path = save_image(image, args.prompt)
+        else:
+            if not output_path.is_absolute():
+                output_path = OUTPUTS_DIR / output_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            image.save(output_path)
+            final_path = output_path
+        log_info(f"image saved to: {final_path.resolve()}")
+
+        # Record history unless opted out
+        if not args.no_history:
+            record_generation(
+                prompt=args.prompt,
+                steps=args.steps,
+                width=args.width,
+                height=args.height,
+                filename=final_path.name,
+                generation_time=0.0,  # CLI does not track duration currently
+                file_size_kb=final_path.stat().st_size / 1024,
+                model="unknown",
+                cfg_scale=0.0,
+                seed=args.seed,
+                precision=args.precision,
+            )
 
     except Exception as e:
         log_error("exception during generation or saving:")
@@ -196,6 +203,7 @@ def main():
     parser_gen.add_argument("--height", "-H", type=int, default=720, help="Image height (must be multiple of 16), default 720")
     parser_gen.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     parser_gen.add_argument("--precision", type=str, default="q8", choices=["full", "q8", "q4"], help="Model precision (full, q8, q4), default q8")
+    parser_gen.add_argument("--no-history", action="store_true", help="Do not record this generation in history database")
     
     def lora_strength_type(value):
         fvalue = float(value)
