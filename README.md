@@ -164,12 +164,6 @@ Once started, open your browser to the displayed URL.
     cd z-image-studio
     ```
 
-2. **Create and activate the project virtual environment**
-    ```bash
-    uv venv
-    source .venv/bin/activate  # Under Windows: .venv\Scripts\activate
-    ```
-
 ### To run the source code directly without installation:
 
 1.  **Run CLI:**
@@ -184,15 +178,29 @@ Once started, open your browser to the displayed URL.
 
 3.  **Run tests:**
     ```bash
-    uv run python -m unittest tests/manual_test_mps.py
+    uv run pytest
     ```
 
 ### Optional: Install in editable mode:**
-    Using `uv` (recommended):
+    First install it:
     ```bash
     uv pip install -e .
     ```
+
     After this, the `zimg` command is available **inside this virtual environment**:
+
+    Then use the zimg command in either ways:
+
+    Using `uv` (recommended):
+    ```bash
+    uv run zimg generate "A prompt"
+    ```
+
+    or use in more traditional way:
+    ```bash
+    source .venv/bin/activate  # Under Windows: .venv\Scripts\activate
+    zimg serve
+    ```
 
 ### Optional: Override the folder settings with environment variables
     If you do not want your development data mess up your production data,  

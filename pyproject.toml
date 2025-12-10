@@ -33,3 +33,8 @@ sdnq = { git = "https://github.com/Disty0/sdnq" }
 [tool.hatch.build.targets.wheel]
 packages = ["src/zimage"]
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+

@@ -5,9 +5,13 @@ import sys
 import json
 import os
 from pathlib import Path
+import pytest
 
 class TestMCPIntegration(unittest.TestCase):
     def setUp(self):
+        # Skip if heavy deps (e.g., diffusers) are not available in this env
+        pytest.importorskip("diffusers")
+
         self.repo_root = Path(__file__).resolve().parent.parent
         env = os.environ.copy()
         env["PYTHONPATH"] = str(self.repo_root / "src") + os.pathsep + env.get("PYTHONPATH", "")
