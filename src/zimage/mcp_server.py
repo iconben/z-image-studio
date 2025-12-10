@@ -111,22 +111,15 @@ async def generate(
     # Cleanup
     run_in_worker_nowait(cleanup_memory)
 
-    # Convert image to base64 for embedding
-    from io import BytesIO
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    img_bytes = buffered.getvalue()
-    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-
+    relative_url = f"/outputs/{filename}"
     return [
         types.TextContent(
             type="text",
-            text=f"Image generated successfully in {duration:.2f}s.\nSaved to: {output_path.resolve()}"
-        ),
-        types.ImageContent(
-            type="image",
-            data=img_b64,
-            mimeType="image/png"
+            text=(
+                f"Image generated successfully in {duration:.2f}s.\n"
+                f"Saved to: {output_path.resolve()}\n"
+                f"URL: {relative_url}"
+            ),
         )
     ]
 
