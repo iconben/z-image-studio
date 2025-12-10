@@ -137,8 +137,7 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
 #### Connecting an AI agent (e.g., Claude Desktop) to `zimg-mcp`
 1. Ensure dependencies are installed (`uv sync`) and that `zimg-mcp` is on PATH (installed via `uv tool install .` or running from the repo with `uv run zimg-mcp`).
 2. Add a custom MCP server pointing to the command:
-   * **Command:** `zimg-mcp --transport stdio`
-   * **Working directory:** repository root (or any folder where you want outputs/history).
+   * **Command:** `zimg-mcp`
 3. For SSE instead of stdio, just run `zimg serve` and point the agent to the SSE endpoint at `/mcp` (e.g., `http://localhost:8000/mcp`).
 4. The agent will receive tools: `generate`, `list_models`, `list_history`.
 
