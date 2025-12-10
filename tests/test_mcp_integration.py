@@ -8,12 +8,6 @@ from pathlib import Path
 
 class TestMCPIntegration(unittest.TestCase):
     def setUp(self):
-        # Skip if heavy deps aren't available (these tests exercise real CLI/MCP)
-        try:
-            import diffusers  # noqa: F401
-        except ImportError:
-            self.skipTest("diffusers not installed; skipping MCP integration test")
-
         self.repo_root = Path(__file__).resolve().parent.parent
         env = os.environ.copy()
         env["PYTHONPATH"] = str(self.repo_root / "src") + os.pathsep + env.get("PYTHONPATH", "")
