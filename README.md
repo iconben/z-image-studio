@@ -24,7 +24,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
 *   **Multiple LoRA Support**: Upload/manage LoRAs in the web UI, apply up to 4 with per-LoRA strengths in a single generation; CLI supports multiple `--lora` entries with optional strengths.
 *   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 16).
-*   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified are supported.
+*   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified (zh-CN), and Chinese Traditional (zh-TW) are supported.
 *   **History Pagination and Infinite Scroll**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
 *   **Hardware-aware Model Recommendation**: The Web UI dynamically presents model precision options based on your system's detected RAM/VRAM, recommending the optimal choice for your hardware. You can also inspect available models and recommendations via the CLI.
 *   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE auto-mounted at `/mcp` on the web server.
