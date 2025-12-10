@@ -135,10 +135,30 @@ zimg serve --disable-mcp-sse   # explicitly disable SSE endpoint
 Available tools: `generate` (prompt to image), `list_models`, and `list_history`. Logs are routed to stderr to keep MCP stdio clean.
 
 #### Connecting an AI agent (e.g., Claude Desktop) to `zimg-mcp`
-1. Ensure dependencies are installed (`uv sync`) and that `zimg-mcp` is on PATH (installed via `uv tool install .` or running from the repo with `uv run zimg-mcp`).
-2. Add a custom MCP server pointing to the command:
-   * **Command:** `zimg-mcp`
-3. For SSE instead of stdio, just run `zimg serve` and point the agent to the SSE endpoint at `/mcp` (e.g., `http://localhost:8000/mcp`).
+1. Ensure dependencies are installed (`uv sync`) and that `zimg-mcp` is on PATH (installed via `uv tool install .` or run locally via `uv run zimg-mcp`).
+2. In Claude Desktop (or any MCP-aware client), add a server entry like:
+   ```json
+   {
+     "mcpServers": {
+       "zimage": {
+         "command": "zimg-mcp",
+         "transport": "stdio"
+       }
+     }
+   }
+   ```
+   Adjust the `command` to a full path if not on PATH.
+3. For SSE instead of stdio, run `zimg serve` and configure the client with the SSE endpoint URL:
+   ```json
+   {
+     "mcpServers": {
+       "zimage-sse": {
+         "url": "http://localhost:8000/mcp",
+         "transport": "sse"
+       }
+     }
+   }
+   ```
 4. The agent will receive tools: `generate`, `list_models`, `list_history`.
 
 ## Command Line Arguments
