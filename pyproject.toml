@@ -19,10 +19,12 @@ dependencies = [
     "torchvision>=0.24.1",
     "transformers>=4.57.3",
     "uvicorn>=0.38.0",
+    "mcp",
 ]
 
 [project.scripts]
 zimg = "zimage.cli:main"
+zimg-mcp = "zimage.mcp_server:main"
 
 [tool.uv.sources]
 diffusers = { git = "https://github.com/huggingface/diffusers" }
@@ -30,4 +32,9 @@ sdnq = { git = "https://github.com/Disty0/sdnq" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/zimage"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
 

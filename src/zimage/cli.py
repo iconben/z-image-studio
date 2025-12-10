@@ -1,34 +1,28 @@
 import argparse
 import sys
+import os
 from pathlib import Path
 import traceback
 
-# ANSI escape codes for colors
+# ANSI escape codes for colors (kept for stdout output in run_models)
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
 RESET = "\033[0m"
-
-def log_info(message: str):
-    print(f"{GREEN}INFO{RESET}: {message}")
-
-def log_warn(message: str):
-    print(f"{YELLOW}WARN{RESET}: {message}")
-
-def log_error(message: str):
-    print(f"{RED}ERROR{RESET}: {message}")
 
 try:
     from .engine import generate_image
     from .hardware import get_available_models
     from . import db
     from . import migrations
+    from .storage import save_image, record_generation
     from .paths import (
         ensure_initial_setup,
         get_data_dir,
         get_loras_dir,
         get_outputs_dir,
     )
+    from .logger import get_logger, setup_logging
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))
@@ -36,22 +30,35 @@ except ImportError:
     from hardware import get_available_models
     import db
     import migrations
+    from storage import save_image, record_generation
     from paths import (
         ensure_initial_setup,
         get_data_dir,
         get_loras_dir,
         get_outputs_dir,
     )
+    from logger import get_logger, setup_logging
 
 # Directory Configuration
 ensure_initial_setup()
 OUTPUTS_DIR = get_outputs_dir()
 LORAS_DIR = get_loras_dir()
 
+logger = get_logger("zimage.cli")
+
+def log_info(message: str):
+    logger.info(message)
+
+def log_warn(message: str):
+    logger.warning(message)
+
+def log_error(message: str):
+    logger.error(message)
+
 def run_models(args):
     models_response = get_available_models()
     
-    # Print device info
+    # Print device info to stdout (CLI output)
     print(f"Device: {models_response['device'].upper()}")
     if models_response['ram_gb'] is not None:
         print(f"RAM: {models_response['ram_gb']:.1f} GB")
@@ -65,9 +72,6 @@ def run_models(args):
 
     for m in models_response['models']:
         rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
-        # The 'id' field is now 'full', 'q8', 'q4' again.
-        # The 'tasks' field is gone from ModelInfo.
-        # So we just print id, hf_model_id and recommendation.
         print(f"  * {m['id']} -> {m['hf_model_id']}{rec_str}")
 
 def run_list_loras(args):
@@ -82,7 +86,7 @@ def run_list_loras(args):
         print(f"  * {l['display_name']} (File: {l['filename']}, ID: {l['id']})")
 
 def run_generation(args):
-    print(f"DEBUG: cwd: {Path.cwd().resolve()}")
+    logger.info(f"DEBUG: cwd: {Path.cwd().resolve()}")
 
     # Ensure width/height are multiples of 16
     for name in ["width", "height"]:
@@ -93,25 +97,8 @@ def run_generation(args):
             log_warn(f"{name}={v} is not a multiple of 16, adjust to {fixed}")
             setattr(args, name, fixed)
 
-    # Determine output path
-    outputs_dir = OUTPUTS_DIR
-    outputs_dir.mkdir(parents=True, exist_ok=True)
-
-    if args.output is None:
-        safe_prompt = "".join(
-            c for c in args.prompt[:30] if c.isalnum() or c in "-_"
-        )
-        if not safe_prompt:
-            safe_prompt = "image"
-        filename = f"{safe_prompt}.png"
-        output_path = outputs_dir / filename
-    else:
-        output_path = Path(args.output)
-        if not output_path.is_absolute():
-            # If user gives relative path, put it under outputs/ for clarity
-            output_path = outputs_dir / output_path
-
-    print(f"DEBUG: final output path will be: {output_path.resolve()}")
+    # Determine output path (default via storage helper)
+    output_path = Path(args.output) if args.output else None
 
     # Resolve LoRA Paths
     loras = []
@@ -143,13 +130,35 @@ def run_generation(args):
             precision=args.precision,
             loras=loras
         )
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        image.save(output_path)
-        log_info(f"image saved to: {output_path.resolve()}")
+        if output_path is None:
+            final_path = save_image(image, args.prompt)
+        else:
+            if not output_path.is_absolute():
+                output_path = OUTPUTS_DIR / output_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            image.save(output_path)
+            final_path = output_path
+        log_info(f"image saved to: {final_path.resolve()}")
+
+        # Record history unless opted out
+        if not args.no_history:
+            record_generation(
+                prompt=args.prompt,
+                steps=args.steps,
+                width=args.width,
+                height=args.height,
+                filename=final_path.name,
+                generation_time=0.0,  # CLI does not track duration currently
+                file_size_kb=final_path.stat().st_size / 1024,
+                model="unknown",
+                cfg_scale=0.0,
+                seed=args.seed,
+                precision=args.precision,
+            )
 
     except Exception as e:
         log_error("exception during generation or saving:")
-        print(e)
+        logger.error(str(e))
         traceback.print_exc()
 
 
@@ -165,9 +174,20 @@ def run_server(args):
     else:
         app_str = "zimage.server:app"
 
+    if args.disable_mcp_sse:
+        os.environ["ZIMAGE_DISABLE_MCP_SSE"] = "1"
+
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
+def run_mcp(args):
+    try:
+        from .mcp_server import run_stdio
+    except ImportError:
+        from mcp_server import run_stdio
+    run_stdio()
+
 def main():
+    setup_logging()
     # Ensure DB is initialized
     migrations.init_db()
 
@@ -183,6 +203,7 @@ def main():
     parser_gen.add_argument("--height", "-H", type=int, default=720, help="Image height (must be multiple of 16), default 720")
     parser_gen.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     parser_gen.add_argument("--precision", type=str, default="q8", choices=["full", "q8", "q4"], help="Model precision (full, q8, q4), default q8")
+    parser_gen.add_argument("--no-history", action="store_true", help="Do not record this generation in history database")
     
     def lora_strength_type(value):
         fvalue = float(value)
@@ -215,6 +236,7 @@ def main():
     parser_serve.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0)")
     parser_serve.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
     parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
+    parser_serve.add_argument("--disable-mcp-sse", action="store_true", help="Disable MCP SSE endpoint mounted at /mcp")
     parser_serve.set_defaults(func=run_server)
 
     # Subcommand: models
@@ -228,6 +250,10 @@ def main():
     # loras list
     parser_loras_list = loras_subparsers.add_parser("list", help="List available LoRAs")
     parser_loras_list.set_defaults(func=run_list_loras)
+
+    # Subcommand: mcp
+    parser_mcp = subparsers.add_parser("mcp", help="Start Z-Image MCP Server (stdio only)")
+    parser_mcp.set_defaults(func=run_mcp)
 
     args = parser.parse_args()
     if hasattr(args, "func"):

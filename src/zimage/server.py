@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Optional, List
 import asyncio
 import time
-import threading
 import sqlite3
 import shutil
 import hashlib
@@ -14,8 +13,12 @@ import os
 import uuid
 
 try:
-    from .engine import generate_image
+    from .engine import generate_image, cleanup_memory
+    from .worker import run_in_worker, run_in_worker_nowait
     from .hardware import get_available_models, MODEL_ID_MAP
+    from .logger import get_logger
+    from .storage import save_image, record_generation
+    from .mcp_server import get_sse_app
     from . import db
     from . import migrations
     from .paths import (
@@ -25,8 +28,12 @@ try:
         get_outputs_dir,
     )
 except ImportError:
-    from engine import generate_image
+    from engine import generate_image, cleanup_memory
+    from worker import run_in_worker, run_in_worker_nowait
     from hardware import get_available_models, MODEL_ID_MAP
+    from logger import get_logger
+    from storage import save_image, record_generation
+    from mcp_server import get_sse_app
     import db
     import migrations
     from paths import (
@@ -36,17 +43,6 @@ except ImportError:
         get_outputs_dir,
     )
 
-# ANSI escape codes for colors
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RESET = "\033[0m"
-
-def log_info(message: str):
-    print(f"{GREEN}INFO{RESET}: {message}")
-
-def log_warn(message: str):
-    print(f"{YELLOW}WARN{RESET}: {message}")
-
 # Constants
 MAX_LORA_FILE_SIZE = 1 * 1024 * 1024 * 1024 # 1 GB
 
@@ -55,63 +51,24 @@ ensure_initial_setup()
 OUTPUTS_DIR = get_outputs_dir()
 LORAS_DIR = get_loras_dir()
 
-app = FastAPI()
+logger = get_logger("zimage.server")
 
+# Log paths first so they appear before MCP mount or uvicorn startup messages
+logger.info(f"Data Directory: {get_data_dir()}")
+logger.info(f"Outputs Directory: {get_outputs_dir()}")
+
+app = FastAPI()
 # Initialize Database Schema
 migrations.init_db()
 
-@app.on_event("startup")
-async def startup_event():
-    log_info(f"\t  Data Directory: {get_data_dir()}")
-    log_info(f"\t  Outputs Directory: {get_outputs_dir()}")
-
-# Dedicated worker thread for MPS/GPU operations
-# MPS on macOS is thread-sensitive. Accessing the model from multiple threads
-# (even sequentially) can cause resource leaks (semaphores) and crashes.
-# We use a single worker thread to ensure the model is always accessed from the same thread.
-import queue
-job_queue = queue.Queue()
-
-def worker_loop():
-    while True:
-        task = job_queue.get()
-        if task is None:
-            break
-        func, args, kwargs, future, loop = task
-        try:
-            result = func(*args, **kwargs)
-            if future and loop:
-                loop.call_soon_threadsafe(future.set_result, result)
-        except Exception as e:
-            if future and loop:
-                loop.call_soon_threadsafe(future.set_exception, e)
-        finally:
-            job_queue.task_done()
-
-worker_thread = threading.Thread(target=worker_loop, daemon=True)
-worker_thread.start()
-
-async def run_in_worker(func, *args, **kwargs):
-    loop = asyncio.get_running_loop()
-    future = loop.create_future()
-    job_queue.put((func, args, kwargs, future, loop))
-    return await future
-
-def run_in_worker_nowait(func, *args, **kwargs):
-    """Fire and forget task for the worker thread."""
-    job_queue.put((func, args, kwargs, None, None))
-
-def cleanup_gpu():
-    """
-    Force garbage collection and MPS cache clearing.
-    This is a slow operation (~seconds to minutes) but necessary to prevent OOM
-    on memory-constrained MPS devices after large generations.
-    """
-    import gc
-    import torch
-    gc.collect()
-    if torch.backends.mps.is_available():
-        torch.mps.empty_cache()
+# Mount MCP SSE endpoint by default unless disabled via env flag
+ENABLE_MCP_SSE = os.getenv("ZIMAGE_DISABLE_MCP_SSE", "0") != "1"
+if ENABLE_MCP_SSE:
+    try:
+        app.mount("/mcp", get_sse_app())
+        logger.info("Mounted MCP SSE endpoint at /mcp")
+    except Exception as e:
+        logger.error(f"Failed to mount MCP SSE endpoint: {e}")
 
 class LoraInput(BaseModel):
     filename: str
@@ -284,7 +241,7 @@ async def delete_lora(lora_id: int):
         try:
             file_path.unlink()
         except OSError as e:
-            print(f"Error deleting LoRA file {file_path}: {e}")
+            logger.error(f"Error deleting LoRA file {file_path}: {e}")
             # We already deleted from DB, so it's a "soft" failure
             
     return {"message": "LoRA deleted"}
@@ -343,14 +300,8 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         )
         
         # Save file
-        safe_prompt = "".join(c for c in req.prompt[:30] if c.isalnum() or c in "-_")
-        if not safe_prompt:
-            safe_prompt = "image"
-        timestamp = int(time.time())
-        filename = f"{safe_prompt}_{timestamp}.png"
-        output_path = OUTPUTS_DIR / filename
-        
-        image.save(output_path)
+        output_path = save_image(image, req.prompt, outputs_dir=OUTPUTS_DIR)
+        filename = output_path.name
         
         duration = time.time() - start_time
         file_size_kb = output_path.stat().st_size / 1024
@@ -364,7 +315,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             )
 
         # Record to DB
-        new_id = db.add_generation(
+        new_id = record_generation(
             prompt=req.prompt,
             steps=req.steps,
             width=width,
@@ -375,13 +326,12 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             model=model_id,
             cfg_scale=0.0,
             seed=req.seed,
-            status="succeeded",
             precision=req.precision,
-            loras=db_loras
         )
-        
+        new_id = new_id or -1
+
         # Schedule cleanup to run AFTER the response is sent
-        background_tasks.add_task(run_in_worker_nowait, cleanup_gpu)
+        background_tasks.add_task(run_in_worker_nowait, cleanup_memory)
         
         return {
             "id": new_id,
@@ -396,7 +346,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             "loras": req.loras
         }
     except Exception as e:
-        print(f"Error generating image: {e}")
+        logger.error(f"Error generating image: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history")
@@ -428,7 +378,7 @@ async def delete_history_item(item_id: int):
         try:
             file_path.unlink()
         except OSError as e:
-            print(f"Error deleting file {file_path}: {e}")
+            logger.error(f"Error deleting file {file_path}: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete associated image file: {e}")
     
     return {"message": "History item and associated file deleted successfully"}

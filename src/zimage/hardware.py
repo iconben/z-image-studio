@@ -7,6 +7,13 @@ from typing import Literal, TypedDict, List, Optional
 
 import torch
 
+try:
+    from .logger import get_logger
+except ImportError:
+    from logger import get_logger
+
+logger = get_logger("zimage.hardware")
+
 # -------------------------------
 # Constants & Types
 # -------------------------------
@@ -36,16 +43,12 @@ class ModelsResponse(TypedDict):
 # -------------------------------
 # Logging Helpers (Internal)
 # -------------------------------
-# ANSI escape codes for colors
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RESET = "\033[0m"
 
 def _log_info(message: str):
-    print(f"{GREEN}INFO{RESET}: {message}")
+    logger.info(message)
 
 def _log_warn(message: str):
-    print(f"{YELLOW}WARN{RESET}: {message}")
+    logger.warning(message)
 
 # -------------------------------
 # Hardware Detection

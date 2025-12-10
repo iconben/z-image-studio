@@ -27,6 +27,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified are supported.
 *   **History Pagination and Infinite Scroll**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
 *   **Hardware-aware Model Recommendation**: The Web UI dynamically presents model precision options based on your system's detected RAM/VRAM, recommending the optimal choice for your hardware. You can also inspect available models and recommendations via the CLI.
+*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE auto-mounted at `/mcp` on the web server.
 
 ## Requirements
 
@@ -104,6 +105,9 @@ zimg gen "A majestic dragon" --seed 12345
 
 # Select model precision (full, q8, q4)
 zimg gen "A futuristic city" --precision q8
+
+# Skip writing to history DB
+zimg gen "Quick scratch" --no-history
 ```
 
 ### 2. Web Server Mode
@@ -119,6 +123,64 @@ zimg serve --host 0.0.0.0 --port 9090
 
 Once started, open your browser to the displayed URL.
 
+### 3. MCP Server Mode (Model Context Protocol)
+Run Z-Image Studio as an MCP server:
+
+```bash
+# stdio transport (ideal for local agents/tools); also available as `zimg-mcp`
+zimg mcp
+
+# SSE transport is mounted automatically at /mcp when you run the web server:
+zimg serve          # SSE available at http://localhost:8000/mcp
+zimg serve --disable-mcp-sse   # explicitly disable SSE endpoint
+```
+
+Available tools: `generate` (prompt to image), `list_models`, and `list_history`. Logs are routed to stderr to keep MCP stdio clean.
+
+#### Connecting an AI agent (e.g., Claude Desktop) to `zimg-mcp`
+1. Ensure dependencies are installed (`uv sync`) and that `zimg-mcp` is on PATH (installed via `uv tool install .` or run locally via `uv run zimg-mcp`).
+2. In Claude Desktop (or any MCP-aware client), add a server entry like:
+   ```json
+   {
+     "mcpServers": {
+       "z-image-studio": {
+         "command": "zimg-mcp",
+         "transport": "stdio",
+         "args": []
+       }
+     }
+   }
+   ```
+   Adjust the `command` to a full path if not on PATH.
+
+   Different agents may have slightly different parameters, for example, cline will timeout fast if you do not explicitly set a timeout parameter. Here is the example for cline:
+   ```json
+   {
+     "mcpServers": {
+       "z-image-studio": {
+         "command": "zimg-mcp",
+         "type": "stdio",
+         "args": [],
+        "disabled": false,
+        "autoApprove": [],
+        "timeout": 300
+       }
+     }
+   }
+   ```
+3. For SSE instead of stdio, run `zimg serve` and configure the client with the SSE endpoint URL:
+   ```json
+   {
+     "mcpServers": {
+       "z-image-studio": {
+         "url": "http://localhost:8000/mcp/sse",
+         "transport": "sse"
+       }
+     }
+   }
+   ```
+4. The agent will receive tools: `generate`, `list_models`, `list_history`.
+
 ## Command Line Arguments
 
 ### Subcommand: `generate` (alias: `gen`)
@@ -132,6 +194,7 @@ Once started, open your browser to the displayed URL.
 | `--seed` | | `int` | `None` | Random seed for reproducible generation. |
 | `--precision` | | `str` | `q8` | Model precision (`full`, `q8`, `q4`). `q8` is the default and balanced, `full` is higher quality but slower, `q4` is fastest and uses less memory. |
 | `--lora` | | `str` | `[]` | LoRA filename or path, optionally with strength (`name.safetensors:0.8`). Can be passed multiple times (max 4); strength is clamped to -1.0..2.0. |
+| `--no-history` | | `bool` | `False` | Do not record this generation in the history database. |
 
 ### Subcommand: `serve`
 | Argument | Type | Default | Description |
@@ -139,11 +202,17 @@ Once started, open your browser to the displayed URL.
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
 | `--port` | `int` | `8000` | Port to bind the server to. |
 | `--reload` | `bool` | `False` | Enable auto-reload (for development). |
+| `--disable-mcp-sse` | `bool` | `False` | Disable the MCP SSE endpoint mounted at `/mcp`. |
 
 ### Subcommand: `models`
 | Argument | Short | Type | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | (None)   |       |       |         | Lists available image generation models, highlights the one recommended for your system's hardware, and displays their corresponding Hugging Face model IDs. |
+
+### Subcommand: `mcp`
+| Argument | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| (none) | | | Stdio-only MCP server (for agents). Use `zimg-mcp` or `zimg mcp`. |
 
 ## Screenshots
 
@@ -164,12 +233,6 @@ Once started, open your browser to the displayed URL.
     cd z-image-studio
     ```
 
-2. **Create and activate the project virtual environment**
-    ```bash
-    uv venv
-    source .venv/bin/activate  # Under Windows: .venv\Scripts\activate
-    ```
-
 ### To run the source code directly without installation:
 
 1.  **Run CLI:**
@@ -184,15 +247,29 @@ Once started, open your browser to the displayed URL.
 
 3.  **Run tests:**
     ```bash
-    uv run python -m unittest tests/manual_test_mps.py
+    uv run pytest
     ```
 
 ### Optional: Install in editable mode:**
-    Using `uv` (recommended):
+    First install it:
     ```bash
     uv pip install -e .
     ```
+
     After this, the `zimg` command is available **inside this virtual environment**:
+
+    Then use the zimg command in either ways:
+
+    Using `uv` (recommended):
+    ```bash
+    uv run zimg generate "A prompt"
+    ```
+
+    or use in more traditional way:
+    ```bash
+    source .venv/bin/activate  # Under Windows: .venv\Scripts\activate
+    zimg serve
+    ```
 
 ### Optional: Override the folder settings with environment variables
     If you do not want your development data mess up your production data,  
