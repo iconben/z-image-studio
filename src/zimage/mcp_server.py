@@ -5,6 +5,7 @@ import mcp.types as types
 from pathlib import Path
 import time
 import base64
+import os
 
 try:
     from .engine import generate_image, cleanup_memory, MODEL_ID_MAP
@@ -18,6 +19,10 @@ except ImportError:
     from hardware import get_available_models
     import db
     from logger import get_logger, setup_logging
+
+# Silence SDNQ/Triton noisy logs on stdout; keep MCP stdio clean
+os.environ.setdefault("SDNQ_DISABLE_TRITON", "1")
+os.environ.setdefault("SDNQ_LOG_LEVEL", "ERROR")
 
 # Ensure logging is set up to write to stderr
 logger = get_logger("zimage.mcp")
