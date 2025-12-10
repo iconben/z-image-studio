@@ -59,27 +59,6 @@ uv tool upgrade z-image-studio
 # git pull
 ```
 
-## Data Directory and Configuration
-
-By default, Z-Image Studio uses the following directories:
-
-*   **Data Directory** (Database, LoRAs): `~/.local/share/z-image-studio` (Linux), `~/Library/Application Support/z-image-studio` (macOS), or `%LOCALAPPDATA%\z-image-studio` (Windows).
-*   **Output Directory** (Generated Images): `<Data Directory>/outputs` by default. 
-
-### Configure the directory
-*   **Config File**: `~/.z-image-studio/config.json` (created on first run after migration).
-    *   Override the data directory with `Z_IMAGE_STUDIO_DATA_DIR`.
-    *   If you want the output directory sit in another location instead of the data directory, you can override it with `Z_IMAGE_STUDIO_OUTPUT_DIR`.
-
-Directory structure inside Data Directory by default:
-*   `zimage.db`: SQLite database
-*   `loras/`: LoRA models
-*   `outputs/`: Generated image files
-
-### One-time Migration (automatic)
-On first run without an existing config file, the app migrates legacy data by moving:
-*   `outputs/`, `loras/`, and `zimage.db` from the current working directory (old layout) into the new locations.
-
 ## Usage
 
 After installation, you can use the `zimg` command directly from your terminal.
@@ -213,6 +192,29 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
 | Argument | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | (none) | | | Stdio-only MCP server (for agents). Use `zimg-mcp` or `zimg mcp`. |
+
+
+## Data Directory and Configuration
+
+By default, Z-Image Studio uses the following directories:
+
+*   **Data Directory** (Database, LoRAs): `~/.local/share/z-image-studio` (Linux), `~/Library/Application Support/z-image-studio` (macOS), or `%LOCALAPPDATA%\z-image-studio` (Windows).
+*   **Output Directory** (Generated Images): `<Data Directory>/outputs` by default. 
+
+### Configure the directory
+*   **Config File**: `~/.z-image-studio/config.json` (created on first run after migration).
+    *   Override the data directory with `Z_IMAGE_STUDIO_DATA_DIR`.
+    *   If you want the output directory sit in another location instead of the data directory, you can override it with `Z_IMAGE_STUDIO_OUTPUT_DIR`.
+
+Directory structure inside Data Directory by default:
+*   `zimage.db`: SQLite database
+*   `loras/`: LoRA models
+*   `outputs/`: Generated image files
+
+### One-time Migration (automatic)
+On first run without an existing config file, the app migrates legacy data by moving:
+*   `outputs/`, `loras/`, and `zimage.db` from the current working directory (old layout) into the new locations.
+
 
 ## Screenshots
 
