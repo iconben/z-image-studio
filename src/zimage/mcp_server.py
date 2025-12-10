@@ -182,7 +182,7 @@ def get_sse_app():
     """Return ASGI app for MCP SSE transport (mount under FastAPI)."""
     setup_logging()
     os.environ["ZIMAGE_MCP_TRANSPORT"] = "sse"
-    return mcp.sse_app
+    return mcp.sse_app()
 
 def run_stdio():
     """Run MCP over stdio (used by zimg-mcp and `zimg mcp`)."""

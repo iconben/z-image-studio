@@ -152,12 +152,28 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
    }
    ```
    Adjust the `command` to a full path if not on PATH.
+
+   Different agents may have slightly different parameters, for example, cline will timeout fast if you do not explicitly set a timeout parameter. Here is the example for cline:
+   ```json
+   {
+     "mcpServers": {
+       "z-image-studio": {
+         "command": "zimg-mcp",
+         "type": "stdio",
+         "args": [],
+        "disabled": false,
+        "autoApprove": [],
+        "timeout": 300
+       }
+     }
+   }
+   ```
 3. For SSE instead of stdio, run `zimg serve` and configure the client with the SSE endpoint URL:
    ```json
    {
      "mcpServers": {
        "z-image-studio": {
-         "url": "http://localhost:8000/mcp",
+         "url": "http://localhost:8000/mcp/sse",
          "transport": "sse"
        }
      }
