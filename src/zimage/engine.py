@@ -203,12 +203,16 @@ def generate_image(
                         new_key = key
                     new_state_dict[new_key] = value
                 
-                pipe.load_lora_weights(new_state_dict, adapter_name=adapter_name)
+                pipe.transformer.load_lora_adapter(
+                    new_state_dict,
+                    adapter_name=adapter_name,
+                    prefix="transformer",
+                )
                 active_adapters.append(adapter_name)
                 adapter_weights.append(strength)
             
             if active_adapters:
-                pipe.set_adapters(active_adapters, adapter_weights=adapter_weights)
+                pipe.transformer.set_adapters(active_adapters, weights=adapter_weights)
 
         except Exception as e:
             log_warn(f"Failed to load LoRA weights: {e}")
@@ -243,7 +247,7 @@ def generate_image(
         if loras:
             try:
                 log_info("unloading LoRA weights")
-                pipe.unload_lora_weights()
+                pipe.transformer.unload_lora()
             except Exception as e:
                 log_warn(f"Failed to unload LoRA weights: {e}")
 
