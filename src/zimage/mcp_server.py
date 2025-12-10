@@ -11,14 +11,14 @@ import base64
 try:
     from .engine import generate_image, cleanup_memory, MODEL_ID_MAP
     from .worker import run_in_worker, run_in_worker_nowait
-    from .hardware import get_available_models
+    from .hardware import get_available_models, normalize_precision
     from . import db
     from .storage import save_image, record_generation
     from .logger import get_logger, setup_logging
 except ImportError:
     from engine import generate_image, cleanup_memory, MODEL_ID_MAP
     from worker import run_in_worker, run_in_worker_nowait
-    from hardware import get_available_models
+    from hardware import get_available_models, normalize_precision
     import db
     from storage import save_image, record_generation
     from logger import get_logger, setup_logging
@@ -56,12 +56,11 @@ async def generate(
     """
     logger.info(f"Received generate request: {prompt}")
 
-    # Validate precision
-    if precision not in MODEL_ID_MAP:
-        # We can't raise ValueError easily if we want to return a nice error message to the model?
-        # But raising exception is fine, MCP handles it.
-        valid = ", ".join(MODEL_ID_MAP.keys())
-        raise ValueError(f"Unsupported precision '{precision}'. Available: {valid}")
+    # Normalize and validate precision
+    try:
+        precision = normalize_precision(precision)
+    except ValueError as e:
+        raise ValueError(str(e))
 
     # Validate dimensions
     width = width if width % 16 == 0 else (width // 16) * 16

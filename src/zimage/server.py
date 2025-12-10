@@ -15,7 +15,7 @@ import uuid
 try:
     from .engine import generate_image, cleanup_memory
     from .worker import run_in_worker, run_in_worker_nowait
-    from .hardware import get_available_models, MODEL_ID_MAP
+    from .hardware import get_available_models, MODEL_ID_MAP, normalize_precision
     from .logger import get_logger
     from .storage import save_image, record_generation
     from .mcp_server import get_sse_app
@@ -250,11 +250,14 @@ async def delete_lora(lora_id: int):
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:
-        # Validate precision early to avoid KeyError inside engine
-        if req.precision not in MODEL_ID_MAP:
+        # Normalize and validate precision early to avoid KeyError inside engine
+        try:
+            precision = normalize_precision(req.precision)
+        except ValueError as e:
+            logger.error(f"Precision validation failed: {e}")
             return JSONResponse(
                 status_code=400,
-                content={"error": f"Unsupported precision '{req.precision}'"}
+                content={"error": "Invalid precision value."}
             )
 
         # Validate dimensions (must be multiple of 16)
@@ -295,24 +298,19 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             width=width,
             height=height,
             seed=req.seed,
-            precision=req.precision,
+            precision=precision,
             loras=resolved_loras
         )
-        
+
         # Save file
         output_path = save_image(image, req.prompt, outputs_dir=OUTPUTS_DIR)
         filename = output_path.name
-        
+
         duration = time.time() - start_time
         file_size_kb = output_path.stat().st_size / 1024
-        
-        # Get the actual HF ID used (guard against bad inputs)
-        model_id = MODEL_ID_MAP.get(req.precision)
-        if model_id is None:
-            return JSONResponse(
-                status_code=400,
-                content={"error": f"Unsupported precision '{req.precision}'"}
-            )
+
+        # Get the actual HF ID used
+        model_id = MODEL_ID_MAP[precision]
 
         # Record to DB
         new_id = record_generation(
@@ -326,7 +324,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             model=model_id,
             cfg_scale=0.0,
             seed=req.seed,
-            precision=req.precision,
+            precision=precision,
         )
         new_id = new_id or -1
 
@@ -341,7 +339,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             "height": image.height,
             "file_size_kb": round(file_size_kb, 1),
             "seed": req.seed,
-            "precision": req.precision,
+            "precision": precision,
             "model_id": model_id,
             "loras": req.loras
         }

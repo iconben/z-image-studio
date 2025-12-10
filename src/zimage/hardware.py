@@ -26,6 +26,14 @@ MODEL_ID_MAP: dict[PrecisionId, str] = {
     "q4":   "Disty0/Z-Image-Turbo-SDNQ-uint4-svd-r32",
 }
 
+def normalize_precision(precision: str) -> PrecisionId:
+    """Normalize precision string to lowercase and validate it."""
+    normalized = precision.lower()
+    if normalized not in MODEL_ID_MAP:
+        valid = ", ".join(MODEL_ID_MAP.keys())
+        raise ValueError(f"Unsupported precision '{precision}'. Available: {valid}")
+    return normalized
+
 class ModelInfo(TypedDict):
     id: PrecisionId
     precision: PrecisionId
