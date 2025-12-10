@@ -9,24 +9,32 @@
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-MPS-gray?logo=apple)
 [![Docs](https://img.shields.io/badge/docs-deepwiki.com-blue)](https://deepwiki.com/iconben/z-image-studio)
 
-A web application and a command-line interface for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo`).
+A web application and a command-line interface for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
 
 This tool is designed to run efficiently on local machines, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if unavailable.
 
 ## Features
-
-*   **Z-Image-Turbo Model**: Utilizes the high-quality `Tongyi-MAI/Z-Image-Turbo` model via `diffusers`.
-*   **Hybrid Interface**: 
+**Hybrid Interfaces**: 
     *   **CLI**: Fast, direct image generation from the terminal.
     *   **Web UI**: Modern web interface for interactive generation.
+    *   **MCP Server**: Capability to be called by AI agents.
+
+### CLI and core features
+*   **Z-Image-Turbo Model**: Utilizes the high-quality `Tongyi-MAI/Z-Image-Turbo` model via `diffusers`.
 *   **MPS Acceleration**: Optimized for Mac users with Apple Silicon.
 *   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
 *   **Multiple LoRA Support**: Upload/manage LoRAs in the web UI, apply up to 4 with per-LoRA strengths in a single generation; CLI supports multiple `--lora` entries with optional strengths.
 *   **Automatic Dimension Adjustment**: Ensures image dimensions are compatible (multiples of 16).
+*   **Customizable Output Directory**: Image output directory can be customized via config file and environment variable.
+
+### Web UI features
 *   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified (zh-CN), and Chinese Traditional (zh-TW) are supported.
+*   **Appearance Theme support**: Light, dark and auto themes.
 *   **History Pagination and Infinite Scroll**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
 *   **Hardware-aware Model Recommendation**: The Web UI dynamically presents model precision options based on your system's detected RAM/VRAM, recommending the optimal choice for your hardware. You can also inspect available models and recommendations via the CLI.
+
+### MCP features
 *   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE auto-mounted at `/mcp` on the web server.
 
 ## Requirements
@@ -124,13 +132,13 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
      "mcpServers": {
        "z-image-studio": {
          "command": "zimg-mcp",
-         "transport": "stdio",
-         "args": []
+         "args": [],
+         "env": {}
        }
      }
    }
    ```
-   Adjust the `command` to a full path if not on PATH.
+   Adjust the `command` to a full path if not on PATH. If the agent cannot find the zimg-mcp command, you can also try setting the path in environment.
 
    Different agents may have slightly different parameters, for example, cline will timeout fast if you do not explicitly set a timeout parameter. Here is the example for cline:
    ```json
@@ -139,25 +147,28 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
        "z-image-studio": {
          "command": "zimg-mcp",
          "type": "stdio",
-         "args": [],
-        "disabled": false,
-        "autoApprove": [],
-        "timeout": 300
+         "args": [],,
+         "env": {},
+         "disabled": false,
+         "autoApprove": [],
+         "timeout": 300
        }
      }
    }
    ```
-3. For SSE instead of stdio, run `zimg serve` and configure the client with the SSE endpoint URL:
+   Detailed syntax may vary, please refer to the specific agent's documentation.
+3. For SSE instead of stdio, run `zimg serve` and configure the client with the SSE endpoint URL. Here is an example for Gemini CLI:
    ```json
    {
      "mcpServers": {
        "z-image-studio": {
          "url": "http://localhost:8000/mcp/sse",
-         "transport": "sse"
+         "transport": "http"
        }
      }
    }
    ```
+   Detailed syntax may vary, please refer to the specific agent's documentation.
 4. The agent will receive tools: `generate`, `list_models`, `list_history`.
 
 ## Command Line Arguments
