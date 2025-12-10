@@ -142,7 +142,8 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
      "mcpServers": {
        "zimage": {
          "command": "zimg-mcp",
-         "transport": "stdio"
+         "transport": "stdio",
+         "args": []
        }
      }
    }

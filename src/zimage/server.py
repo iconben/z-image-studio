@@ -41,17 +41,6 @@ except ImportError:
         get_outputs_dir,
     )
 
-# ANSI escape codes for colors
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RESET = "\033[0m"
-
-def log_info(message: str):
-    print(f"{GREEN}INFO{RESET}: {message}")
-
-def log_warn(message: str):
-    print(f"{YELLOW}WARN{RESET}: {message}")
-
 # Constants
 MAX_LORA_FILE_SIZE = 1 * 1024 * 1024 * 1024 # 1 GB
 
@@ -62,8 +51,11 @@ LORAS_DIR = get_loras_dir()
 
 logger = get_logger("zimage.server")
 
-app = FastAPI()
+# Log paths first so they appear before MCP mount or uvicorn startup messages
+logger.info(f"Data Directory: {get_data_dir()}")
+logger.info(f"Outputs Directory: {get_outputs_dir()}")
 
+app = FastAPI()
 # Initialize Database Schema
 migrations.init_db()
 
@@ -75,11 +67,6 @@ if ENABLE_MCP_SSE:
         logger.info("Mounted MCP SSE endpoint at /mcp")
     except Exception as e:
         logger.error(f"Failed to mount MCP SSE endpoint: {e}")
-
-@app.on_event("startup")
-async def startup_event():
-    log_info(f"\t  Data Directory: {get_data_dir()}")
-    log_info(f"\t  Outputs Directory: {get_outputs_dir()}")
 
 class LoraInput(BaseModel):
     filename: str
@@ -252,7 +239,7 @@ async def delete_lora(lora_id: int):
         try:
             file_path.unlink()
         except OSError as e:
-            print(f"Error deleting LoRA file {file_path}: {e}")
+            logger.error(f"Error deleting LoRA file {file_path}: {e}")
             # We already deleted from DB, so it's a "soft" failure
             
     return {"message": "LoRA deleted"}
