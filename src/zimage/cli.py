@@ -166,7 +166,20 @@ def run_server(args):
     """Start the FastAPI server via uvicorn."""
     import uvicorn
 
-    log_info(f"Starting web server at http://{args.host}:{args.port}")
+    # Handle both module execution and direct execution scenarios
+    if __package__:
+        from .network_utils import format_server_urls
+    else:
+        # When running directly (e.g., uv run src/zimage/cli.py serve)
+        # Add the zimage directory to sys.path
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        # Now network_utils.py should be directly importable
+        import network_utils
+        format_server_urls = network_utils.format_server_urls
+
+    # Log paths first so they appear before MCP mount or uvicorn startup messages
+    logger.info(f"Data Directory: {get_data_dir()}")
+    logger.info(f"Outputs Directory: {get_outputs_dir()}")
 
     # Determine app string based on execution mode
     if not __package__:
@@ -176,6 +189,10 @@ def run_server(args):
 
     if args.disable_mcp_sse:
         os.environ["ZIMAGE_DISABLE_MCP_SSE"] = "1"
+
+    # Display all accessible URLs
+    server_urls = format_server_urls(args.host, args.port)
+    log_info(f"Starting web server at:\n{server_urls}")
 
     uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
 
@@ -233,7 +250,7 @@ def main():
 
     # Subcommand: serve
     parser_serve = subparsers.add_parser("serve", help="Start Z-Image Web Server")
-    parser_serve.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0)")
+    parser_serve.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0 for all interfaces)")
     parser_serve.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
     parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
     parser_serve.add_argument("--disable-mcp-sse", action="store_true", help="Disable MCP SSE endpoint mounted at /mcp")

@@ -30,7 +30,7 @@ try:
 except ImportError:
     from engine import generate_image, cleanup_memory
     from worker import run_in_worker, run_in_worker_nowait
-    from hardware import get_available_models, MODEL_ID_MAP
+    from hardware import get_available_models, MODEL_ID_MAP, normalize_precision
     from logger import get_logger
     from storage import save_image, record_generation
     from mcp_server import get_sse_app
@@ -53,10 +53,6 @@ LORAS_DIR = get_loras_dir()
 
 logger = get_logger("zimage.server")
 
-# Log paths first so they appear before MCP mount or uvicorn startup messages
-logger.info(f"Data Directory: {get_data_dir()}")
-logger.info(f"Outputs Directory: {get_outputs_dir()}")
-
 app = FastAPI()
 # Initialize Database Schema
 migrations.init_db()
@@ -66,7 +62,7 @@ ENABLE_MCP_SSE = os.getenv("ZIMAGE_DISABLE_MCP_SSE", "0") != "1"
 if ENABLE_MCP_SSE:
     try:
         app.mount("/mcp", get_sse_app())
-        logger.info("Mounted MCP SSE endpoint at /mcp")
+        logger.info(f"    Mounted MCP SSE endpoint at /mcp")
     except Exception as e:
         logger.error(f"Failed to mount MCP SSE endpoint: {e}")
 
