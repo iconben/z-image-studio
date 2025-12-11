@@ -9,22 +9,19 @@ import pytest
 
 class TestMCPIntegration(unittest.TestCase):
     def setUp(self):
-        # Skip if heavy deps (e.g., diffusers) are not available in this env
-        pytest.importorskip("diffusers")
+        # Skip if mcp is not available in this env
+        pytest.importorskip("mcp")
 
         self.repo_root = Path(__file__).resolve().parent.parent
         env = os.environ.copy()
         env["PYTHONPATH"] = str(self.repo_root / "src") + os.pathsep + env.get("PYTHONPATH", "")
         self.env = env
 
-        # Use python -m to run module inside package context
+        # Use python -m to run MCP server directly without CLI dependencies
         self.base_cmd = [
             sys.executable,
             "-m",
-            "zimage.cli",
-            "mcp",
-            "--transport",
-            "stdio",
+            "zimage.mcp_server",
         ]
 
     def run_process(self, input_str):

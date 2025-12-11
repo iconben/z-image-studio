@@ -9,19 +9,32 @@ import json
 import base64
 
 try:
-    from .engine import generate_image, cleanup_memory, MODEL_ID_MAP
-    from .worker import run_in_worker, run_in_worker_nowait
-    from .hardware import get_available_models, normalize_precision
+    from .hardware import get_available_models, normalize_precision, MODEL_ID_MAP
     from . import db
     from .storage import save_image, record_generation
     from .logger import get_logger, setup_logging
 except ImportError:
-    from engine import generate_image, cleanup_memory, MODEL_ID_MAP
-    from worker import run_in_worker, run_in_worker_nowait
-    from hardware import get_available_models, normalize_precision
+    from hardware import get_available_models, normalize_precision, MODEL_ID_MAP
     import db
     from storage import save_image, record_generation
     from logger import get_logger, setup_logging
+
+# Lazy imports for heavy dependencies
+def _get_engine():
+    try:
+        from .engine import generate_image, cleanup_memory
+        return generate_image, cleanup_memory
+    except ImportError:
+        from engine import generate_image, cleanup_memory
+        return generate_image, cleanup_memory
+
+def _get_worker():
+    try:
+        from .worker import run_in_worker, run_in_worker_nowait
+        return run_in_worker, run_in_worker_nowait
+    except ImportError:
+        from worker import run_in_worker, run_in_worker_nowait
+        return run_in_worker, run_in_worker_nowait
 
 # Silence SDNQ/Triton noisy logs on stdout; keep MCP stdio clean
 os.environ.setdefault("SDNQ_LOG_LEVEL", "ERROR")
@@ -70,8 +83,11 @@ async def generate(
 
     start_time = time.time()
 
-    # Generate
+    # Generate (lazy load engine and worker once)
     try:
+        generate_image, cleanup_memory = _get_engine()
+        run_in_worker, run_in_worker_nowait = _get_worker()
+
         image = await run_in_worker(
             generate_image,
             prompt=prompt,
