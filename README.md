@@ -35,7 +35,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **Hardware-aware Model Recommendation**: The Web UI dynamically presents model precision options based on your system's detected RAM/VRAM, recommending the optimal choice for your hardware. You can also inspect available models and recommendations via the CLI.
 
 ### MCP features
-*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE auto-mounted at `/mcp` on the web server.
+*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE auto-mounted at `/mcp/sse` on the web server.
 
 ## Requirements
 
@@ -117,8 +117,8 @@ Run Z-Image Studio as an MCP server:
 # stdio transport (ideal for local agents/tools); also available as `zimg-mcp`
 zimg mcp
 
-# SSE transport is mounted automatically at /mcp when you run the web server:
-zimg serve          # SSE available at http://localhost:8000/mcp
+# SSE transport is mounted automatically at /mcp/sse when you run the web server:
+zimg serve          # SSE available at http://localhost:8000/mcp/sse
 zimg serve --disable-mcp-sse   # explicitly disable SSE endpoint
 ```
 
@@ -192,7 +192,7 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
 | `--port` | `int` | `8000` | Port to bind the server to. |
 | `--reload` | `bool` | `False` | Enable auto-reload (for development). |
-| `--disable-mcp-sse` | `bool` | `False` | Disable the MCP SSE endpoint mounted at `/mcp`. |
+| `--disable-mcp-sse` | `bool` | `False` | Disable the MCP SSE endpoint mounted at `/mcp/sse`. |
 
 ### Subcommand: `models`
 | Argument | Short | Type | Default | Description |
