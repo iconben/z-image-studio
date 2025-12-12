@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import time
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 try:
     from .paths import get_outputs_dir
@@ -66,6 +66,7 @@ def record_generation(
     precision: str,
     seed: Optional[int],
     cfg_scale: float = 0.0,
+    loras: Optional[List[Dict[str, Any]]] = None,
 ):
     """
     Persist a generation record to the DB. Best-effort with logging.
@@ -85,6 +86,7 @@ def record_generation(
             seed=seed,
             status="succeeded",
             precision=precision,
+            loras=loras,
         )
     except Exception as e:  # pragma: no cover
         logger.error(f"Failed to record generation to DB: {e}")

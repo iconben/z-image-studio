@@ -321,6 +321,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             cfg_scale=0.0,
             seed=req.seed,
             precision=precision,
+            loras=db_loras,
         )
         new_id = new_id or -1
 
