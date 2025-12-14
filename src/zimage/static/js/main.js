@@ -852,7 +852,7 @@
                 };
                 previewContainer.appendChild(img);
             }
-            if (downloadBtn) downloadBtn.href = imageUrl;
+            if (downloadBtn) downloadBtn.href = `/download/${encodeURIComponent(item.filename)}`;
             
             // Meta
             const t = translations[currentLanguage] || translations.en || {};
@@ -980,7 +980,10 @@
                             };
                             previewContainer.appendChild(img);
                         }
-                        if (downloadBtn) downloadBtn.href = data.image_url;
+                        if (downloadBtn) {
+                            const filename = data.image_url.split('/').pop();
+                            downloadBtn.href = `/download/${encodeURIComponent(filename)}`;
+                        }
                         
                         const tMeta = translations[currentLanguage] || translations.en || {};
                         const stepsLabelMeta = tMeta.steps_label || 'steps';

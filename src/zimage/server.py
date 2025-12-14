@@ -378,6 +378,24 @@ async def delete_history_item(item_id: int):
     
     return {"message": "History item and associated file deleted successfully"}
 
+@app.get("/download/{filename}")
+async def download_image(filename: str):
+    """Serve the image file as an attachment to force download."""
+    # Basic path traversal protection: ensure filename is just a name
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    file_path = OUTPUTS_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(
+        file_path, 
+        media_type="image/png", 
+        filename=filename,
+        content_disposition_type="attachment"
+    )
+
 # Serve generated images
 app.mount("/outputs", StaticFiles(directory=OUTPUTS_DIR), name="outputs")
 
