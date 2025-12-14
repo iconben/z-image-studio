@@ -43,5 +43,18 @@
   "model_desc_full_mps": "Best quality (High VRAM) (full)",
   "model_desc_q8_mps": "Balanced (Low VRAM) (q8)",
   "model_desc_q4_mps": "Low Memory (Lowest VRAM) (q4)",
-  "model_recommended_suffix": " (Recommended)"
+  "model_recommended_suffix": " (Recommended)",
+  "share_btn": "Share",
+  "share_success": "Image shared successfully!",
+  "share_error": "Failed to share image",
+  "share_not_supported": "Sharing not supported in this browser",
+  "copy_btn": "Copy",
+  "copy_success": "Image copied to clipboard!",
+  "copy_error": "Failed to copy image to clipboard",
+  "copy_not_supported": "Clipboard access not supported",
+  "share_unsupported_browser": "Your browser doesn't support direct sharing. Try downloading instead.",
+  "share_requires_https": "Sharing requires a secure connection (HTTPS or localhost)",
+  "app_name": "Z-Image Studio",
+  "no_image_to_share": "No image available to share",
+  "no_image_to_copy": "No image available to copy"
 }

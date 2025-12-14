@@ -223,7 +223,8 @@
                         </div>
                         
                         <div id="resultInfo" class="d-none border-top pt-3">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <!-- Metadata Row (full width) -->
+                            <div class="mb-3">
                                 <div class="text-muted small">
                                     <span id="timeTaken"></span>
                                     <span class="mx-2">|</span>
@@ -239,7 +240,21 @@
                                     <span class="mx-2">|</span>
                                     <span id="metaLoras"></span>
                                 </div>
-                                <a href="#" id="downloadBtn" class="btn btn-success" download data-i18n="download_btn">Download</a>
+                            </div>
+                            <!-- Buttons Row (full width, horizontal) -->
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button id="shareBtn" class="btn btn-primary flex-fill" title="Share" data-i18n-title="share_btn" data-bs-toggle="tooltip" data-bs-placement="top">
+                                    <i class="bi bi-share-fill"></i>
+                                    <span class="ms-1 d-none d-sm-inline" data-i18n="share_btn">Share</span>
+                                </button>
+                                <button id="copyBtn" class="btn btn-outline-primary flex-fill" title="Copy" data-i18n-title="copy_btn" data-bs-toggle="tooltip" data-bs-placement="top">
+                                    <i class="bi bi-clipboard"></i>
+                                    <span class="ms-1 d-none d-sm-inline" data-i18n="copy_btn">Copy</span>
+                                </button>
+                                <a href="#" id="downloadBtn" class="btn btn-success flex-fill" download title="Download" data-i18n-title="download_btn" data-bs-toggle="tooltip" data-bs-placement="top">
+                                    <i class="bi bi-download"></i>
+                                    <span class="ms-1 d-none d-sm-inline" data-i18n="download_btn">Download</span>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -301,6 +316,17 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Toast Container for notifications -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="shareToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" data-i18n="app_name">Z-Image Studio</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
         </div>
     </div>
 

@@ -19,7 +19,9 @@
         const generateBtn = document.getElementById('generateBtn');
         const previewContainer = document.getElementById('previewContainer');
         const resultInfo = document.getElementById('resultInfo');
-        const downloadBtn = document.getElementById('downloadBtn');
+        const downloadBtn = document.getElementById('downloadBtn') || document.getElementById('downloadBtnMobile');
+        const shareBtn = document.getElementById('shareBtn') || document.getElementById('shareBtnMobile');
+        const copyBtn = document.getElementById('copyBtn') || document.getElementById('copyBtnMobile');
         const timeTaken = document.getElementById('timeTaken');
         const metaDims = document.getElementById('metaDims');
         const metaSize = document.getElementById('metaSize');
@@ -28,10 +30,20 @@
         const metaPrecision = document.getElementById('metaPrecision');
         const metaSteps = document.getElementById('metaSteps');
         const metaLoras = document.getElementById('metaLoras');
+        const shareToast = document.getElementById('shareToast');
+        const toastMessage = document.getElementById('toastMessage');
         
         // Robust Bootstrap Check
         if (typeof bootstrap === 'undefined') {
             throw new Error("Bootstrap is not loaded. Check your internet connection or CDN.");
+        }
+
+        // Initialize tooltips for buttons
+        function initTooltips() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
         }
 
         const imageModalEl = document.getElementById('imageModal');
@@ -104,6 +116,9 @@
         let activeLoras = []; 
         let cachedLoras = [];
         let pendingLora = null;
+        let currentImageFilename = null;
+        let currentImageUrl = null;
+        let shareBtnMobile, copyBtnMobile; // Declare mobile buttons early to avoid hoisting issues
 
         // --- Logic ---
 
@@ -168,6 +183,12 @@
                 if (t[key]) el.setAttribute('title', t[key]);
             });
             
+            // Update button text spans for icon buttons
+            document.querySelectorAll('[data-i18n].button-text, [data-i18n].ms-1').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) el.textContent = t[key];
+            });
+            
             if (window.availableModels) {
                 renderModelOptions(window.availableModels, currentPrecisionValue);
             }
@@ -186,6 +207,7 @@
             });
             
             renderActiveLoras();
+            updateShareButtonState();
             
             if (generateBtn && generateBtn.disabled && t.generating_btn) {
                 generateBtn.textContent = t.generating_btn;
@@ -210,6 +232,9 @@
             else initialLang = 'en';
         }
         updateLanguage(initialLang);
+        
+        // Initialize tooltips after language is set
+        initTooltips();
 
         document.querySelectorAll('.dropdown-item[data-lang]').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -853,6 +878,9 @@
                 previewContainer.appendChild(img);
             }
             if (downloadBtn) downloadBtn.href = `/download/${encodeURIComponent(item.filename)}`;
+            // Update current image info for sharing
+            currentImageFilename = item.filename;
+            currentImageUrl = imageUrl;
             
             // Meta
             const t = translations[currentLanguage] || translations.en || {};
@@ -880,6 +908,9 @@
             if (!isHistoryPinned || window.innerWidth < 992) {
                 if (historyDrawer) historyDrawer.hide();
             }
+            
+            // Update share button state after loading history image
+            updateShareButtonState();
         }
 
         if (restoreDraftBtn) {
@@ -902,6 +933,229 @@
         ]);
         renderActiveLoras(); 
 
+        // --- Share and Copy Functionality ---
+        
+        // Toast notification helper
+        function showToast(message, isError = false) {
+            if (!shareToast || !toastMessage) return;
+            
+            toastMessage.textContent = message;
+            if (isError) {
+                shareToast.classList.add('text-bg-danger');
+                shareToast.classList.remove('text-bg-success');
+            } else {
+                shareToast.classList.add('text-bg-success');
+                shareToast.classList.remove('text-bg-danger');
+            }
+            
+            const toast = new bootstrap.Toast(shareToast, {
+                autohide: true,
+                delay: 3000
+            });
+            toast.show();
+        }
+        
+        // Feature detection for sharing capabilities
+        function canShareFiles() {
+            try {
+                // Safari/WebKit throws TypeError when files is empty or canShare isn't supported
+                return navigator.canShare && navigator.canShare({ files: [] });
+            } catch (e) {
+                console.warn("canShare({ files: [] }) not supported:", e);
+                return false;
+            }
+        }
+        
+        function canShareUrl() {
+            return navigator.share;
+        }
+        
+        function canCopyToClipboard() {
+            return navigator.clipboard && navigator.clipboard.write;
+        }
+        
+        // Update button state based on feature support and image availability
+        function updateShareButtonState() {
+            const t = translations[currentLanguage] || translations.en || {};
+            const hasImage = !!currentImageUrl;
+            
+            // Update all button instances (desktop and mobile)
+            const allShareButtons = [shareBtn, shareBtnMobile].filter(btn => btn !== null && btn !== undefined);
+            const allCopyButtons = [copyBtn, copyBtnMobile].filter(btn => btn !== null && btn !== undefined);
+            
+            // Enable/disable buttons based on image availability
+            allShareButtons.forEach(btn => btn.disabled = !hasImage);
+            allCopyButtons.forEach(btn => btn.disabled = !hasImage);
+            
+            // Update tooltips based on context
+            if (!hasImage) {
+                allShareButtons.forEach(btn => btn.title = t.share_btn || "No image available to share");
+                allCopyButtons.forEach(btn => btn.title = t.copy_btn || "No image available to copy");
+                return;
+            }
+            
+            // Add tooltips to explain requirements
+            if (window.isSecureContext) {
+                const shareTitle = canShareFiles() ? (t.share_btn || "Share image directly") : 
+                                  (canShareUrl() ? (t.share_btn || "Share image link") : 
+                                  (t.share_not_supported || "Sharing not supported"));
+                const copyTitle = canCopyToClipboard() ? (t.copy_btn || "Copy image to clipboard") : 
+                                  (t.copy_not_supported || "Clipboard not supported");
+                
+                allShareButtons.forEach(btn => btn.title = shareTitle);
+                allCopyButtons.forEach(btn => btn.title = copyTitle);
+            } else {
+                const secureTitle = t.share_requires_https || "Requires HTTPS or localhost";
+                allShareButtons.forEach(btn => btn.title = secureTitle);
+                allCopyButtons.forEach(btn => btn.title = secureTitle);
+            }
+        }
+        
+        async function shareImage() {
+            if (!currentImageFilename || !currentImageUrl) {
+                const t = translations[currentLanguage] || translations.en || {};
+                showToast(t.no_image_to_share || "No image available to share", true);
+                return;
+            }
+            
+            const t = translations[currentLanguage] || translations.en || {};
+            
+            // Check if we're in a secure context (required for Web Share API)
+            if (!window.isSecureContext) {
+                showToast(t.share_requires_https || "Sharing requires a secure connection (HTTPS or localhost)", true);
+                return;
+            }
+            
+            // Check if Web Share API with files is supported
+            if (navigator.canShare && navigator.canShare({ files: [] })) {
+                try {
+                    // Fetch the image as a blob
+                    const response = await fetch(currentImageUrl);
+                    if (!response.ok) throw new Error("Failed to fetch image");
+                    
+                    const blob = await response.blob();
+                    const file = new File([blob], currentImageFilename, { type: blob.type });
+                    
+                    // Share the file
+                    await navigator.share({
+                        files: [file],
+                        title: currentImageFilename,
+                        text: t.share_btn || "Check out this image I generated!"
+                    });
+                    
+                    console.log("Image shared successfully");
+                    
+                } catch (error) {
+                    console.error("Share failed:", error);
+                    if (error.name !== 'AbortError') { // Don't show error if user cancelled
+                        alert(t.share_error || "Failed to share image: " + error.message);
+                    }
+                }
+            } else if (navigator.share) {
+                // Fallback to sharing just the URL (older Web Share API)
+                try {
+                    await navigator.share({
+                        title: currentImageFilename,
+                        text: t.share_btn || "Check out this image I generated!",
+                        url: currentImageUrl
+                    });
+                    console.log("Image URL shared successfully");
+                } catch (error) {
+                    console.error("Share failed:", error);
+                    if (error.name !== 'AbortError') {
+                        showToast(t.share_error || "Failed to share image: " + error.message, true);
+                    }
+                }
+            } else {
+                // Web Share API not supported at all
+                showToast(t.share_not_supported || "Sharing not supported in this browser", true);
+            }
+        }
+        
+        async function copyImageToClipboard() {
+            if (!currentImageFilename || !currentImageUrl) {
+                const t = translations[currentLanguage] || translations.en || {};
+                showToast(t.no_image_to_copy || "No image available to copy", true);
+                return;
+            }
+            
+            const t = translations[currentLanguage] || translations.en || {};
+            
+            // Check if we're in a secure context (required for Clipboard API)
+            if (!window.isSecureContext) {
+                showToast(t.share_requires_https || "Clipboard access requires a secure connection (HTTPS or localhost)", true);
+                return;
+            }
+            
+            // Check if Clipboard API is supported
+            if (!navigator.clipboard || !navigator.clipboard.write) {
+                alert(t.copy_not_supported || "Clipboard access not supported");
+                return;
+            }
+            
+            // Check if ClipboardItem is supported
+            if (typeof ClipboardItem === 'undefined') {
+                alert(t.copy_not_supported || "Clipboard access not supported");
+                return;
+            }
+            
+            try {
+                // Fetch the image as a blob
+                const response = await fetch(currentImageUrl);
+                if (!response.ok) throw new Error("Failed to fetch image");
+                
+                const blob = await response.blob();
+                
+                // Create clipboard item
+                let clipboardItem;
+                try {
+                    clipboardItem = new ClipboardItem({
+                        [blob.type]: blob
+                    });
+                } catch (e) {
+                    console.warn("ClipboardItem constructor failed, trying alternative approach:", e);
+                    // Fallback for browsers that don't support ClipboardItem constructor
+                    const item = {};
+                    item[blob.type] = blob;
+                    clipboardItem = new ClipboardItem(item);
+                }
+                
+                // Write to clipboard
+                await navigator.clipboard.write([clipboardItem]);
+                
+                showToast(t.copy_success || "Image copied to clipboard!");
+                console.log("Image copied to clipboard successfully");
+                
+            } catch (error) {
+                console.error("Copy to clipboard failed:", error);
+                showToast(t.copy_error || "Failed to copy image to clipboard: " + error.message, true);
+            }
+        }
+        
+        // Set up event listeners for share and copy buttons
+        if (shareBtn) {
+            shareBtn.addEventListener('click', shareImage);
+        }
+        
+        if (copyBtn) {
+            copyBtn.addEventListener('click', copyImageToClipboard);
+        }
+        
+        // Initialize mobile buttons if they exist
+        shareBtnMobile = document.getElementById('shareBtnMobile');
+        copyBtnMobile = document.getElementById('copyBtnMobile');
+        
+        if (shareBtnMobile) {
+            shareBtnMobile.addEventListener('click', shareImage);
+        }
+        
+        if (copyBtnMobile) {
+            copyBtnMobile.addEventListener('click', copyImageToClipboard);
+        }
+        
+        // Initialize share button state
+        updateShareButtonState();
+        
         if (form) {
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
@@ -983,6 +1237,9 @@
                         if (downloadBtn) {
                             const filename = data.image_url.split('/').pop();
                             downloadBtn.href = `/download/${encodeURIComponent(filename)}`;
+                            // Update current image info for sharing
+                            currentImageFilename = filename;
+                            currentImageUrl = data.image_url;
                         }
                         
                         const tMeta = translations[currentLanguage] || translations.en || {};

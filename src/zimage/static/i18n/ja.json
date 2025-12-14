@@ -43,5 +43,18 @@
   "model_desc_full_mps": "最高画質 (高VRAM) (full)",
   "model_desc_q8_mps": "バランス (低VRAM) (q8)",
   "model_desc_q4_mps": "低メモリ (最低VRAM) (q4)",
-  "model_recommended_suffix": " (推奨)"
+  "model_recommended_suffix": " (推奨)",
+  "share_btn": "共有",
+  "share_success": "画像が共有されました！",
+  "share_error": "画像の共有に失敗しました",
+  "share_not_supported": "このブラウザでは共有がサポートされていません",
+  "copy_btn": "コピー",
+  "copy_success": "画像がクリップボードにコピーされました！",
+  "copy_error": "画像をクリップボードにコピーできませんでした",
+  "copy_not_supported": "クリップボードアクセスがサポートされていません",
+  "share_unsupported_browser": "お使いのブラウザでは直接共有がサポートされていません。ダウンロードをお試しください。",
+  "share_requires_https": "共有には安全な接続（HTTPS または localhost）が必要です",
+  "app_name": "Z-Image Studio",
+  "no_image_to_share": "共有できる画像がありません",
+  "no_image_to_copy": "コピーできる画像がありません"
 }

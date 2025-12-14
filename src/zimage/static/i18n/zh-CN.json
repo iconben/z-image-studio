@@ -43,5 +43,18 @@
   "model_desc_full_mps": "最佳画质 (高内存) (full)",
   "model_desc_q8_mps": "平衡模式 (中等内存) (q8)",
   "model_desc_q4_mps": "低内存模式 (低内存) (q4)",
-  "model_recommended_suffix": " (推荐)"
+  "model_recommended_suffix": " (推荐)",
+  "share_btn": "分享",
+  "share_success": "图片分享成功！",
+  "share_error": "图片分享失败",
+  "share_not_supported": "此浏览器不支持分享功能",
+  "copy_btn": "复制",
+  "copy_success": "图片已复制到剪贴板！",
+  "copy_error": "无法复制图片到剪贴板",
+  "copy_not_supported": "不支持剪贴板访问",
+  "share_unsupported_browser": "您的浏览器不支持直接分享。请尝试下载。",
+  "share_requires_https": "分享需要安全连接（HTTPS 或 localhost）",
+  "app_name": "Z-Image Studio",
+  "no_image_to_share": "没有可分享的图片",
+  "no_image_to_copy": "没有可复制的图片"
 }
