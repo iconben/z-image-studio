@@ -23,7 +23,7 @@
   "history_title": "履歴",
   "history_empty": "履歴なし",
   "restore_draft_btn": "下書きを復元",
-  "delete_btn_tooltip": "削除",
+  "delete_btn_tooltip": "削除するには2回クリック",
   "default_prompt": "未来的なサイバーパンク都市の夜、ネオンライト、リアル",
   "yesterday": "昨日",
   "lora_label": "LoRA モデル",
