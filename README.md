@@ -13,6 +13,8 @@ A web application and a command-line interface for the **Z-Image-Turbo** text-to
 
 This tool is designed to run efficiently on local machines, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if unavailable.
 
+![Screenshot 0](docs/images/screenshot0.png)
+
 ## Features
 **Hybrid Interfaces**: 
     *   **CLI**: Fast, direct image generation from the terminal.
@@ -20,7 +22,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
     *   **MCP Server**: Capability to be called by AI agents.
 
 ### CLI and core features
-*   **Z-Image-Turbo Model**: Utilizes the high-quality `Tongyi-MAI/Z-Image-Turbo` model via `diffusers`.
+*   **Z-Image-Turbo Model**: Utilizes the high-quality `Tongyi-MAI/Z-Image-Turbo` model and quatized variants via `diffusers`.
 *   **MPS Acceleration**: Optimized for Mac users with Apple Silicon.
 *   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
@@ -29,10 +31,12 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   **Customizable Output Directory**: Image output directory can be customized via config file and environment variable.
 
 ### Web UI features
-*   **Multilanguage Support on Web UI**: English, Japanese, Chinese Simplified (zh-CN), and Chinese Traditional (zh-TW) are supported.
-*   **Appearance Theme support**: Light, dark and auto themes.
-*   **History Pagination and Infinite Scroll**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
+*   **Multilanguage Support**: English, Japanese, Chinese Simplified (zh-CN), and Chinese Traditional (zh-TW) are supported.
+*   **History Browser**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
 *   **Hardware-aware Model Recommendation**: The Web UI dynamically presents model precision options based on your system's detected RAM/VRAM, recommending the optimal choice for your hardware. You can also inspect available models and recommendations via the CLI.
+*   **Image Sharing**: The generated image can be downloaded to browser download directory, conveniently shared via OS share protocol, and copied into clipboard. 
+*   **Theme Switch**: Light, dark and auto themes.
+*   **Mobile compatible**: Responsive layout for mobile devices.
 
 ### MCP features
 *   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE auto-mounted at `/mcp/sse` on the web server.
@@ -42,7 +46,7 @@ This tool is designed to run efficiently on local machines, with specific optimi
 *   Python >= 3.11
 *   `uv` (recommended for dependency management)
 
-## Global installation (as a CLI tool)
+## Global installation
 
 If you just want the `zimg` CLI to be available from anywhere, install it as a uv tool:
 
@@ -114,8 +118,8 @@ Once started, open your browser to the displayed URL.
 Run Z-Image Studio as an MCP server:
 
 ```bash
-# stdio transport (ideal for local agents/tools); also available as `zimg-mcp`
-zimg mcp
+# stdio transport (ideal for local agents/tools); also available as `zimg mcp`
+zimg-mcp
 
 # SSE transport is mounted automatically at /mcp/sse when you run the web server:
 zimg serve          # SSE available at http://localhost:8000/mcp/sse
@@ -230,10 +234,14 @@ On first run without an existing config file, the app migrates legacy data by mo
 ## Screenshots
 
 ![Screenshot 1](docs/images/screenshot1.png)
+*(Screenshot 1: Two column layout with History browser collapsed)*
 
 ![Screenshot 2](docs/images/screenshot2.png)
+*(Screenshot 2: Three column layout with History browser pinned)*
+
 
 ![Screenshot 3](docs/images/screenshot3.png)
+*(Screenshot 3: Generated Image zoomed to fit the screen)*
 
 
 ## Development
