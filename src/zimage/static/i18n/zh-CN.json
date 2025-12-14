@@ -23,7 +23,7 @@
   "history_title": "历史记录",
   "history_empty": "暂无历史记录",
   "restore_draft_btn": "恢复上次草稿",
-  "delete_btn_tooltip": "删除",
+  "delete_btn_tooltip": "点击两次以删除",
   "default_prompt": "夜晚的未来赛博朋克城市，霓虹灯，写实",
   "yesterday": "昨天",
   "lora_label": "LoRA 模型",

@@ -23,7 +23,7 @@
   "history_title": "History",
   "history_empty": "No history yet",
   "restore_draft_btn": "Restore Last Draft",
-  "delete_btn_tooltip": "Delete",
+  "delete_btn_tooltip": "Click twice to delete",
   "default_prompt": "A futuristic cyberpunk city at night, neon lights, realistic",
   "yesterday": "Yesterday",
   "lora_label": "LoRA Models",

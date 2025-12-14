@@ -152,6 +152,15 @@
             currentLanguage = lang;
             if (languageDropdownBtn) languageDropdownBtn.textContent = lang.toUpperCase();
 
+            // Highlight the selected language in the dropdown menu
+            document.querySelectorAll('#languageDropdown + .dropdown-menu .dropdown-item').forEach((item) => {
+                if (item.getAttribute('data-lang') === lang) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
             // Enhanced fallback logic for missing translations
             let t = translations[lang];
 
@@ -720,7 +729,7 @@
                             <small class="text-muted" style="line-height: 0.9rem">${date}</small>
                             <small class="text-muted" style="line-height: 0.9rem">${formatValueWithOneDecimal(item.generation_time)}s · ${item.precision} · ${item.steps} steps</small>
                         </div>
-                        <button class="btn btn-sm btn-outline-secondary ms-auto delete-history-item" data-id="${item.id}" title="${translations[currentLanguage].delete_btn_tooltip}">
+                        <button class="btn btn-sm btn-outline-secondary ms-auto delete-history-item" data-id="${item.id}" title="${translations[currentLanguage].delete_btn_tooltip}" data-bs-toggle="tooltip" data-bs-placement="top">
                             <i class="bi bi-trash"></i>
                         </button>
                     </a>
@@ -763,6 +772,12 @@
                     };
 
                     container.appendChild(el);
+                    
+                    // Initialize tooltip for the delete button
+                    const deleteBtnTooltip = el.querySelector('.delete-history-item');
+                    if (deleteBtnTooltip) {
+                        new bootstrap.Tooltip(deleteBtnTooltip);
+                    }
                 });
             });
         }
@@ -882,6 +897,9 @@
             currentImageFilename = item.filename;
             currentImageUrl = imageUrl;
             
+            // Enable share/copy buttons now that we have an image
+            updateShareButtonState();
+            
             // Meta
             const t = translations[currentLanguage] || translations.en || {};
             const stepsLabel = t.steps_label || 'steps';
@@ -956,16 +974,6 @@
         }
         
         // Feature detection for sharing capabilities
-        function canShareFiles() {
-            try {
-                // Safari/WebKit throws TypeError when files is empty or canShare isn't supported
-                return navigator.canShare && navigator.canShare({ files: [] });
-            } catch (e) {
-                console.warn("canShare({ files: [] }) not supported:", e);
-                return false;
-            }
-        }
-        
         function canShareUrl() {
             return navigator.share;
         }
@@ -989,16 +997,17 @@
             
             // Update tooltips based on context
             if (!hasImage) {
-                allShareButtons.forEach(btn => btn.title = t.share_btn || "No image available to share");
-                allCopyButtons.forEach(btn => btn.title = t.copy_btn || "No image available to copy");
+                allShareButtons.forEach(btn => btn.title = t.no_image_to_share || "No image available to share");
+                allCopyButtons.forEach(btn => btn.title = t.no_image_to_copy || "No image available to copy");
                 return;
             }
             
             // Add tooltips to explain requirements
             if (window.isSecureContext) {
-                const shareTitle = canShareFiles() ? (t.share_btn || "Share image directly") : 
-                                  (canShareUrl() ? (t.share_btn || "Share image link") : 
-                                  (t.share_not_supported || "Sharing not supported"));
+                // We can't know file sharing capability until we try with actual file,
+                // so just indicate sharing is available
+                const shareTitle = canShareUrl() ? (t.share_btn || "Share image") : 
+                                  (t.share_not_supported || "Sharing not supported");
                 const copyTitle = canCopyToClipboard() ? (t.copy_btn || "Copy image to clipboard") : 
                                   (t.copy_not_supported || "Clipboard not supported");
                 
@@ -1026,49 +1035,52 @@
                 return;
             }
             
-            // Check if Web Share API with files is supported
-            if (navigator.canShare && navigator.canShare({ files: [] })) {
+            // Check if Web Share API is available at all
+            if (!navigator.share) {
+                showToast(t.share_not_supported || "Sharing not supported in this browser", true);
+                return;
+            }
+            
+            try {
+                // Fetch the image as a blob first
+                const response = await fetch(currentImageUrl);
+                if (!response.ok) throw new Error("Failed to fetch image");
+                
+                const blob = await response.blob();
+                const file = new File([blob], currentImageFilename, { type: blob.type });
+                
+                // Now check if file sharing is supported with the actual file
+                let canShareFiles = false;
                 try {
-                    // Fetch the image as a blob
-                    const response = await fetch(currentImageUrl);
-                    if (!response.ok) throw new Error("Failed to fetch image");
-                    
-                    const blob = await response.blob();
-                    const file = new File([blob], currentImageFilename, { type: blob.type });
-                    
-                    // Share the file
+                    canShareFiles = navigator.canShare && navigator.canShare({ files: [file] });
+                } catch (e) {
+                    console.warn("File sharing not supported:", e);
+                    canShareFiles = false;
+                }
+                
+                if (canShareFiles) {
+                    // Share the file directly
                     await navigator.share({
                         files: [file],
                         title: currentImageFilename,
                         text: t.share_btn || "Check out this image I generated!"
                     });
-                    
                     console.log("Image shared successfully");
-                    
-                } catch (error) {
-                    console.error("Share failed:", error);
-                    if (error.name !== 'AbortError') { // Don't show error if user cancelled
-                        alert(t.share_error || "Failed to share image: " + error.message);
-                    }
-                }
-            } else if (navigator.share) {
-                // Fallback to sharing just the URL (older Web Share API)
-                try {
+                } else {
+                    // Fallback to sharing just the URL
                     await navigator.share({
                         title: currentImageFilename,
                         text: t.share_btn || "Check out this image I generated!",
                         url: currentImageUrl
                     });
                     console.log("Image URL shared successfully");
-                } catch (error) {
-                    console.error("Share failed:", error);
-                    if (error.name !== 'AbortError') {
-                        showToast(t.share_error || "Failed to share image: " + error.message, true);
-                    }
                 }
-            } else {
-                // Web Share API not supported at all
-                showToast(t.share_not_supported || "Sharing not supported in this browser", true);
+                
+            } catch (error) {
+                console.error("Share failed:", error);
+                if (error.name !== 'AbortError') { // Don't show error if user cancelled
+                    showToast(t.share_error || "Failed to share image: " + error.message, true);
+                }
             }
         }
         
@@ -1089,13 +1101,13 @@
             
             // Check if Clipboard API is supported
             if (!navigator.clipboard || !navigator.clipboard.write) {
-                alert(t.copy_not_supported || "Clipboard access not supported");
+                showToast(t.copy_not_supported || "Clipboard access not supported", true);
                 return;
             }
             
             // Check if ClipboardItem is supported
             if (typeof ClipboardItem === 'undefined') {
-                alert(t.copy_not_supported || "Clipboard access not supported");
+                showToast(t.copy_not_supported || "Clipboard access not supported", true);
                 return;
             }
             
@@ -1141,15 +1153,15 @@
             copyBtn.addEventListener('click', copyImageToClipboard);
         }
         
-        // Initialize mobile buttons if they exist
+        // Initialize mobile buttons if they exist and aren't already assigned to desktop vars
         shareBtnMobile = document.getElementById('shareBtnMobile');
         copyBtnMobile = document.getElementById('copyBtnMobile');
         
-        if (shareBtnMobile) {
+        if (shareBtnMobile && shareBtn !== shareBtnMobile) {
             shareBtnMobile.addEventListener('click', shareImage);
         }
         
-        if (copyBtnMobile) {
+        if (copyBtnMobile && copyBtn !== copyBtnMobile) {
             copyBtnMobile.addEventListener('click', copyImageToClipboard);
         }
         
@@ -1240,6 +1252,9 @@
                             // Update current image info for sharing
                             currentImageFilename = filename;
                             currentImageUrl = data.image_url;
+                            
+                            // Enable share/copy buttons now that we have an image
+                            updateShareButtonState();
                         }
                         
                         const tMeta = translations[currentLanguage] || translations.en || {};
