@@ -80,8 +80,10 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
     if device is None:
         if torch.backends.mps.is_available():
             device = "mps"
+        elif torch.cuda.is_available():
+            device = "cuda"
         else:
-            log_warn("MPS not available, using CPU (slow).")
+            log_warn("MPS/CUDA not available, using CPU (slow).")
             device = "cpu"
     
     log_info(f"using device: {device}")
