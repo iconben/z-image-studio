@@ -9,7 +9,7 @@
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-MPS-gray?logo=apple)
 [![Docs](https://img.shields.io/badge/docs-deepwiki.com-blue)](https://deepwiki.com/iconben/z-image-studio)
 
-A web application and a command-line interface for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
+A Cli, a webUI, and a MCP server for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
 
 This tool is designed to run efficiently on local machines, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if unavailable.
 
@@ -17,9 +17,9 @@ This tool is designed to run efficiently on local machines, with specific optimi
 
 ## Features
 **Hybrid Interfaces**: 
-    *   **CLI**: Fast, direct image generation from the terminal.
-    *   **Web UI**: Modern web interface for interactive generation.
-    *   **MCP Server**: Capability to be called by AI agents.
+  *   **CLI**: Fast, direct image generation from the terminal.
+  *   **Web UI**: Modern web interface for interactive generation.
+  *   **MCP Server**: Capability to be called by AI agents.
 
 ### CLI and core features
 *   **Z-Image-Turbo Model**: Utilizes the high-quality `Tongyi-MAI/Z-Image-Turbo` model and quatized variants via `diffusers`.
