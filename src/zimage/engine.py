@@ -64,6 +64,10 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
 
     if _cached_pipe is not None and _cached_precision == cache_key:
         return _cached_pipe
+
+    if device is None:
+        device = detect_device()
+    log_info(f"using device: {device}")
     
     # If we are switching models, unload the old one first to free memory
     if _cached_pipe is not None:
@@ -71,20 +75,11 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         del _cached_pipe
         import gc
         gc.collect()
-        if torch.cuda.is_available():
+        if device == "cuda" and torch.cuda.is_available(): # added check for cuda availability
             torch.cuda.empty_cache()
-        if torch.backends.mps.is_available():
+        if device == "mps" and torch.backends.mps.is_available(): # added check for mps availability
              torch.mps.empty_cache()
         _cached_pipe = None
-
-    if device is None:
-        if torch.backends.mps.is_available():
-            device = "mps"
-        else:
-            log_warn("MPS not available, using CPU (slow).")
-            device = "cpu"
-    
-    log_info(f"using device: {device}")
 
     # Directly use MODEL_ID_MAP
     model_id = MODEL_ID_MAP[precision] # This will raise KeyError if precision is not valid, let it
