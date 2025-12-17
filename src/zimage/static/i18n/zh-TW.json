@@ -54,6 +54,10 @@
   "copy_not_supported": "不支援剪貼簿存取",
   "share_unsupported_browser": "您的瀏覽器不支援直接分享。請嘗試下載。",
   "share_requires_https": "分享需要安全連線（HTTPS 或 localhost）",
+  "share_tooltip": "透過裝置的分享選項分享",
+  "copy_tooltip": "將圖片複製到剪貼簿",
+  "download_tooltip": "透過瀏覽器下載",
+  "no_image_to_download": "沒有可下載的圖片",
   "app_name": "Z-Image Studio",
   "no_image_to_share": "沒有可分享的圖片",
   "no_image_to_copy": "沒有可複製的圖片"
