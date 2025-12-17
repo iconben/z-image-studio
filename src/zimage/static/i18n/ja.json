@@ -54,6 +54,10 @@
   "copy_not_supported": "クリップボードアクセスがサポートされていません",
   "share_unsupported_browser": "お使いのブラウザでは直接共有がサポートされていません。ダウンロードをお試しください。",
   "share_requires_https": "共有には安全な接続（HTTPS または localhost）が必要です",
+  "share_tooltip": "デバイスの共有オプションでシェアする",
+  "copy_tooltip": "画像をクリップボードにコピーする",
+  "download_tooltip": "ブラウザでダウンロードする",
+  "no_image_to_download": "ダウンロードできる画像がありません",
   "app_name": "Z-Image Studio",
   "no_image_to_share": "共有できる画像がありません",
   "no_image_to_copy": "コピーできる画像がありません"

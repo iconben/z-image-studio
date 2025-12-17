@@ -42,6 +42,11 @@
         function initTooltips() {
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.map(function (tooltipTriggerEl) {
+                // Destroy existing tooltip if it exists
+                const existingTooltip = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
+                if (existingTooltip) {
+                    existingTooltip.dispose();
+                }
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
         }
@@ -249,8 +254,7 @@
             btn.addEventListener('click', (e) => {
                 const lang = e.target.getAttribute('data-lang');
                 updateLanguage(lang);
-                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+                initTooltips();
             });
         });
 
@@ -821,6 +825,7 @@
         }
 
         function loadFromHistory(item) {
+            
             // Stash current state
             if (isDirty) {
                 if (promptInput) localStorage.setItem('zimage_stash_prompt', promptInput.value);
@@ -897,8 +902,20 @@
             currentImageFilename = item.filename;
             currentImageUrl = imageUrl;
             
+
+            
             // Enable share/copy buttons now that we have an image
             updateShareButtonState();
+            
+            // Check button state after update
+            setTimeout(() => {
+                console.log('Button state after loadFromHistory:', {
+                    shareBtnDisabled: shareBtn ? shareBtn.disabled : 'N/A',
+                    copyBtnDisabled: copyBtn ? copyBtn.disabled : 'N/A',
+                    shareBtnTitle: shareBtn ? shareBtn.title : 'N/A',
+                    copyBtnTitle: copyBtn ? copyBtn.title : 'N/A'
+                });
+            }, 100);
             
             // Meta
             const t = translations[currentLanguage] || translations.en || {};
@@ -990,15 +1007,24 @@
             // Update all button instances (desktop and mobile)
             const allShareButtons = [shareBtn, shareBtnMobile].filter(btn => btn !== null && btn !== undefined);
             const allCopyButtons = [copyBtn, copyBtnMobile].filter(btn => btn !== null && btn !== undefined);
+            const allDownloadButtons = [downloadBtn].filter(btn => btn !== null && btn !== undefined);
             
             // Enable/disable buttons based on image availability
             allShareButtons.forEach(btn => btn.disabled = !hasImage);
             allCopyButtons.forEach(btn => btn.disabled = !hasImage);
+            allDownloadButtons.forEach(btn => btn.disabled = !hasImage);
             
             // Update tooltips based on context
             if (!hasImage) {
-                allShareButtons.forEach(btn => btn.title = t.no_image_to_share || "No image available to share");
-                allCopyButtons.forEach(btn => btn.title = t.no_image_to_copy || "No image available to copy");
+                allShareButtons.forEach(btn => {
+                    refreshTooltip(btn, t.no_image_to_share || "No image available to share");
+                });
+                allCopyButtons.forEach(btn => {
+                    refreshTooltip(btn, t.no_image_to_copy || "No image available to copy");
+                });
+                allDownloadButtons.forEach(btn => {
+                    refreshTooltip(btn, t.no_image_to_download || "No image available to download");
+                });
                 return;
             }
             
@@ -1006,18 +1032,52 @@
             if (window.isSecureContext) {
                 // We can't know file sharing capability until we try with actual file,
                 // so just indicate sharing is available
-                const shareTitle = canShareUrl() ? (t.share_btn || "Share image") : 
+                const shareTitle = canShareUrl() ? (t.share_tooltip || "Share using your device options") : 
                                   (t.share_not_supported || "Sharing not supported");
-                const copyTitle = canCopyToClipboard() ? (t.copy_btn || "Copy image to clipboard") : 
+                const copyTitle = canCopyToClipboard() ? (t.copy_tooltip || "Copy the image to your clipboard") : 
                                   (t.copy_not_supported || "Clipboard not supported");
+                const downloadTitle = t.download_tooltip || "Download using your browser";
                 
-                allShareButtons.forEach(btn => btn.title = shareTitle);
-                allCopyButtons.forEach(btn => btn.title = copyTitle);
+                allShareButtons.forEach(btn => {
+                    refreshTooltip(btn, shareTitle);
+                });
+                allCopyButtons.forEach(btn => {
+                    refreshTooltip(btn, copyTitle);
+                });
+                allDownloadButtons.forEach(btn => {
+                    refreshTooltip(btn, downloadTitle);
+                });
             } else {
                 const secureTitle = t.share_requires_https || "Requires HTTPS or localhost";
-                allShareButtons.forEach(btn => btn.title = secureTitle);
-                allCopyButtons.forEach(btn => btn.title = secureTitle);
+                allShareButtons.forEach(btn => {
+                    refreshTooltip(btn, secureTitle);
+                });
+                allCopyButtons.forEach(btn => {
+                    refreshTooltip(btn, secureTitle);
+                });
+                allDownloadButtons.forEach(btn => {
+                    refreshTooltip(btn, secureTitle);
+                });
             }
+        }
+        
+        // Helper: rebuild tooltip with an explicit title so stale instances don't linger
+        function refreshTooltip(btn, title) {
+            if (!btn) return;
+            
+            btn.setAttribute('title', title);
+            // Bootstrap caches the original title in data attributes; clear them
+            btn.removeAttribute('data-bs-original-title');
+            btn.removeAttribute('data-bs-title');
+
+            // Always dispose existing tooltip if it exists
+            const existingTooltip = bootstrap.Tooltip.getInstance(btn);
+            if (existingTooltip) {
+                existingTooltip.dispose();
+            }
+            
+            // Create new tooltip with the explicit title option to avoid stale cached values
+            new bootstrap.Tooltip(btn, { title });
         }
         
         async function shareImage() {
