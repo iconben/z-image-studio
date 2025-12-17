@@ -11,6 +11,7 @@ import shutil
 import hashlib
 import os
 import uuid
+import random
 
 try:
     from .engine import generate_image, cleanup_memory
@@ -284,6 +285,13 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             resolved_loras.append((str(lora_full_path.resolve()), lora_input.strength))
             db_loras.append({"id": lora_info['id'], "strength": lora_input.strength})
 
+        # Generate a random seed if none provided (for reproducibility tracking)
+        if req.seed is None:
+            req_seed = random.randint(0, 2**31 - 1)
+            logger.info(f"Generated random seed: {req_seed}")
+        else:
+            req_seed = req.seed
+        
         start_time = time.time()
         
         # Run generation in the dedicated worker thread
@@ -293,7 +301,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             steps=req.steps,
             width=width,
             height=height,
-            seed=req.seed,
+            seed=req_seed,
             precision=precision,
             loras=resolved_loras
         )
@@ -319,7 +327,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             file_size_kb=file_size_kb,
             model=model_id,
             cfg_scale=0.0,
-            seed=req.seed,
+            seed=req_seed,
             precision=precision,
             loras=db_loras,
         )
@@ -335,7 +343,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
             "width": image.width,
             "height": image.height,
             "file_size_kb": round(file_size_kb, 1),
-            "seed": req.seed,
+            "seed": req_seed,
             "precision": precision,
             "model_id": model_id,
             "loras": req.loras

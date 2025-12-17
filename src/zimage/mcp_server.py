@@ -7,6 +7,7 @@ import time
 import os
 import json
 import base64
+import random
 
 try:
     from .hardware import get_available_models, normalize_precision, MODEL_ID_MAP
@@ -80,6 +81,11 @@ async def generate(
     height = height if height % 16 == 0 else (height // 16) * 16
     width = max(16, width)
     height = max(16, height)
+
+    # Generate a random seed if none provided (for reproducibility tracking)
+    if seed is None:
+        seed = random.randint(0, 2**31 - 1)
+        logger.info(f"Generated random seed: {seed}")
 
     start_time = time.time()
 
