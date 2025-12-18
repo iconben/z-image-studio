@@ -362,3 +362,5 @@ On first run without an existing config file, the app migrates legacy data by mo
 
 *   **Guidance Scale**: The script hardcodes `guidance_scale=0.0` as required by the Turbo model distillation process.
 *   **Safety Checker**: Disabled by default to prevent false positives and potential black image outputs during local testing.
+
+For detailed architecture and development guidelines, see [docs/architecture.md](docs/architecture.md).
