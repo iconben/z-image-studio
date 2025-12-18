@@ -1,6 +1,5 @@
 import pytest
 import json
-import os
 from unittest.mock import patch, MagicMock
 from PIL import Image
 
@@ -69,9 +68,6 @@ def test_sse_content_structure_mock():
         mock_path_obj.stat = lambda: MagicMock(st_size=1024)
         mock_save.return_value = mock_path_obj
 
-        # Set SSE mode
-        os.environ["ZIMAGE_MCP_TRANSPORT"] = "sse"
-
         # Get the app
         app = get_sse_app()
 
@@ -85,21 +81,22 @@ def test_sse_content_structure_mock():
         # Also mock MODEL_ID_MAP
         with patch('zimage.mcp_server.MODEL_ID_MAP', {'q4': 'test-model'}):
             # Import and test the generate function directly
-            from zimage.mcp_server import generate
+            from zimage.mcp_server import _generate_impl
 
             # Run the test
             import asyncio
 
             async def run_test():
                 try:
-                    result = await generate(
+                    result = await _generate_impl(
                         prompt="a test image",
                         steps=2,
                         width=256,
                         height=256,
                         seed=12345,
                         precision="q4",
-                        ctx=mock_ctx
+                        transport="sse",
+                        ctx=mock_ctx,
                     )
                 except Exception as e:
                     print(f"\nException during generate: {e}")
@@ -191,24 +188,22 @@ def test_stdio_content_structure_mock():
         mock_path_obj.stat = lambda: MagicMock(st_size=2048)
         mock_save.return_value = mock_path_obj
 
-        # Set stdio mode
-        os.environ["ZIMAGE_MCP_TRANSPORT"] = "stdio"
-
         # Import and test the generate function directly
-        from zimage.mcp_server import generate
+        from zimage.mcp_server import _generate_impl
 
         # Run the test
         import asyncio
 
         async def run_test():
-            result = await generate(
+            result = await _generate_impl(
                 prompt="a test image",
                 steps=2,
                 width=256,
                 height=256,
                 seed=12345,
                 precision="q4",
-                ctx=None  # No context for stdio
+                transport="stdio",
+                ctx=None,  # No context for stdio
             )
 
             # Verify structure

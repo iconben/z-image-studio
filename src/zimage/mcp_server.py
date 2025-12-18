@@ -67,40 +67,24 @@ except ImportError:
 
 mcp = FastMCP("Z-Image Studio")
 
-@mcp.tool()
-async def generate(
+def _infer_transport(ctx: Optional[Context]) -> Literal["stdio", "sse"]:
+    """Infer transport based on whether we have an HTTP request context."""
+    if ctx and getattr(getattr(ctx, "request_context", None), "request", None):
+        return "sse"
+    return "stdio"
+
+async def _generate_impl(
     prompt: str,
-    steps: int = 9,
-    width: int = 1280,
-    height: int = 720,
-    seed: int | None = None,
-    precision: str = "q8",
-    ctx: Optional[Context] = None
+    steps: int,
+    width: int,
+    height: int,
+    seed: int | None,
+    precision: str,
+    transport: Literal["stdio", "sse"],
+    ctx: Optional[Context],
 ) -> list[types.TextContent | types.ResourceLink | types.ImageContent]:
-    """
-    Generate an image from a text prompt.
-
-    Returns a consistent content array for both stdio and SSE transports:
-    1. TextContent: Enhanced metadata including generation info and file details
-    2. ResourceLink: Main image file reference with context-appropriate URI:
-       - SSE: Absolute URL built from request context (X-Forwarded-* headers), ZIMAGE_BASE_URL, or relative path
-       - Stdio: file:// URI for local access
-    3. ImageContent: Thumbnail preview (base64 PNG, max 256px)
-
-    URI Building Priority (SSE):
-    1. Context parameter (ctx.request_context.request) - builds absolute URL from request headers
-    2. ZIMAGE_BASE_URL environment variable - uses configured base URL
-    3. Relative URL - fallback when no other method available
-
-    File metadata (filename, file_path) is in TextContent to avoid duplication in ResourceLink.
-
-    For long-running operations (high steps/large images), this function will:
-    - Send progress notifications at key milestones via ctx.report_progress()
-    - Handle client disconnections gracefully
-    """
+    """Internal implementation for generate with explicit transport selection."""
     logger.info(f"Received generate request: {prompt}")
-
-    transport = os.getenv("ZIMAGE_MCP_TRANSPORT", "stdio")
 
     # Helper function to send progress updates
     async def send_progress(percentage: int, message: str):
@@ -146,7 +130,14 @@ async def generate(
             run_in_worker, run_in_worker_nowait = _get_worker()
 
             await send_progress(20, "Starting generation...")
-            logger.info(f"DEBUG: steps={steps}, width={width}, height={height}, guidance_scale=0.0, seed={seed}, precision={precision}")
+            logger.info(
+                "DEBUG: steps=%s, width=%s, height=%s, guidance_scale=0.0, seed=%s, precision=%s",
+                steps,
+                width,
+                height,
+                seed,
+                precision,
+            )
 
             # Run generation with progress updates
             image = await run_in_worker(
@@ -156,7 +147,7 @@ async def generate(
                 width=width,
                 height=height,
                 seed=seed,
-                precision=precision
+                precision=precision,
             )
 
             await send_progress(90, "Saving image...")
@@ -199,10 +190,9 @@ async def generate(
         logger.error(f"Error in generate function: {e}")
         raise
 
-    transport = os.getenv("ZIMAGE_MCP_TRANSPORT", "stdio")
     base_url = os.getenv("ZIMAGE_BASE_URL")
     relative_url = f"/outputs/{filename}"
-    
+
     # Build appropriate URI based on transport context
     if transport == "sse":
         # For SSE transport, build absolute URL using available information
@@ -213,19 +203,19 @@ async def generate(
         if ctx is not None:
             try:
                 # Access request from context
-                if hasattr(ctx, 'request_context') and ctx.request_context:
+                if hasattr(ctx, "request_context") and ctx.request_context:
                     request = ctx.request_context.request
 
                     if request:
                         # Try multiple approaches to extract base URL
 
                         # Approach A: Extract from request object (FastAPI/Starlette style)
-                        if hasattr(request, 'headers') and hasattr(request, 'url'):
+                        if hasattr(request, "headers") and hasattr(request, "url"):
                             headers = request.headers
 
                             # Check for proxy headers first (most reliable in production)
-                            proto = headers.get('x-forwarded-proto') or headers.get('X-Forwarded-Proto') or 'http'
-                            host = headers.get('x-forwarded-host') or headers.get('X-Forwarded-Host')
+                            proto = headers.get("x-forwarded-proto") or headers.get("X-Forwarded-Proto") or "http"
+                            host = headers.get("x-forwarded-host") or headers.get("X-Forwarded-Host")
 
                             if host:
                                 # Use proxy headers if available
@@ -233,7 +223,7 @@ async def generate(
                                 logger.debug(f"Built base URL from proxy headers: {resource_uri}")
                             else:
                                 # Fall back to extracting from request URL
-                                if hasattr(request, 'url') and request.url:
+                                if hasattr(request, "url") and request.url:
                                     if URL:
                                         url_obj = URL(str(request.url))
                                         # Build base URL from request
@@ -244,27 +234,28 @@ async def generate(
                                     else:
                                         # Fallback without URL library
                                         url_str = str(request.url)
-                                        if url_str.startswith('http'):
+                                        if url_str.startswith("http"):
                                             # Extract scheme and host
                                             from urllib.parse import urlparse
+
                                             parsed = urlparse(url_str)
                                             resource_uri = f"{parsed.scheme}://{parsed.netloc}"
                                             logger.debug(f"Built base URL via urlparse: {resource_uri}")
 
                         # Approach B: Check for base_url attribute
-                        elif hasattr(request, 'base_url') and request.base_url:
+                        elif hasattr(request, "base_url") and request.base_url:
                             base_url_str = str(request.base_url)
-                            if base_url_str.startswith(('http://', 'https://')):
-                                resource_uri = base_url_str.rstrip('/')
+                            if base_url_str.startswith(("http://", "https://")):
+                                resource_uri = base_url_str.rstrip("/")
                                 logger.debug(f"Using request.base_url: {resource_uri}")
 
                         # Approach C: Extract from scope (lower level)
-                        elif hasattr(request, 'scope') and request.scope:
+                        elif hasattr(request, "scope") and request.scope:
                             scope = request.scope
                             # Extract from ASGI scope
-                            headers = dict(scope.get('headers', []))
-                            proto = headers.get(b'x-forwarded-proto', b'http').decode()
-                            host = headers.get(b'x-forwarded-host')
+                            headers = dict(scope.get("headers", []))
+                            proto = headers.get(b"x-forwarded-proto", b"http").decode()
+                            host = headers.get(b"x-forwarded-host")
 
                             if host:
                                 host = host.decode()
@@ -272,8 +263,8 @@ async def generate(
                                 logger.debug(f"Built base URL from ASGI scope: {resource_uri}")
                             else:
                                 # Extract from server info in scope
-                                server = scope.get('server', ('localhost', 8000))
-                                scheme = scope.get('scheme', 'http')
+                                server = scope.get("server", ("localhost", 8000))
+                                scheme = scope.get("scheme", "http")
                                 host_port = f"{server[0]}:{server[1]}" if server[1] != 80 else server[0]
                                 resource_uri = f"{scheme}://{host_port}"
                                 logger.debug(f"Built base URL from ASGI server: {resource_uri}")
@@ -284,32 +275,33 @@ async def generate(
 
         # Method 2: Use ZIMAGE_BASE_URL environment variable
         if not resource_uri and base_url:
-            resource_uri = base_url.rstrip('/')
+            resource_uri = base_url.rstrip("/")
             logger.debug(f"Using ZIMAGE_BASE_URL: {resource_uri}")
 
         # Method 3: Intelligent fallback
         if not resource_uri:
             # Try to detect if we're in a known environment
-            if 'RENDER_EXTERNAL_URL' in os.environ:
+            if "RENDER_EXTERNAL_URL" in os.environ:
                 # Render.com deployment
-                resource_uri = os.environ['RENDER_EXTERNAL_URL'].rstrip('/')
+                resource_uri = os.environ["RENDER_EXTERNAL_URL"].rstrip("/")
                 logger.debug(f"Detected Render.com deployment: {resource_uri}")
-            elif 'HEROKU_APP_NAME' in os.environ:
+            elif "HEROKU_APP_NAME" in os.environ:
                 # Heroku deployment
-                app_name = os.environ['HEROKU_APP_NAME']
+                app_name = os.environ["HEROKU_APP_NAME"]
                 resource_uri = f"https://{app_name}.herokuapp.com"
                 logger.debug(f"Detected Heroku deployment: {resource_uri}")
-            elif 'KUBERNETES_SERVICE_HOST' in os.environ:
+            elif "KUBERNETES_SERVICE_HOST" in os.environ:
                 # Kubernetes (use localhost for development)
                 resource_uri = "http://localhost:8000"
                 logger.warning(f"Detected Kubernetes deployment, using localhost: {resource_uri}")
             else:
                 # Final fallback - try to determine from common patterns
                 import socket
+
                 hostname = socket.gethostname()
 
                 # Check if we're running locally
-                if hostname in ('localhost', '127.0.0.1') or hostname.endswith('.local'):
+                if hostname in ("localhost", "127.0.0.1") or hostname.endswith(".local"):
                     resource_uri = "http://localhost:8000"
                     logger.warning(f"Assuming local development, using: {resource_uri}")
                 else:
@@ -321,7 +313,7 @@ async def generate(
         # Now construct the full URL
         if resource_uri:
             # Ensure we have a proper base URL
-            if not resource_uri.startswith(('http://', 'https://')):
+            if not resource_uri.startswith(("http://", "https://")):
                 # This shouldn't happen with our logic, but just in case
                 resource_uri = f"http://{resource_uri}"
 
@@ -334,7 +326,8 @@ async def generate(
                 else:
                     # Base URL already has a path, ensure proper joining
                     from urllib.parse import urljoin
-                    resource_uri = urljoin(resource_uri.rstrip('/') + '/', relative_url.lstrip('/'))
+
+                    resource_uri = urljoin(resource_uri.rstrip("/") + "/", relative_url.lstrip("/"))
             else:
                 # Fallback URL construction
                 resource_uri = f"{resource_uri.rstrip('/')}{relative_url}"
@@ -377,7 +370,7 @@ async def generate(
 
     text_content = types.TextContent(
         type="text",
-        text=json.dumps(text_content_dict)
+        text=json.dumps(text_content_dict),
     )
 
     # Create resource link for the main image file (clean URI only)
@@ -392,6 +385,7 @@ async def generate(
     thumb = image.copy()
     thumb.thumbnail((256, 256))
     from io import BytesIO
+
     buf = BytesIO()
     thumb.save(buf, format="PNG")
     img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
@@ -410,23 +404,70 @@ async def generate(
         try:
             # Check if the session is still active before returning
             # This helps prevent ClosedResourceError when client has disconnected
-            if hasattr(ctx, '_session') and hasattr(ctx._session, '_is_closed'):
+            if hasattr(ctx, "_session") and hasattr(ctx._session, "_is_closed"):
                 if ctx._session._is_closed:
                     logger.warning("SSE client disconnected before response could be sent")
                     # Return a minimal response that won't crash
-                    return [types.TextContent(
-                        type="text",
-                        text=json.dumps({
-                            "error": "Client disconnected (timeout). Image was generated successfully.",
-                            "filename": filename,
-                            "file_path": str(output_path.resolve()),
-                        })
-                    )]
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text=json.dumps(
+                                {
+                                    "error": "Client disconnected (timeout). Image was generated successfully.",
+                                    "filename": filename,
+                                    "file_path": str(output_path.resolve()),
+                                }
+                            ),
+                        )
+                    ]
         except Exception:
             # If we can't check session status, just proceed normally
             pass
 
     return result
+
+@mcp.tool()
+async def generate(
+    prompt: str,
+    steps: int = 9,
+    width: int = 1280,
+    height: int = 720,
+    seed: int | None = None,
+    precision: str = "q8",
+    ctx: Optional[Context] = None
+) -> list[types.TextContent | types.ResourceLink | types.ImageContent]:
+    """
+    Generate an image from a text prompt.
+
+    Returns a consistent content array for both stdio and SSE transports:
+    1. TextContent: Enhanced metadata including generation info and file details
+    2. ResourceLink: Main image file reference with context-appropriate URI:
+       - SSE: Absolute URL built from request context (X-Forwarded-* headers), ZIMAGE_BASE_URL, or relative path
+       - Stdio: file:// URI for local access
+    3. ImageContent: Thumbnail preview (base64 PNG, max 256px)
+
+    URI Building Priority (SSE):
+    1. Context parameter (ctx.request_context.request) - builds absolute URL from request headers
+    2. ZIMAGE_BASE_URL environment variable - uses configured base URL
+    3. Relative URL - fallback when no other method available
+
+    File metadata (filename, file_path) is in TextContent to avoid duplication in ResourceLink.
+
+    For long-running operations (high steps/large images), this function will:
+    - Send progress notifications at key milestones via ctx.report_progress()
+    - Handle client disconnections gracefully
+    """
+    transport = _infer_transport(ctx)
+    return await _generate_impl(
+        prompt=prompt,
+        steps=steps,
+        width=width,
+        height=height,
+        seed=seed,
+        precision=precision,
+        transport=transport,
+        ctx=ctx,
+    )
 
 @mcp.tool()
 async def list_models() -> str:
@@ -461,7 +502,6 @@ async def list_history(limit: int = 10, offset: int = 0) -> str:
 def get_sse_app():
     """Return ASGI app for MCP SSE transport (mount under FastAPI)."""
     setup_logging()
-    os.environ["ZIMAGE_MCP_TRANSPORT"] = "sse"
 
     # Validate URL configuration for SSE mode
     base_url = os.getenv("ZIMAGE_BASE_URL")
@@ -486,7 +526,6 @@ def get_sse_app():
 def run_stdio():
     """Run MCP over stdio (used by zimg-mcp and `zimg mcp`)."""
     setup_logging()
-    os.environ["ZIMAGE_MCP_TRANSPORT"] = "stdio"
     mcp.run(transport="stdio")
 
 # Legacy helper; prefer run_stdio or get_sse_app.
