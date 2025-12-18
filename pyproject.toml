@@ -19,7 +19,7 @@ dependencies = [
     "torchvision>=0.24.1",
     "transformers>=4.57.3",
     "uvicorn>=0.38.0",
-    "mcp",
+    "mcp>=1.23.2",
 ]
 
 [project.scripts]
