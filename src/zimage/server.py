@@ -58,12 +58,41 @@ app = FastAPI()
 # Initialize Database Schema
 migrations.init_db()
 
+# Add global exception handler for SSE client disconnects
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Handle global exceptions, particularly SSE client disconnects."""
+    if "ClosedResourceError" in str(exc) or "Broken pipe" in str(exc):
+        logger.warning(f"Client disconnected during request: {exc}")
+        return Response(status_code=200)
+
+    # Log other unexpected errors
+    logger.error(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
 # Mount MCP SSE endpoint by default unless disabled via env flag
+# This creates two endpoints: /mcp/sse (for SSE connection) and /mcp/messages (for POST messages)
+# This preserves /mcp for future use by the streamable HTTP MCP implementation
+#
+# Note: For proper operation, set ZIMAGE_BASE_URL environment variable to your server's public URL.
+# Example: ZIMAGE_BASE_URL=https://your-domain.com or ZIMAGE_BASE_URL=http://localhost:8000
 ENABLE_MCP_SSE = os.getenv("ZIMAGE_DISABLE_MCP_SSE", "0") != "1"
 if ENABLE_MCP_SSE:
     try:
         app.mount("/mcp", get_sse_app())
-        logger.info(f"    Mounted MCP SSE endpoint at /mcp")
+        logger.info(f"    Mounted MCP SSE endpoints at /mcp/sse and /mcp/messages")
+
+        # Log URL configuration advice
+        base_url = os.getenv("ZIMAGE_BASE_URL")
+        if not base_url:
+            logger.info(
+                "    TIP: Set ZIMAGE_BASE_URL environment variable for reliable absolute URL generation\n"
+                "    Example: export ZIMAGE_BASE_URL=http://localhost:8000\n"
+                "    This ensures ResourceLink URIs work correctly across all deployments."
+            )
     except Exception as e:
         logger.error(f"Failed to mount MCP SSE endpoint: {e}")
 

@@ -40,7 +40,7 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 *   **Mobile compatible**: Responsive layout for mobile devices.
 
 ### MCP features
-*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE transport available via the MCP protocol.
+*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE available at `/mcp/sse` with client POSTs to `/mcp/messages/`.
 *   **Transport-Agnostic Content**: Both stdio and SSE transports return identical structured content for consistent agent integration.
 
 #### MCP Content Structure
