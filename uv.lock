@@ -1812,7 +1812,7 @@ requires-dist = [
     { name = "accelerate", specifier = ">=1.12.0" },
     { name = "diffusers", git = "https://github.com/huggingface/diffusers" },
     { name = "fastapi", specifier = ">=0.123.0" },
-    { name = "mcp" },
+    { name = "mcp", specifier = ">=1.23.2" },
     { name = "peft", specifier = ">=0.18.0" },
     { name = "platformdirs", specifier = ">=4.0.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },

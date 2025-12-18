@@ -40,7 +40,68 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 *   **Mobile compatible**: Responsive layout for mobile devices.
 
 ### MCP features
-*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE auto-mounted at `/mcp/sse` on the web server.
+*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE transport available via the MCP protocol.
+*   **Transport-Agnostic Content**: Both stdio and SSE transports return identical structured content for consistent agent integration.
+
+#### MCP Content Structure
+
+The `generate` tool returns a consistent content array with three items in this order:
+
+1. **TextContent**: Enhanced metadata including generation info and file details
+   ```json
+   {
+     "message": "Image generated successfully",
+     "duration_seconds": 1.23,
+     "width": 1280,
+     "height": 720,
+     "precision": "q8",
+     "model_id": "z-image-turbo-q8",
+     "seed": 12345,
+     "filename": "image_12345.png",
+     "file_path": "/absolute/path/to/image_12345.png"
+   }
+   ```
+
+2. **ResourceLink**: Main image file reference with context-appropriate URI
+   - **SSE Transport**: Absolute URL built from request context, ZIMAGE_BASE_URL, or relative path
+   - **Stdio Transport**: file:// URI for local access
+   
+   URI Building Priority (SSE):
+   1. **Request Context** (via Context parameter) - builds absolute URL from X-Forwarded-* headers
+   2. **ZIMAGE_BASE_URL** environment variable - configured base URL
+   3. **Relative URL** - fallback when no other method available
+   
+   Example with Context parameter:
+   ```python
+   @mcp.tool()
+   async def generate_with_context(..., ctx: Context) -> ...:
+       request = ctx.request_context.request
+       proto = request.headers.get('x-forwarded-proto', 'http')
+       host = request.headers.get('x-forwarded-host', 'localhost')
+       return ResourceLink(uri=f"{proto}://{host}/outputs/image.png", ...)
+   ```
+   ```json
+   {
+     "type": "resource_link",
+     "name": "image_12345.png",
+     "uri": "https://example.com/outputs/image_12345.png",
+     "mimeType": "image/png"
+   }
+   ```
+
+3. **ImageContent**: Thumbnail preview (base64 PNG, max 256px)
+   ```json
+   {
+     "data": "base64-encoded-png-data",
+     "mimeType": "image/png"
+   }
+   ```
+
+This structure ensures:
+- ✅ **Consistency**: Same content for both stdio and SSE transports
+- ✅ **Efficiency**: No URL/path duplication across content items
+- ✅ **Flexibility**: ResourceLink provides file access while ImageContent offers immediate preview
+- ✅ **Compatibility**: Follows MCP best practices for structured content types
 
 ## Requirements
 
