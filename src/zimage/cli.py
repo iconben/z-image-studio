@@ -196,7 +196,13 @@ def run_server(args):
     server_urls = format_server_urls(args.host, args.port)
     log_info(f"Starting web server at:\n{server_urls}")
 
-    uvicorn.run(app_str, host=args.host, port=args.port, reload=args.reload)
+    uvicorn.run(
+        app_str,
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        timeout_graceful_shutdown=args.timeout_graceful_shutdown,
+    )
 
 def run_mcp(args):
     try:
@@ -255,6 +261,12 @@ def main():
     parser_serve.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0 for all interfaces)")
     parser_serve.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
     parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
+    parser_serve.add_argument(
+        "--timeout-graceful-shutdown",
+        type=int,
+        default=5,
+        help="Seconds to wait for graceful shutdown before forcing exit (default: 5)",
+    )
 
     # MCP transport options
     mcp_group = parser_serve.add_argument_group("MCP Transport Options")

@@ -276,7 +276,8 @@ This structure ensures:
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
 | `--port` | `int` | `8000` | Port to bind the server to. |
 | `--reload` | `bool` | `False` | Enable auto-reload (for development). |
-| `--disable-mcp` | `bool` | `False` | Disable the MCP SSE endpoint mounted at `/mcp-sse/sse`. |
+| `--timeout-graceful-shutdown` | `int` | `5` | Seconds to wait for graceful shutdown before forcing exit. |
+| `--disable-mcp` | `bool` | `False` | Disable all MCP endpoints (`/mcp` and `/mcp-sse`). |
 
 ### Subcommand: `models`
 | Argument | Short | Type | Default | Description |
