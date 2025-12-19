@@ -74,7 +74,7 @@ def test_sse_content_structure_mock():
         # Mock a context for SSE
         mock_ctx = MagicMock()
         mock_ctx.request_context.request.headers = {}
-        mock_ctx.request_context.request.url = "http://localhost:8000/mcp/messages?session_id=test"
+        mock_ctx.request_context.request.url = "http://localhost:8000/mcp-sse/messages?session_id=test"
         # Mock session to not be closed
         mock_ctx._session._is_closed = False
 

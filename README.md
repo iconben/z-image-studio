@@ -40,68 +40,9 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 *   **Mobile compatible**: Responsive layout for mobile devices.
 
 ### MCP features
-*   **MCP Server (stdio + SSE)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE available at `/mcp/sse` with client POSTs to `/mcp/messages/`.
-*   **Transport-Agnostic Content**: Both stdio and SSE transports return identical structured content for consistent agent integration.
-
-#### MCP Content Structure
-
-The `generate` tool returns a consistent content array with three items in this order:
-
-1. **TextContent**: Enhanced metadata including generation info and file details
-   ```json
-   {
-     "message": "Image generated successfully",
-     "duration_seconds": 1.23,
-     "width": 1280,
-     "height": 720,
-     "precision": "q8",
-     "model_id": "z-image-turbo-q8",
-     "seed": 12345,
-     "filename": "image_12345.png",
-     "file_path": "/absolute/path/to/image_12345.png"
-   }
-   ```
-
-2. **ResourceLink**: Main image file reference with context-appropriate URI
-   - **SSE Transport**: Absolute URL built from request context, ZIMAGE_BASE_URL, or relative path
-   - **Stdio Transport**: file:// URI for local access
-   
-   URI Building Priority (SSE):
-   1. **Request Context** (via Context parameter) - builds absolute URL from X-Forwarded-* headers
-   2. **ZIMAGE_BASE_URL** environment variable - configured base URL
-   3. **Relative URL** - fallback when no other method available
-   
-   Example with Context parameter:
-   ```python
-   @mcp.tool()
-   async def generate_with_context(..., ctx: Context) -> ...:
-       request = ctx.request_context.request
-       proto = request.headers.get('x-forwarded-proto', 'http')
-       host = request.headers.get('x-forwarded-host', 'localhost')
-       return ResourceLink(uri=f"{proto}://{host}/outputs/image.png", ...)
-   ```
-   ```json
-   {
-     "type": "resource_link",
-     "name": "image_12345.png",
-     "uri": "https://example.com/outputs/image_12345.png",
-     "mimeType": "image/png"
-   }
-   ```
-
-3. **ImageContent**: Thumbnail preview (base64 PNG, max 256px)
-   ```json
-   {
-     "data": "base64-encoded-png-data",
-     "mimeType": "image/png"
-   }
-   ```
-
-This structure ensures:
-- ✅ **Consistency**: Same content for both stdio and SSE transports
-- ✅ **Efficiency**: No URL/path duplication across content items
-- ✅ **Flexibility**: ResourceLink provides file access while ImageContent offers immediate preview
-- ✅ **Compatibility**: Follows MCP best practices for structured content types
+*   **MCP Server (stdio + SSE + Streamable HTTP)**: Expose tools for image generation, listing models, and viewing history over Model Context Protocol; stdio entrypoints (`zimg mcp`, `zimg-mcp`) for local agents, SSE available at `/mcp-sse`, and MCP 2025-03-26 Streamable HTTP transport at `/mcp`.
+*   **Transport-Agnostic Content**: All transports (stdio, SSE, Streamable HTTP) return identical structured content for consistent agent integration.
+*   **Client Transport Selection**: Clients should try Streamable HTTP (`/mcp`) first for optimal performance, falling back to SSE (`/mcp-sse`) if needed.
 
 ## Requirements
 
@@ -183,16 +124,16 @@ Run Z-Image Studio as an MCP server:
 # stdio transport (ideal for local agents/tools); also available as `zimg mcp`
 zimg-mcp
 
-# SSE transport is mounted automatically at /mcp/sse when you run the web server:
-zimg serve          # SSE available at http://localhost:8000/mcp/sse
-zimg serve --disable-mcp-sse   # explicitly disable SSE endpoint
+# MCP transports are available when you run the web server:
+zimg serve          # Both Streamable HTTP (/mcp) and SSE (/mcp-sse) available
+zimg serve --disable-mcp   # Disable all MCP endpoints
 ```
 
 Available tools: `generate` (prompt to image), `list_models`, and `list_history`. Logs are routed to stderr to keep MCP stdio clean.
 
 #### Connecting an AI agent (e.g., Claude Desktop) to `zimg-mcp`
 1. Ensure dependencies are installed (`uv sync`) and that `zimg-mcp` is on PATH (installed via `uv tool install .` or run locally via `uv run zimg-mcp`).
-2. In Claude Desktop (or any MCP-aware client), add a server entry like:
+2. In Claude Desktop (or any MCP-aware client), add a local mcp server entry like:
    ```json
    {
      "mcpServers": {
@@ -223,19 +164,96 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
    }
    ```
    Detailed syntax may vary, please refer to the specific agent's documentation.
-3. For SSE instead of stdio, run `zimg serve` and configure the client with the SSE endpoint URL. Here is an example for Gemini CLI:
+3. For Clients that support remote mcp server, configure the client with the streamable Http mcp endpoint URL (meanwhile keep the server up by running `zimg serve`). Here is an example for Gemini CLI:
    ```json
    {
      "mcpServers": {
        "z-image-studio": {
-         "url": "http://localhost:8000/mcp/sse",
-         "transport": "http"
+         "httpUrl": "http://localhost:8000/mcp"
        }
      }
    }
    ```
    Detailed syntax may vary, please refer to the specific agent's documentation.
-4. The agent will receive tools: `generate`, `list_models`, `list_history`.
+4. For legacy SSE , run `zimg serve` and configure the client with the SSE endpoint URL. Here is an example for Cline CLI:
+   ```json
+   {
+     "mcpServers": {
+       "z-image-studio": {
+         "url": "http://localhost:8000/mcp-sse/sse"
+       }
+     }
+   }
+   ```
+   Detailed syntax may vary, please refer to the specific agent's documentation.
+5. The agent will receive tools: `generate`, `list_models`, `list_history`.
+
+
+#### MCP Content Structure
+
+The `generate` tool returns a consistent content array with three items in this order:
+
+1. **TextContent**: Enhanced metadata including generation info, file details, and preview metadata
+   ```json
+   {
+     "message": "Image generated successfully",
+     "duration_seconds": 1.23,
+     "width": 1280,
+     "height": 720,
+     "precision": "q8",
+     "model_id": "z-image-turbo-q8",
+     "seed": 12345,
+     "filename": "image_12345.png",
+     "file_path": "/absolute/path/to/image_12345.png",
+     "access_note": "Access full image via ResourceLink.uri or this URL",
+     "preview": true,
+     "preview_size": 400,
+     "preview_mime": "image/png"
+   }
+   ```
+   - **SSE/Streamable HTTP Transports**: `url` and `access_note` point to the absolute image URL
+   - **Stdio Transport**: `file_path` and `access_note` point to the local file path
+
+2. **ResourceLink**: Main image file reference with context-appropriate URI
+   - **SSE/Streamable HTTP Transports**: Absolute URL built from request context, ZIMAGE_BASE_URL, or relative path
+   - **Stdio Transport**: file:// URI for local access
+
+   URI Building Priority (SSE/Streamable HTTP):
+   1. **Request Context** (via Context parameter) - builds absolute URL from X-Forwarded-* headers
+   2. **ZIMAGE_BASE_URL** environment variable - configured base URL
+   3. **Relative URL** - fallback when no other method available
+   
+   Example with Context parameter:
+   ```python
+   @mcp.tool()
+   async def generate_with_context(..., ctx: Context) -> ...:
+       request = ctx.request_context.request
+       proto = request.headers.get('x-forwarded-proto', 'http')
+       host = request.headers.get('x-forwarded-host', 'localhost')
+       return ResourceLink(uri=f"{proto}://{host}/outputs/image.png", ...)
+   ```
+   ```json
+   {
+     "type": "resource_link",
+     "name": "image_12345.png",
+     "uri": "https://example.com/outputs/image_12345.png",
+     "mimeType": "image/png"
+   }
+   ```
+
+3. **ImageContent**: Thumbnail preview (base64 PNG, max 400px)
+   ```json
+   {
+     "data": "base64-encoded-png-data",
+     "mimeType": "image/png"
+   }
+   ```
+
+This structure ensures:
+- ✅ **Consistency**: Same content for both stdio and SSE transports
+- ✅ **Efficiency**: No URL/path duplication across content items
+- ✅ **Flexibility**: ResourceLink provides file access while ImageContent offers immediate preview
+- ✅ **Compatibility**: Follows MCP best practices for structured content types
 
 ## Command Line Arguments
 
@@ -258,7 +276,7 @@ Available tools: `generate` (prompt to image), `list_models`, and `list_history`
 | `--host` | `str` | `0.0.0.0` | Host to bind the server to. |
 | `--port` | `int` | `8000` | Port to bind the server to. |
 | `--reload` | `bool` | `False` | Enable auto-reload (for development). |
-| `--disable-mcp-sse` | `bool` | `False` | Disable the MCP SSE endpoint mounted at `/mcp/sse`. |
+| `--disable-mcp` | `bool` | `False` | Disable the MCP SSE endpoint mounted at `/mcp-sse/sse`. |
 
 ### Subcommand: `models`
 | Argument | Short | Type | Default | Description |

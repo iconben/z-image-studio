@@ -1,18 +1,20 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, AsyncGenerator
 import asyncio
 import time
 import sqlite3
 import shutil
 import hashlib
 import os
+import sys
 import uuid
 import random
-
+import json
+# Handle both module execution and direct execution scenarios
 try:
     from .engine import generate_image, cleanup_memory
     from .worker import run_in_worker, run_in_worker_nowait
@@ -29,6 +31,9 @@ try:
         get_outputs_dir,
     )
 except ImportError:
+    # When running directly (e.g., uv run src/zimage/cli.py serve)
+    # Add the zimage directory to sys.path and import directly
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from engine import generate_image, cleanup_memory
     from worker import run_in_worker, run_in_worker_nowait
     from hardware import get_available_models, MODEL_ID_MAP, normalize_precision
@@ -74,27 +79,116 @@ async def global_exception_handler(request, exc):
     )
 
 # Mount MCP SSE endpoint by default unless disabled via env flag
-# This creates two endpoints: /mcp/sse (for SSE connection) and /mcp/messages (for POST messages)
-# This preserves /mcp for future use by the streamable HTTP MCP implementation
-#
+# Mounts at /mcp-sse (for SSE connection and POST messages)
 # Note: For proper operation, set ZIMAGE_BASE_URL environment variable to your server's public URL.
 # Example: ZIMAGE_BASE_URL=https://your-domain.com or ZIMAGE_BASE_URL=http://localhost:8000
-ENABLE_MCP_SSE = os.getenv("ZIMAGE_DISABLE_MCP_SSE", "0") != "1"
-if ENABLE_MCP_SSE:
+ENABLE_MCP = os.getenv("ZIMAGE_DISABLE_MCP", "0") != "1"
+if ENABLE_MCP:
     try:
-        app.mount("/mcp", get_sse_app())
-        logger.info(f"    Mounted MCP SSE endpoints at /mcp/sse and /mcp/messages")
+        # Mount SSE at /mcp-sse
+        sse_app = get_sse_app()
+        app.mount("/mcp-sse", sse_app)
+        logger.info(f"    Mounted MCP SSE endpoint at /mcp-sse")
 
         # Log URL configuration advice
         base_url = os.getenv("ZIMAGE_BASE_URL")
         if not base_url:
             logger.info(
                 "    TIP: Set ZIMAGE_BASE_URL environment variable for reliable absolute URL generation\n"
-                "    Example: export ZIMAGE_BASE_URL=http://localhost:8000\n"
-                "    This ensures ResourceLink URIs work correctly across all deployments."
             )
     except Exception as e:
         logger.error(f"Failed to mount MCP SSE endpoint: {e}")
+
+def add_mcp_streamable_http_endpoints(fastapi_app: FastAPI):
+    """Add MCP Streamable HTTP endpoints to the FastAPI app if enabled."""
+    if not ENABLE_MCP:
+        return
+
+    @fastapi_app.post("/mcp", response_class=JSONResponse)
+    async def handle_mcp_streamable_request(request: Request) -> JSONResponse:
+        """
+        Handle MCP JSON-RPC requests with streaming responses.
+
+        This endpoint implements the MCP Streamable HTTP transport protocol:
+        - Accepts JSON-RPC requests via POST
+        - Returns streaming JSON responses
+        - Supports initialize, tool calls, and progress reporting
+
+        Clients should try this endpoint first, falling back to /mcp-sse if needed.
+        """
+        try:
+            # Parse request body
+            body = await request.body()
+            request_data = json.loads(body.decode('utf-8'))
+
+            method = request_data.get('method', 'unknown')
+            logger.info(f"Received MCP Streamable HTTP request: {method}")
+
+            # Collect responses and return a single JSON-RPC response for compatibility
+            try:
+                response_payload = None
+                async for chunk in _process_mcp_streamable_request(request_data, request):
+                    if isinstance(chunk, dict) and ("result" in chunk or "error" in chunk):
+                        response_payload = chunk
+                if response_payload is None:
+                    response_payload = {
+                        "jsonrpc": "2.0",
+                        "id": request_data.get("id", None),
+                        "error": {
+                            "code": -32603,
+                            "message": "Internal error",
+                            "data": "No response generated"
+                        }
+                    }
+            except Exception as e:
+                logger.error(f"Error processing MCP Streamable HTTP request: {e}")
+                response_payload = {
+                    "jsonrpc": "2.0",
+                    "id": request_data.get("id", None),
+                    "error": {
+                        "code": -32603,
+                        "message": "Internal error",
+                        "data": str(e)
+                    }
+                }
+
+            return JSONResponse(
+                content=response_payload,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                }
+            )
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in MCP Streamable HTTP request: {e}")
+            raise HTTPException(status_code=400, detail="Invalid JSON request")
+
+        except Exception as e:
+            logger.error(f"Error handling MCP Streamable HTTP request: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+    @fastapi_app.options("/mcp")
+    async def handle_mcp_streamable_options():
+        """Handle CORS preflight requests for MCP Streamable HTTP."""
+        return Response(
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            }
+        )
+
+# Add the streamable HTTP endpoints
+add_mcp_streamable_http_endpoints(app)
+
+# Log availability
+if ENABLE_MCP:
+    logger.info("    MCP Streamable HTTP endpoint available at /mcp")
+    logger.info("    Clients should try /mcp first, fallback to /mcp-sse/sse if needed")
+else:
+    logger.info("    MCP endpoints disabled")
 
 class LoraInput(BaseModel):
     filename: str
@@ -432,6 +526,311 @@ async def download_image(filename: str):
         filename=filename,
         content_disposition_type="attachment"
     )
+
+# MCP Streamable HTTP request processing function
+async def _process_mcp_streamable_request(
+    request_data: Dict[str, Any],
+    http_request: Request
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    Process an MCP request and yield streaming response chunks.
+
+    Args:
+        request_data: JSON-RPC request data
+        http_request: FastAPI Request object for context
+
+    Yields:
+        Response chunks for streaming
+    """
+    method = request_data.get("method")
+    params = request_data.get("params", {})
+    request_id = request_data.get("id")
+
+    # Create a lightweight context object with request context
+    class StreamableHttpContext:
+        """Lightweight context for Streamable HTTP requests."""
+        def __init__(self, request):
+            self.request_context = type('RequestContext', (), {
+                'request': request
+            })()
+
+    ctx = StreamableHttpContext(http_request)
+
+    try:
+        if method == "initialize":
+            # Handle initialize request
+            result = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {
+                        "tools": {
+                            "listChanged": True
+                        },
+                        "progress": {
+                            "progressToken": True
+                        }
+                    },
+                    "serverInfo": {
+                        "name": "Z-Image Studio",
+                        "version": "1.0.0"
+                    }
+                }
+            }
+            yield result
+
+        elif method == "tools/list":
+            # Handle tools list request
+            tools = [
+                {
+                    "name": "generate",
+                    "description": "Generate an image from a text prompt",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "prompt": {"type": "string"},
+                            "steps": {"type": "integer", "default": 9},
+                            "width": {"type": "integer", "default": 1280},
+                            "height": {"type": "integer", "default": 720},
+                            "seed": {"type": ["integer", "null"], "default": None},
+                            "precision": {"type": "string", "default": "q8", "enum": ["full", "q8", "q4"]}
+                        },
+                        "required": ["prompt"]
+                    }
+                },
+                {
+                    "name": "list_models",
+                    "description": "List available image generation models and hardware recommendations",
+                    "inputSchema": {"type": "object", "properties": {}}
+                },
+                {
+                    "name": "list_history",
+                    "description": "List recent image generations history",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {"type": "integer", "default": 10},
+                            "offset": {"type": "integer", "default": 0}
+                        }
+                    }
+                }
+            ]
+
+            result = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {"tools": tools}
+            }
+            yield result
+
+        elif method == "tools/call":
+            # Handle tool execution request
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
+
+            if tool_name == "generate":
+                # Stream the generate function with progress
+                async for chunk in _handle_generate_tool_streamable(arguments, ctx, request_id):
+                    yield chunk
+
+            elif tool_name == "list_models":
+                result = await _handle_list_models_tool()
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": result
+                            }
+                        ]
+                    }
+                }
+                yield response
+
+            elif tool_name == "list_history":
+                limit = arguments.get("limit", 10)
+                offset = arguments.get("offset", 0)
+                result = await _handle_list_history_tool(limit, offset)
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": result
+                            }
+                        ]
+                    }
+                }
+                yield response
+
+            else:
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32601,
+                        "message": f"Method not found: {tool_name}"
+                    }
+                }
+                yield error_response
+
+        else:
+            # Unknown method
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32601,
+                    "message": f"Method not found: {method}"
+                }
+            }
+            yield error_response
+
+    except Exception as e:
+        logger.error(f"Error processing {method}: {e}")
+        error_response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {
+                "code": -32603,
+                "message": "Internal error",
+                "data": str(e)
+            }
+        }
+        yield error_response
+
+
+async def _handle_generate_tool_streamable(
+    arguments: Dict[str, Any],
+    ctx,  # Mock context with request_context
+    request_id: Any
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Handle the generate tool with streaming progress for Streamable HTTP."""
+    # Initialize logger outside try block so it's available in exception handlers
+    try:
+        from .logger import get_logger
+    except ImportError:
+        # When running directly, add to path and import
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
+        from logger import get_logger
+    logger = get_logger(__name__)
+
+    # Import shared MCP generation implementation
+    try:
+        from .mcp_server import _generate_impl
+        import mcp.types as types
+    except ImportError:
+        # When running directly, add to path and import
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
+        from mcp_server import _generate_impl
+        import mcp.types as types
+
+    try:
+        prompt = arguments.get("prompt")
+        steps = arguments.get("steps", 9)
+        width = arguments.get("width", 1280)
+        height = arguments.get("height", 720)
+        seed = arguments.get("seed")
+        precision = arguments.get("precision", "q8")
+
+        result = await _generate_impl(
+            prompt=prompt,
+            steps=steps,
+            width=width,
+            height=height,
+            seed=seed,
+            precision=precision,
+            transport="streamable_http",
+            ctx=ctx,
+        )
+
+        content = []
+        for item in result:
+            if isinstance(item, types.TextContent):
+                content.append({"type": "text", "text": item.text})
+            elif isinstance(item, types.ResourceLink):
+                content.append(
+                    {
+                        "type": "resource_link",
+                        "name": item.name,
+                        "uri": str(item.uri),
+                        "mimeType": item.mimeType,
+                    }
+                )
+            elif isinstance(item, types.ImageContent):
+                content.append(
+                    {
+                        "type": "image",
+                        "data": item.data,
+                        "mimeType": item.mimeType,
+                    }
+                )
+
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {"content": content},
+        }
+
+        # Warn if payload size is likely to exceed client limits (e.g., 1MB for some clients)
+        response_size = len(json.dumps(response).encode("utf-8"))
+        if response_size > 1_000_000:
+            logger.warning(
+                "Streamable HTTP response size is %d bytes; may exceed client limits",
+                response_size
+            )
+
+        yield response
+    except Exception as e:
+        logger.error(f"Error in generate tool: {e}")
+        error_response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {
+                "code": -32603,
+                "message": "Generation failed",
+                "data": str(e)
+            }
+        }
+        yield error_response
+
+  
+
+async def _handle_list_models_tool() -> str:
+    """Handle the list_models tool."""
+    try:
+        from .mcp_server import list_models
+        return await list_models()
+    except ImportError:
+        # When running directly, add to path and import
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
+        from mcp_server import list_models
+        return await list_models()
+
+
+async def _handle_list_history_tool(limit: int, offset: int) -> str:
+    """Handle the list_history tool."""
+    try:
+        from .mcp_server import list_history
+        return await list_history(limit, offset)
+    except ImportError:
+        # When running directly, add to path and import
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
+        from mcp_server import list_history
+        return await list_history(limit, offset)
 
 # Serve generated images
 app.mount("/outputs", StaticFiles(directory=OUTPUTS_DIR), name="outputs")

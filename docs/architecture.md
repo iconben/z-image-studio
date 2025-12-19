@@ -117,7 +117,7 @@ The `generate` tool returns a consistent 3-element array:
 2. **ResourceLink**: Main image reference
    - SSE: absolute URL
    - stdio: `file://` URI
-3. **ImageContent**: Base64-encoded thumbnail (256px max)
+3. **ImageContent**: Base64-encoded thumbnail (400px max)
 
 ### 4. Generation Engine (`engine.py`)
 - Handles the actual image generation using Diffusers
@@ -148,10 +148,20 @@ The `generate` tool returns a consistent 3-element array:
 - Builds absolute URLs for client access
 - Includes progress reporting via `ctx.report_progress()`
 - Handles client disconnections gracefully
-- Mounted under `/mcp`, with:
-  - `GET /mcp/sse` for the SSE stream
-  - `POST /mcp/messages/` for client JSON-RPC messages
-- `/mcp` is reserved for future Streamable HTTP transport
+- Mounted under `/mcp-sse`, with:
+  - `GET /mcp-sse/sse` for the SSE stream
+  - `POST /mcp-sse/messages/` for client JSON-RPC messages
+- Recommended fallback transport for compatibility
+
+### MCP Streamable HTTP Transport (2025-03-26)
+- Implements the MCP 2025-03-26 Streamable HTTP specification
+- HTTP POST-based JSON-RPC with streaming responses
+- Optimized for modern web-based AI agents
+- Supports the same tools as SSE: `generate`, `list_models`, `list_history`
+- Returns streaming JSON responses with progress updates
+- Mounted at `/mcp` with CORS support
+- Recommended primary transport (try `/mcp` first, fallback to `/mcp-sse`)
+- Can be disabled via `--disable-mcp` CLI flag or `ZIMAGE_DISABLE_MCP` environment variable
 
 ## Configuration Management
 
@@ -178,8 +188,8 @@ Key features:
 ### Environment Variables
 - `Z_IMAGE_STUDIO_DATA_DIR`: Override data directory location
 - `Z_IMAGE_STUDIO_OUTPUT_DIR`: Override output directory location
-- `ZIMAGE_BASE_URL`: Base URL for building absolute links in SSE mode
-- `ZIMAGE_DISABLE_MCP_SSE`: Set to "1" to disable mounting `/mcp/sse` and `/mcp/messages/`
+- `ZIMAGE_BASE_URL`: Base URL for building absolute links in HTTP transports
+- `ZIMAGE_DISABLE_MCP`: Set to "1" to disable all MCP HTTP endpoints (/mcp and /mcp-sse) in web server
 
 ## Testing Strategy
 
