@@ -32,6 +32,10 @@ def _get_engine():
         from .engine import generate_image, cleanup_memory
         return generate_image, cleanup_memory
     except ImportError:
+        # When running directly, add to path and import
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
         from engine import generate_image, cleanup_memory
         return generate_image, cleanup_memory
 
@@ -40,6 +44,10 @@ def _get_worker():
         from .worker import run_in_worker, run_in_worker_nowait
         return run_in_worker, run_in_worker_nowait
     except ImportError:
+        # When running directly, add to path and import
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
         from worker import run_in_worker, run_in_worker_nowait
         return run_in_worker, run_in_worker_nowait
 
@@ -55,6 +63,10 @@ try:
     from . import migrations
     migrations.init_db()
 except ImportError:
+    # When running directly, add to path and import
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
     import migrations
     migrations.init_db()
 
@@ -67,9 +79,10 @@ except ImportError:
 
 mcp = FastMCP("Z-Image Studio")
 
-def _infer_transport(ctx: Optional[Context]) -> Literal["stdio", "sse"]:
+def _infer_transport(ctx: Optional[Context]) -> Literal["stdio", "sse", "streamable_http"]:
     """Infer transport based on whether we have an HTTP request context."""
     if ctx and getattr(getattr(ctx, "request_context", None), "request", None):
+        # Could be SSE or Streamable HTTP, default to SSE for backward compatibility
         return "sse"
     return "stdio"
 
@@ -80,7 +93,7 @@ async def _generate_impl(
     height: int,
     seed: int | None,
     precision: str,
-    transport: Literal["stdio", "sse"],
+    transport: Literal["stdio", "sse", "streamable_http"],
     ctx: Optional[Context],
 ) -> list[types.TextContent | types.ResourceLink | types.ImageContent]:
     """Internal implementation for generate with explicit transport selection."""
@@ -194,8 +207,8 @@ async def _generate_impl(
     relative_url = f"/outputs/{filename}"
 
     # Build appropriate URI based on transport context
-    if transport == "sse":
-        # For SSE transport, build absolute URL using available information
+    if transport in ("sse", "streamable_http"):
+        # For SSE and Streamable HTTP transports, build absolute URL using available information
         # Priority: 1. Extract from request context, 2. ZIMAGE_BASE_URL, 3. Default fallback
         resource_uri = None
 
@@ -359,14 +372,19 @@ async def _generate_impl(
     }
 
     # Add appropriate path/URL based on transport
-    if transport == "sse":
-        # For SSE, add the absolute URL that clients can use
+    if transport in ("sse", "streamable_http"):
+        # For SSE and Streamable HTTP, add the absolute URL that clients can use
         text_content_dict["url"] = resource_uri
-        text_content_dict["access_note"] = "Access image via ResourceLink.uri or this URL"
+        text_content_dict["access_note"] = "Access full image via ResourceLink.uri or this URL"
     else:
         # For stdio, add local file path
         text_content_dict["file_path"] = str(output_path.resolve())
-        text_content_dict["access_note"] = "Access image at the local file path"
+        text_content_dict["access_note"] = "Access full image at the local file path"
+
+    # Thumbnail metadata for clients to distinguish previews from full images
+    text_content_dict["preview"] = True
+    text_content_dict["preview_size"] = 400
+    text_content_dict["preview_mime"] = "image/png"
 
     text_content = types.TextContent(
         type="text",
@@ -383,7 +401,7 @@ async def _generate_impl(
 
     # Create thumbnail image content (same for both transports)
     thumb = image.copy()
-    thumb.thumbnail((256, 256))
+    thumb.thumbnail((400, 400))
     from io import BytesIO
 
     buf = BytesIO()
@@ -398,15 +416,15 @@ async def _generate_impl(
         image_content,
     ]
 
-    # For SSE transport, we need to handle potential client disconnections
+    # For SSE and Streamable HTTP transports, we need to handle potential client disconnections
     # that can happen during long-running operations like image generation
-    if transport == "sse" and ctx is not None:
+    if transport in ("sse", "streamable_http") and ctx is not None:
         try:
             # Check if the session is still active before returning
             # This helps prevent ClosedResourceError when client has disconnected
             if hasattr(ctx, "_session") and hasattr(ctx._session, "_is_closed"):
                 if ctx._session._is_closed:
-                    logger.warning("SSE client disconnected before response could be sent")
+                    logger.warning(f"{transport} client disconnected before response could be sent")
                     # Return a minimal response that won't crash
                     return [
                         types.TextContent(
@@ -444,7 +462,7 @@ async def generate(
     2. ResourceLink: Main image file reference with context-appropriate URI:
        - SSE: Absolute URL built from request context (X-Forwarded-* headers), ZIMAGE_BASE_URL, or relative path
        - Stdio: file:// URI for local access
-    3. ImageContent: Thumbnail preview (base64 PNG, max 256px)
+    3. ImageContent: Thumbnail preview (base64 PNG, max 400px)
 
     URI Building Priority (SSE):
     1. Context parameter (ctx.request_context.request) - builds absolute URL from request headers
@@ -516,9 +534,8 @@ def get_sse_app():
         if any(env in os.environ for env in ['RENDER_EXTERNAL_URL', 'HEROKU_APP_NAME']):
             logger.info("Will auto-detect base URL from deployment environment")
         else:
-            logger.warning(
-                "ZIMAGE_BASE_URL not set. The server will try to auto-detect the base URL from request context. "
-                "If this fails, please set ZIMAGE_BASE_URL to your server's public URL."
+            logger.info(
+                "    ZIMAGE_BASE_URL not set. The mcp server will try to auto-detect the base URL from request context. "
             )
 
     return mcp.sse_app()

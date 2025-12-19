@@ -187,8 +187,10 @@ def run_server(args):
     else:
         app_str = "zimage.server:app"
 
-    if args.disable_mcp_sse:
-        os.environ["ZIMAGE_DISABLE_MCP_SSE"] = "1"
+    # Set environment variable to control MCP transport availability in web server
+    if args.disable_mcp:
+        os.environ["ZIMAGE_DISABLE_MCP"] = "1"
+        log_info("    MCP: All web server endpoints disabled (/mcp and /mcp-sse)")
 
     # Display all accessible URLs
     server_urls = format_server_urls(args.host, args.port)
@@ -253,7 +255,11 @@ def main():
     parser_serve.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0 for all interfaces)")
     parser_serve.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
     parser_serve.add_argument("--reload", action="store_true", help="Enable auto-reload (dev mode)")
-    parser_serve.add_argument("--disable-mcp-sse", action="store_true", help="Disable MCP SSE endpoint mounted at /mcp")
+
+    # MCP transport options
+    mcp_group = parser_serve.add_argument_group("MCP Transport Options")
+    mcp_group.add_argument("--disable-mcp", action="store_true", help="Disable all MCP endpoints (/mcp and /mcp-sse)")
+
     parser_serve.set_defaults(func=run_server)
 
     # Subcommand: models
