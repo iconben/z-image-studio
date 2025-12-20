@@ -15,8 +15,8 @@
     <meta name="theme-color" content="#f8f9fa">
 </head>
 <body>
-    <!-- Language Selector & Theme Switcher -->
-    <div class="lang-switch d-flex gap-2">
+    <!-- Theme Switcher & Language Selector -->
+    <div class="them-lang-switch-buttons d-flex gap-2">
         <div class="dropdown">
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="themeToggleButton" data-bs-toggle="dropdown" aria-expanded="false" title="Theme">
                 <i class="bi bi-circle-half"></i>
@@ -46,7 +46,7 @@
         </div>
     </div>
 
-    <div class="container-fluid px-4 py-4"> <!-- Changed to fluid for better 3-col layout -->
+    <div class="container-fluid px-4 py-3"> <!-- Changed to fluid for better 3-col layout -->
         <!-- Mobile-only Header -->
         <header class="text-center mt-1 mb-3 d-lg-none">
             <h3 class="fw-bold text-primary">Z-Image Studio</h3>
@@ -56,7 +56,7 @@
         <div class="row g-4">
             <!-- History Sidebar Column (Visible only when pinned on Desktop) -->
             <div class="col-lg-3 history-sidebar-col ps-0 pe-0" id="historySidebarContainer">
-                <div class="p-3 pt-2 border-bottom d-flex justify-content-between align-items-center bg-light sticky-top">
+                <div class="p-3 pt-2 pb-2 border-bottom d-flex justify-content-between align-items-center bg-light sticky-top">
                     <h5 class="mb-0" data-i18n="history_title">History</h5>
                     <button class="btn btn-sm btn-outline-primary active" id="unpinHistoryBtn" title="Unpin History">
                         <i class="bi bi-pin-angle-fill"></i>
@@ -69,7 +69,7 @@
 
             <!-- Controls Column (Left) -->
             <div class="col-lg-4 controls-col">
-                <div class="d-flex justify-content-start mt-2 mb-3 gap-2 top-buttons">
+                <div class="d-flex justify-content-start mt-2 mb-2 gap-2 top-buttons">
                     <button class="btn btn-outline-secondary btn-sm offcanvas-toggle-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#historyDrawer" aria-controls="historyDrawer" data-i18n="history_btn">
                         History
                     </button>

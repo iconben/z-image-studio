@@ -20,10 +20,10 @@ body { background-color: #f8f9fa; }
             width: 3rem;
             height: 3rem;
         }
-        .lang-switch {
+        .them-lang-switch-buttons {
             position: absolute;
             top: 1rem;
-            right: 1rem;
+            right: 1.5rem;
             z-index: 1000;
         }
         .tooltip-icon {
@@ -105,6 +105,12 @@ body { background-color: #f8f9fa; }
             box-shadow: 0 .125rem .25rem rgba(0,0,0,.075);
         }
 
+        .preview-col {
+            header {
+                margin-bottom: 0.9rem!important;
+            }
+        }
+
         /* When pinned mode is active (Desktop only) */
         @media (min-width: 992px) {
             body.history-pinned .history-sidebar-col {
@@ -113,7 +119,7 @@ body { background-color: #f8f9fa; }
             body.history-pinned .controls-col {
                 width: 25%; /* Shrink controls slightly */
                 .top-buttons {
-                    min-height: 1.95rem; /* Keep height consistent */
+                    min-height: 2.25rem; /* Keep height consistent */
                 }
             }
             body.history-pinned .preview-col {
@@ -127,9 +133,13 @@ body { background-color: #f8f9fa; }
         /* When pinned mode is active (Desktop only) */
         @media (max-width: 1024px) {
             body.history-pinned .preview-col {
+                header {
+                    margin-bottom: 0.75rem!important;
+                }
                 .header-title {
                     font-size: 1.2rem;
                     margin-top: 0.55rem;
+                    margin-bottom: 0.25rem!important;
                 }
                 .header-subtitle {
                     font-size: 0.8rem;
@@ -214,6 +224,14 @@ body { background-color: #f8f9fa; }
             }
             #resultInfo .d-flex.gap-2 {
                 justify-content: space-between; /* Even spacing */
+            }
+            /* Fix header title overlap with lang switcher in mobile portrait */
+            header.d-lg-none {
+                text-align: left !important;
+                padding-right: 120px; /* Make space for lang switcher */
+                .text-secondary {
+                    display: none; /* Hide subtitle to save space */
+                }
             }
         }
         
