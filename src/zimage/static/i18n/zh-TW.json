@@ -54,6 +54,7 @@
   "copy_not_supported": "不支援剪貼簿存取",
   "share_unsupported_browser": "您的瀏覽器不支援直接分享。請嘗試下載。",
   "share_requires_https": "分享需要安全連線（HTTPS 或 localhost）",
+  "copy_requires_https": "剪貼簿存取需要安全連線（HTTPS 或 localhost）",
   "share_tooltip": "透過裝置的分享選項分享",
   "copy_tooltip": "將圖片複製到剪貼簿",
   "download_tooltip": "透過瀏覽器下載",

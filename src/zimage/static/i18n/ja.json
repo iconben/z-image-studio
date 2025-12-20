@@ -54,6 +54,7 @@
   "copy_not_supported": "クリップボードアクセスがサポートされていません",
   "share_unsupported_browser": "お使いのブラウザでは直接共有がサポートされていません。ダウンロードをお試しください。",
   "share_requires_https": "共有には安全な接続（HTTPS または localhost）が必要です",
+  "copy_requires_https": "クリップボードアクセスには安全な接続（HTTPS または localhost）が必要です",
   "share_tooltip": "デバイスの共有オプションでシェアする",
   "copy_tooltip": "画像をクリップボードにコピーする",
   "download_tooltip": "ブラウザでダウンロードする",

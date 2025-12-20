@@ -54,6 +54,7 @@
   "copy_not_supported": "不支持剪贴板访问",
   "share_unsupported_browser": "您的浏览器不支持直接分享。请尝试下载。",
   "share_requires_https": "分享需要安全连接（HTTPS 或 localhost）",
+  "copy_requires_https": "剪贴板访问需要安全连接（HTTPS 或 localhost）",
   "share_tooltip": "通过设备的分享选项分享",
   "copy_tooltip": "复制图片到剪贴板",
   "download_tooltip": "通过浏览器下载",
