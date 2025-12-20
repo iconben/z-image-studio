@@ -54,6 +54,7 @@
   "copy_not_supported": "Clipboard access not supported",
   "share_unsupported_browser": "Your browser doesn't support direct sharing. Try downloading instead.",
   "share_requires_https": "Sharing requires a secure connection (HTTPS or localhost)",
+  "copy_requires_https": "Clipboard access requires a secure connection (HTTPS or localhost)",
   "share_tooltip": "Share using your device options",
   "copy_tooltip": "Copy the image to your clipboard",
   "download_tooltip": "Download using your browser",

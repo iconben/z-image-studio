@@ -1055,8 +1055,9 @@
                 allCopyButtons.forEach(btn => {
                     refreshTooltip(btn, secureTitle);
                 });
+                // Download buttons don't require HTTPS, so keep the normal tooltip
                 allDownloadButtons.forEach(btn => {
-                    refreshTooltip(btn, secureTitle);
+                    refreshTooltip(btn, downloadTitle);
                 });
             }
         }
@@ -1155,7 +1156,7 @@
             
             // Check if we're in a secure context (required for Clipboard API)
             if (!window.isSecureContext) {
-                showToast(t.share_requires_https || "Clipboard access requires a secure connection (HTTPS or localhost)", true);
+                showToast(t.copy_requires_https || "Clipboard access requires a secure connection (HTTPS or localhost)", true);
                 return;
             }
             
