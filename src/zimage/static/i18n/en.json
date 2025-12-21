@@ -61,5 +61,12 @@
   "no_image_to_download": "No image available to download",
   "app_name": "Z-Image Studio",
   "no_image_to_share": "No image available to share",
-  "no_image_to_copy": "No image available to copy"
+  "no_image_to_copy": "No image available to copy",
+  "refresh_history_tooltip": "Refresh History",
+  "history_load_error": "Failed to load history",
+  "models_load_error": "Failed to load models",
+  "loras_load_error": "Failed to load LoRAs",
+  "pull_to_refresh": "Pull to refresh",
+  "release_to_refresh": "Release to refresh",
+  "refreshing_history": "Refreshing..."
 }

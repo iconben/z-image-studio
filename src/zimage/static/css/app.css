@@ -276,3 +276,122 @@ body { background-color: #f8f9fa; }
         [data-bs-theme="dark"] .close-btn-custom:hover {
             background: rgba(0, 0, 0, 0.6);
         }
+
+        /* Pull to Refresh Styles */
+        .pull-refresh-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.2s ease;
+            position: absolute;
+            top: -20px;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            background: inherit;
+            /* border-bottom: 1px solid rgba(0, 0, 0, 0.1);*/
+        }
+
+        [data-bs-theme="dark"] .pull-refresh-indicator {
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .pull-refresh-indicator.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .pull-refresh-indicator.loading {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .pull-refresh-indicator .bi-arrow-down-circle {
+            font-size: 1rem;
+        }
+
+        /* Refresh state padding for history containers */
+        .history-container-refresh {
+            padding-top: 60px !important;
+            transition: padding-top 0.3s ease;
+        }
+
+        /* Ensure proper spacing for pull-to-refresh */
+        .offcanvas-body {
+            transition: padding-top 0.3s ease;
+            padding-top: 0;
+        }
+
+        .offcanvas-body.refreshing {
+            padding-top: 60px;
+        }
+
+        /* Add margin to history list during refresh when indicator is active */
+        #historyList.with-refresh-indicator,
+        #historyListSidebar.with-refresh-indicator {
+            margin-top: 60px;
+            transition: margin-top 0.3s ease;
+        }
+
+        /* Refresh Button Animation */
+        .refresh-spin {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Borderless refresh button styling */
+        #refreshHistoryBtn,
+        #refreshHistorySidebarBtn {
+            text-decoration: none;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            transition: all 0.2s ease;
+        }
+
+        #refreshHistoryBtn:hover,
+        #refreshHistorySidebarBtn:hover {
+            color: var(--bs-primary) !important;
+            background-color: rgba(13, 110, 253, 0.1) !important;
+            border-radius: 4px;
+        }
+
+        #refreshHistoryBtn:active,
+        #refreshHistorySidebarBtn:active {
+            transform: scale(0.95);
+        }
+
+        #refreshHistoryBtn:focus,
+        #refreshHistorySidebarBtn:focus {
+            outline: 2px solid var(--bs-primary);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        /* Dark mode adjustments */
+        [data-bs-theme="dark"] #refreshHistoryBtn:hover,
+        [data-bs-theme="dark"] #refreshHistorySidebarBtn:hover {
+            background-color: rgba(13, 110, 253, 0.2) !important;
+            color: var(--bs-primary) !important;
+        }
+
+        /* Pull threshold states */
+        .pull-refresh-indicator.ready .bi-arrow-down-circle {
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .pull-refresh-indicator.loading .bi-arrow-down-circle {
+            animation: spin 1s linear infinite;
+        }
