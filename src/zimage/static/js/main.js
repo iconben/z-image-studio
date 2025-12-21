@@ -113,6 +113,14 @@
         const historyDrawerEl = document.getElementById('historyDrawer');
         const historyDrawer = historyDrawerEl ? new bootstrap.Offcanvas(historyDrawerEl) : null;
 
+        // Refresh Buttons
+        const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+        const refreshHistorySidebarBtn = document.getElementById('refreshHistorySidebarBtn');
+
+        // Pull to Refresh Indicators
+        const pullRefreshIndicator = document.getElementById('pullRefreshIndicator');
+        const pullRefreshIndicatorSidebar = document.getElementById('pullRefreshIndicatorSidebar');
+
         // Precision Elements
         const precisionDropdownButton = document.getElementById('precisionDropdownButton');
         const precisionDropdownMenu = document.getElementById('precisionDropdownMenu');
@@ -191,6 +199,13 @@
 
         if (pinHistoryBtn) pinHistoryBtn.addEventListener('click', () => toggleHistoryPin(true));
         if (unpinHistoryBtn) unpinHistoryBtn.addEventListener('click', () => toggleHistoryPin(false));
+
+        // Refresh button event listeners
+        if (refreshHistoryBtn) refreshHistoryBtn.addEventListener('click', refreshHistory);
+        if (refreshHistorySidebarBtn) refreshHistorySidebarBtn.addEventListener('click', refreshHistory);
+
+        // Initialize pull-to-refresh
+        initPullToRefresh();
 
         const { formatValueWithOneDecimal, formatFileSize, formatSmartDate } = window.zutils || {};
 
@@ -446,6 +461,9 @@
                 renderLoraList(cachedLoras);
             } catch (e) {
                 console.error("Error loading LoRAs:", e);
+                const t = translations[currentLanguage] || translations.en || {};
+                showToast(t.loras_load_error || "Failed to load LoRAs", true);
+
                 if (loraListGroup) loraListGroup.innerHTML = `<div class="text-danger p-3">Failed to load LoRAs</div>`;
             } finally {
                 if (loraLoading) loraLoading.classList.add('d-none');
@@ -595,6 +613,9 @@
                 
             } catch (e) {
                 console.error("Failed to load models", e);
+                const t = translations[currentLanguage] || translations.en || {};
+                showToast(t.models_load_error || "Failed to load models", true);
+
                 const fallbackModels = [
                     { precision: "q8", recommended: true },
                     { precision: "full", recommended: false }
@@ -868,9 +889,166 @@
                 }
             } catch (e) {
                 console.error("Failed to load history", e);
+                const t = translations[currentLanguage] || translations.en || {};
+                showToast(t.history_load_error || "Failed to load history", true);
             } finally {
                 isHistoryLoading = false;
             }
+        }
+
+        // Refresh history function
+        async function refreshHistory() {
+            // Prevent multiple simultaneous refreshes
+            if (isHistoryLoading) return;
+
+            // Reset scroll position to top
+            if (historyListOffcanvas) historyListOffcanvas.scrollTop = 0;
+            if (historyListSidebar) historyListSidebar.scrollTop = 0;
+
+            // Add loading state to refresh buttons
+            setRefreshButtonLoading(true);
+
+            try {
+                // Load fresh first page (same as initial page load)
+                await loadHistory(false);
+            } catch (e) {
+                console.error("Failed to refresh history", e);
+                const t = translations[currentLanguage] || translations.en || {};
+                showToast(t.history_load_error || "Failed to load history", true);
+            } finally {
+                // Remove loading state from refresh buttons
+                setRefreshButtonLoading(false);
+            }
+        }
+
+        // Set refresh button loading state
+        function setRefreshButtonLoading(isLoading) {
+            const buttons = [refreshHistoryBtn, refreshHistorySidebarBtn];
+            buttons.forEach(btn => {
+                if (!btn) return;
+
+                const icon = btn.querySelector('i');
+                if (!icon) return;
+
+                if (isLoading) {
+                    icon.classList.add('refresh-spin');
+                    btn.disabled = true;
+                } else {
+                    icon.classList.remove('refresh-spin');
+                    btn.disabled = false;
+                }
+            });
+
+            // Add/remove visual spacing during refresh
+            const historyContainers = [historyListOffcanvas, historyListSidebar];
+            const indicators = [pullRefreshIndicator, pullRefreshIndicatorSidebar];
+
+            historyContainers.forEach((container, index) => {
+                if (!container) return;
+
+                if (isLoading) {
+                    // Add spacing during any refresh (button or pull-to-refresh)
+                    container.classList.add('with-refresh-indicator');
+
+                    // For pull-to-refresh, also make indicator visible
+                    if (indicators[index] && !indicators[index].classList.contains('active')) {
+                        indicators[index].classList.add('active', 'loading');
+                        const t = translations[currentLanguage] || translations.en || {};
+                        indicators[index].querySelector('span').textContent = t.refreshing_history || 'Refreshing...';
+                    }
+                } else {
+                    // Remove spacing after refresh
+                    container.classList.remove('with-refresh-indicator');
+                    if (indicators[index]) {
+                        // Hide indicator after a delay
+                        setTimeout(() => {
+                            if (indicators[index]) {
+                                indicators[index].classList.remove('active', 'loading');
+                            }
+                        }, 300);
+                    }
+                }
+            });
+        }
+
+        // Initialize pull-to-refresh functionality
+        function initPullToRefresh() {
+            // Pull-to-refresh state
+            let isPulling = false;
+            let startY = 0;
+            let currentY = 0;
+            let pullDistance = 0;
+            const pullThreshold = 80; // Distance needed to trigger refresh
+
+            // Function to setup pull-to-refresh for a container
+            function setupPullToRefresh(container, indicator) {
+                if (!container || !indicator) return;
+
+                let isPulling = false;
+                let startY = 0;
+
+                container.addEventListener('touchstart', (e) => {
+                    // Only start pull if at top of scroll
+                    if (container.scrollTop <= 0) {
+                        isPulling = true;
+                        startY = e.touches[0].clientY;
+                        indicator.classList.remove('active', 'loading');
+                    }
+                }, { passive: true });
+
+                container.addEventListener('touchmove', (e) => {
+                    if (!isPulling || isHistoryLoading) return;
+
+                    currentY = e.touches[0].clientY;
+                    pullDistance = currentY - startY;
+
+                    if (pullDistance > 0) {
+                        e.preventDefault(); // Prevent normal scroll behavior
+
+                        const t = translations[currentLanguage] || translations.en || {};
+                        const progress = Math.min(pullDistance / pullThreshold, 1);
+
+                        if (progress < 0.6) {
+                            indicator.classList.add('active');
+                            indicator.classList.remove('loading');
+                            container.classList.add('with-refresh-indicator');
+                            indicator.querySelector('span').textContent = t.pull_to_refresh || 'Pull to refresh';
+                        } else {
+                            indicator.classList.add('active', 'ready');
+                            container.classList.add('with-refresh-indicator');
+                            indicator.querySelector('span').textContent = t.release_to_refresh || 'Release to refresh';
+                        }
+                    }
+                });
+
+                container.addEventListener('touchend', () => {
+                    if (!isPulling) return;
+                    isPulling = false;
+
+                    if (pullDistance >= pullThreshold) {
+                        // Trigger refresh
+                        indicator.classList.add('loading');
+                        indicator.classList.remove('ready');
+                        const t = translations[currentLanguage] || translations.en || {};
+                        indicator.querySelector('span').textContent = t.refreshing_history || 'Refreshing...';
+
+                        // Refresh function already handles spacing through setRefreshButtonLoading
+                        refreshHistory().finally(() => {
+                            // Spacing cleanup handled by setRefreshButtonLoading
+                        });
+                    } else {
+                        // Hide indicator and remove spacing
+                        indicator.classList.remove('active', 'ready');
+                        container.classList.remove('with-refresh-indicator');
+                    }
+
+                    pullDistance = 0;
+                }, { passive: true });
+            }
+
+            // Setup pull-to-refresh for both containers
+            setupPullToRefresh(historyListOffcanvas, pullRefreshIndicator);
+            setupPullToRefresh(historyListSidebar, pullRefreshIndicatorSidebar);
         }
 
         function loadFromHistory(item) {
