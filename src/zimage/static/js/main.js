@@ -51,6 +51,49 @@
             });
         }
 
+        // Hide tooltip for a specific element
+        function hideTooltip(element) {
+            if (!element) return;
+
+            const tooltip = bootstrap.Tooltip.getInstance(element);
+            if (tooltip) {
+                tooltip.hide();
+            }
+        }
+
+        // Add tooltip auto-hide to button click events
+        function addTooltipAutoHide(button) {
+            if (!button) return;
+
+            // Check if button has tooltip
+            const hasTooltip = button.hasAttribute('data-bs-toggle') &&
+                              button.getAttribute('data-bs-toggle') === 'tooltip' ||
+                              button.hasAttribute('title');
+
+            if (hasTooltip) {
+                button.addEventListener('click', function() {
+                    // Add a small delay to ensure the click event completes before hiding
+                    setTimeout(() => {
+                        hideTooltip(this);
+                    }, 100);
+                });
+            }
+        }
+
+        // Initialize auto-hide tooltips for all buttons with tooltips
+        function initTooltipAutoHide() {
+            const buttons = document.querySelectorAll('button[title], button[data-bs-toggle="tooltip"]');
+            buttons.forEach(button => {
+                addTooltipAutoHide(button);
+            });
+
+            // Also handle anchor tags with tooltips (like download button)
+            const anchors = document.querySelectorAll('a[title], a[data-bs-toggle="tooltip"]');
+            anchors.forEach(anchor => {
+                addTooltipAutoHide(anchor);
+            });
+        }
+
         const imageModalEl = document.getElementById('imageModal');
         const imageModal = imageModalEl ? new bootstrap.Modal(imageModalEl) : null;
         const modalImage = document.getElementById('modalImage');
@@ -249,12 +292,16 @@
         
         // Initialize tooltips after language is set
         initTooltips();
+        // Initialize auto-hide tooltip functionality
+        initTooltipAutoHide();
 
         document.querySelectorAll('.dropdown-item[data-lang]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const lang = e.target.getAttribute('data-lang');
                 updateLanguage(lang);
                 initTooltips();
+                // Re-initialize auto-hide tooltip functionality after language change
+                initTooltipAutoHide();
             });
         });
 
@@ -781,6 +828,8 @@
                     const deleteBtnTooltip = el.querySelector('.delete-history-item');
                     if (deleteBtnTooltip) {
                         new bootstrap.Tooltip(deleteBtnTooltip);
+                        // Add auto-hide tooltip functionality
+                        addTooltipAutoHide(deleteBtnTooltip);
                     }
                 });
             });
@@ -1078,7 +1127,10 @@
             }
             
             // Create new tooltip with the explicit title option to avoid stale cached values
-            new bootstrap.Tooltip(btn, { title });
+            const tooltip = new bootstrap.Tooltip(btn, { title });
+
+            // Add auto-hide tooltip functionality
+            addTooltipAutoHide(btn);
         }
         
         async function shareImage() {
