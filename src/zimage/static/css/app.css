@@ -130,6 +130,14 @@ body { background-color: #f8f9fa; }
                 display: none !important;
             }
         }
+
+        /* Hide subtitle on smaller PC screens (< 1280px) */
+        @media (min-width: 992px) and (max-width: 1279px) {
+            header .text-secondary[data-i18n="subtitle"],
+            .header-subtitle {
+                display: none !important;
+            }
+        }
         /* When pinned mode is active (Desktop only) */
         @media (max-width: 1024px) {
             body.history-pinned .preview-col {
@@ -292,7 +300,14 @@ body { background-color: #f8f9fa; }
             right: 0;
             z-index: 10;
             background: inherit;
+            pointer-events: none; /* Don't block clicks when hidden/inactive */
             /* border-bottom: 1px solid rgba(0, 0, 0, 0.1);*/
+        }
+
+        .pull-refresh-indicator.active,
+        .pull-refresh-indicator.loading,
+        .pull-refresh-indicator.ready {
+            pointer-events: auto; /* Only capture events when visible/active */
         }
 
         [data-bs-theme="dark"] .pull-refresh-indicator {
@@ -394,4 +409,130 @@ body { background-color: #f8f9fa; }
 
         .pull-refresh-indicator.loading .bi-arrow-down-circle {
             animation: spin 1s linear infinite;
+        }
+
+        /* Input wrapper - provides the border around input + clear button */
+        .search-input-wrapper,
+        .date-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            border: var(--bs-border-width) solid var(--bs-border-color);
+            border-radius: var(--bs-border-radius);
+            background: var(--bs-body-bg);
+            box-sizing: border-box;
+        }
+
+        .search-input-wrapper {
+            flex: 1;
+        }
+
+        /* Fixed height for date input wrappers to prevent gap */
+        .date-input-wrapper {
+            height: 31px; /* Matches form-control-sm height */
+        }
+
+        .search-input-wrapper:focus-within,
+        .date-input-wrapper:focus-within {
+            border-color: var(--bs-focus-ring-color);
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+        }
+
+        /* Input inside wrapper - no border, takes available space */
+        .search-input-wrapper input,
+        .date-input-wrapper input {
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            flex: 1;
+            min-width: 0;
+            background: transparent !important;
+            box-sizing: border-box;
+        }
+
+        .search-input-wrapper input:focus,
+        .date-input-wrapper input:focus {
+            box-shadow: none !important;
+            outline: none;
+        }
+
+        /* Fixed height for date inputs to ensure consistency */
+        .date-input-wrapper input[type="date"] {
+            height: 100%;
+        }
+
+        /* Inner clear button - borderless, inside the wrapper */
+        .btn-clear-inner {
+            border: none !important;
+            background: transparent !important;
+            color: var(--bs-secondary-color, #6c757d);
+            opacity: 0;
+            padding: 0.25rem 0.5rem;
+            transition: opacity 0.15s ease, background-color 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-clear-inner:hover {
+            opacity: 1;
+            background-color: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.04)) !important;
+        }
+
+        .btn-clear-inner:focus {
+            opacity: 1;
+            outline: none;
+            box-shadow: none !important;
+        }
+
+        /* Show clear button when not d-none */
+        .btn-clear-inner:not(.d-none) {
+            opacity: 0.5;
+        }
+
+        /* Dark mode for input wrappers */
+        [data-bs-theme="dark"] .search-input-wrapper,
+        [data-bs-theme="dark"] .date-input-wrapper {
+            background: var(--bs-body-bg);
+            border-color: var(--bs-border-color-translucent);
+        }
+
+        [data-bs-theme="dark"] .search-input-wrapper:focus-within,
+        [data-bs-theme="dark"] .date-input-wrapper:focus-within {
+            border-color: var(--bs-focus-ring-color);
+        }
+
+        [data-bs-theme="dark"] .btn-clear-inner:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* Borderless pin button on history drawer */
+        #pinHistoryBtn {
+            text-decoration: none;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            transition: all 0.2s ease;
+        }
+
+        #pinHistoryBtn:hover {
+            color: var(--bs-primary) !important;
+            background-color: rgba(13, 110, 253, 0.1) !important;
+            border-radius: 4px;
+        }
+
+        #pinHistoryBtn:active {
+            transform: scale(0.95);
+        }
+
+        #pinHistoryBtn:focus {
+            outline: 2px solid var(--bs-primary);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        /* Dark mode for pin button */
+        [data-bs-theme="dark"] #pinHistoryBtn:hover {
+            background-color: rgba(13, 110, 253, 0.2) !important;
+            color: var(--bs-primary) !important;
         }

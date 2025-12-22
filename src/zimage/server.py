@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from pathlib import Path
 from typing import Optional, List, Dict, Any, AsyncGenerator
 from urllib.parse import quote
+from datetime import datetime
 import asyncio
 import time
 import sqlite3
@@ -477,12 +478,96 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history")
-async def get_history(response: Response, limit: int = 20, offset: int = 0):
-    items, total = db.get_history(limit, offset)
-    response.headers["X-Total-Count"] = str(total)
-    response.headers["X-Page-Size"] = str(limit)
-    response.headers["X-Page-Offset"] = str(offset)
-    return items
+async def get_history(
+    response: Response,
+    limit: int = 20,
+    offset: int = 0,
+    q: str = None,
+    start_date: str = None,
+    end_date: str = None
+):
+    """Get generation history with search and date filtering.
+
+    Maintains existing sorting (created_at DESC) and response format.
+    """
+    try:
+        # Validate search query length (422 - valid format, invalid value)
+        if q and len(q) > 100:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "invalid_search_query",
+                    "message": "Search query too long (max 100 chars)",
+                    "max_length": 100,
+                    "current_length": len(q)
+                }
+            )
+        
+        # Validate date format (400 - invalid format)
+        if start_date:
+            try:
+                datetime.fromisoformat(start_date)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "invalid_date_format",
+                        "message": "Date must be in YYYY-MM-DD format",
+                        "example": "2023-06-15",
+                        "field": "start_date"
+                    }
+                )
+        
+        if end_date:
+            try:
+                datetime.fromisoformat(end_date)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "invalid_date_format",
+                        "message": "Date must be in YYYY-MM-DD format",
+                        "example": "2023-06-15",
+                        "field": "end_date"
+                    }
+                )
+        
+        # Validate date range (422 - valid format, invalid value)
+        if start_date and end_date:
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = datetime.fromisoformat(end_date)
+            if (end_dt - start_dt).days > 365:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "error": "invalid_date_range",
+                        "message": "Date range cannot exceed 365 days",
+                        "max_days": 365,
+                        "requested_days": (end_dt - start_dt).days
+                    }
+                )
+        
+        # Get filtered results
+        items, total = db.get_history(
+            limit=limit,
+            offset=offset,
+            q=q,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        # Set response headers (existing contract)
+        response.headers["X-Total-Count"] = str(total)
+        response.headers["X-Page-Size"] = str(limit)
+        response.headers["X-Page-Offset"] = str(offset)
+        
+        return items
+        
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"History search failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.delete("/history/{item_id}")
 async def delete_history_item(item_id: int):

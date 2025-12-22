@@ -64,39 +64,101 @@ def add_generation(
     conn.close()
     return new_id
 
-def get_history(limit: int = 50, offset: int = 0) -> tuple[List[Dict[str, Any]], int]:
-    """Get recent generations with pagination."""
+def get_history(
+    limit: int = 50,
+    offset: int = 0,
+    q: str = None,
+    start_date: str = None,
+    end_date: str = None
+) -> tuple[List[Dict[str, Any]], int]:
+    """Get generations with keyword search and date filtering.
+
+    Always returns results ordered by created_at DESC.
+    Preserves existing pagination and response format.
+
+    Args:
+        limit: Number of items to return
+        offset: Number of items to skip
+        q: Keyword search (matches prompt/negative_prompt only)
+        start_date: Start date in YYYY-MM-DD format (inclusive)
+        end_date: End date in YYYY-MM-DD format (inclusive, auto-extended to 23:59:59)
+
+    Returns:
+        Tuple of (list of generation items, total count)
+    """
     conn = _get_db_connection()
     cursor = conn.cursor()
-    
-    # Get total count
-    cursor.execute("SELECT COUNT(*) FROM generations WHERE status = 'succeeded'")
+
+    # Validate search query length
+    if q and len(q) > 100:
+        conn.close()
+        raise ValueError("Search query too long (max 100 chars)")
+
+    # Validate date range
+    if start_date and end_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = datetime.fromisoformat(end_date)
+            if (end_dt - start_dt).days > 365:
+                conn.close()
+                raise ValueError("Date range cannot exceed 365 days")
+        except ValueError:
+            conn.close()
+            raise ValueError("Invalid date format. Use YYYY-MM-DD")
+
+    # Build WHERE clauses
+    where_clauses = ["status = 'succeeded'"]
+    params = []
+
+    # Keyword search (prompt and negative_prompt only, LIKE queries)
+    if q:
+        search_term = f"%{q}%"
+        where_clauses.append("(prompt LIKE ? OR negative_prompt LIKE ?)")
+        params.extend([search_term, search_term])
+
+    # Date range (normalize end_date to 23:59:59 for inclusive search)
+    if start_date or end_date:
+        date_clauses = []
+        if start_date:
+            date_clauses.append("created_at >= ?")
+            params.append(start_date)
+        if end_date:
+            date_clauses.append("created_at <= ?")
+            params.append(f"{end_date} 23:59:59")
+        where_clauses.append(f"({' AND '.join(date_clauses)})")
+
+    # Build final WHERE clause
+    where_clause_sql = " AND ".join(where_clauses)
+
+    # Count query (respects all filters)
+    count_query = f"SELECT COUNT(*) FROM generations WHERE {where_clause_sql}"
+    cursor.execute(count_query, params)
     total_count = cursor.fetchone()[0]
 
-    # Use JSON aggregation to get LoRAs. 
+    # Use JSON aggregation to get LoRAs.
     # We left join generation_loras and lora_files.
     # Note: This requires SQLite 3.38.0+ (bundled with Python 3.10+ usually).
-    # If json_group_array is not available, this will fail. 
-    # Let's try the robust query.
+    # If json_group_array is not available, this will fail.
+    # Let's try robust query.
     try:
-        cursor.execute('''
-            SELECT g.*, 
+        cursor.execute(f"""
+            SELECT g.*,
                    json_group_array(
                        json_object(
-                           'filename', l.filename, 
-                           'strength', gl.strength, 
+                           'filename', l.filename,
+                           'strength', gl.strength,
                            'display_name', l.display_name
                        )
                    ) as loras_json
             FROM generations g
             LEFT JOIN generation_loras gl ON g.id = gl.generation_id
             LEFT JOIN lora_files l ON gl.lora_file_id = l.id
-            WHERE g.status = 'succeeded' 
+            WHERE {where_clause_sql}
             GROUP BY g.id
-            ORDER BY g.created_at DESC 
+            ORDER BY g.created_at DESC
             LIMIT ? OFFSET ?
-        ''', (limit, offset))
-        
+        """, params + [limit, offset])
+
         rows = cursor.fetchall()
         result = []
         import json
@@ -112,17 +174,81 @@ def get_history(limit: int = 50, offset: int = 0) -> tuple[List[Dict[str, Any]],
                     d['loras'] = []
             else:
                 d['loras'] = []
-            
+
             result.append(d)
-            
+
     except sqlite3.OperationalError:
         # Fallback for older SQLite without JSON support
-        cursor.execute('''
-            SELECT * FROM generations 
-            WHERE status = 'succeeded' 
-            ORDER BY created_at DESC 
+        cursor.execute(f"""
+            SELECT * FROM generations
+            WHERE {where_clause_sql}
+            ORDER BY created_at DESC
             LIMIT ? OFFSET ?
-        ''', (limit, offset))
+        """, params + [limit, offset])
+        rows = cursor.fetchall()
+        result = [dict(row) for row in rows]
+
+    conn.close()
+    return result, total_count
+
+    # Build final WHERE clause
+    where_clause_sql = " AND ".join(where_clauses)
+
+    # Count query (respects all filters)
+    count_query = f"SELECT COUNT(*) FROM generations WHERE {where_clause_sql}"
+    cursor.execute(count_query, params)
+    total_count = cursor.fetchone()[0]
+
+    # Use JSON aggregation to get LoRAs.
+    # We left join generation_loras and lora_files.
+    # Note: This requires SQLite 3.38.0+ (bundled with Python 3.10+ usually).
+    # If json_group_array is not available, this will fail.
+    # Let's try robust query.
+    try:
+        cursor.execute(f"""
+            SELECT g.*,
+                   json_group_array(
+                       json_object(
+                           'filename', l.filename,
+                           'strength', gl.strength,
+                           'display_name', l.display_name
+                       )
+                   ) as loras_json
+            FROM generations g
+            LEFT JOIN generation_loras gl ON g.id = gl.generation_id
+            LEFT JOIN lora_files l ON gl.lora_file_id = l.id
+            WHERE {where_clause_sql}
+            GROUP BY g.id
+            ORDER BY g.created_at DESC
+            LIMIT ? OFFSET ?
+        """, params + [limit, offset])
+
+        rows = cursor.fetchall()
+        result = []
+        import json
+        for row in rows:
+            d = dict(row)
+            # Parse JSON string back to list
+            if d.get('loras_json'):
+                try:
+                    loaded_loras = json.loads(d['loras_json'])
+                    # Filter out nulls (from left join where no lora exists)
+                    d['loras'] = [x for x in loaded_loras if x.get('filename') is not None]
+                except json.JSONDecodeError:
+                    d['loras'] = []
+            else:
+                d['loras'] = []
+
+            result.append(d)
+
+    except sqlite3.OperationalError:
+        # Fallback for older SQLite without JSON support
+        cursor.execute(f"""
+            SELECT * FROM generations
+            WHERE {where_clause_sql}
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """, params + [limit, offset])
         rows = cursor.fetchall()
         result = [dict(row) for row in rows]
 

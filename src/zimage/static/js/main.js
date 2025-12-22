@@ -176,6 +176,16 @@
         let currentImageUrl = null;
         let shareBtnMobile, copyBtnMobile; // Declare mobile buttons early to avoid hoisting issues
 
+        // --- Search state management (matches API parameter names) ---
+        const searchState = {
+            q: '',
+            start_date: '',
+            end_date: '',
+            debounceTimeout: null,
+            currentRequest: null,  // AbortController for cancellation
+            isLoading: false
+        };
+
         // --- Logic ---
 
         // Apply initial pin state
@@ -204,12 +214,269 @@
         if (refreshHistoryBtn) refreshHistoryBtn.addEventListener('click', refreshHistory);
         if (refreshHistorySidebarBtn) refreshHistorySidebarBtn.addEventListener('click', refreshHistory);
 
+        // Search event listeners
+        const toggleSearchBtn = document.getElementById('toggleSearchBtn');
+        const toggleSearchSidebarBtn = document.getElementById('toggleSearchSidebarBtn');
+        if (toggleSearchBtn) {
+            toggleSearchBtn.addEventListener('click', () => toggleSearchContainer('drawer'));
+        }
+        if (toggleSearchSidebarBtn) {
+            toggleSearchSidebarBtn.addEventListener('click', () => toggleSearchContainer('sidebar'));
+        }
+
+        const historySearchInput = document.getElementById('historySearchInput');
+        const historySearchInputSidebar = document.getElementById('historySearchInputSidebar');
+        const historyStartDateInput = document.getElementById('historyStartDate');
+        const historyStartDateInputSidebar = document.getElementById('historyStartDateSidebar');
+        const historyEndDateInput = document.getElementById('historyEndDate');
+        const historyEndDateInputSidebar = document.getElementById('historyEndDateSidebar');
+
+        if (historySearchInput) {
+            historySearchInput.addEventListener('input', () => {
+                searchState.q = historySearchInput.value.trim();
+                if (historySearchInputSidebar) historySearchInputSidebar.value = searchState.q;
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+
+            // Trigger search on Enter key
+            historySearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchState.q = historySearchInput.value.trim();
+                    scheduleSearch();
+                }
+            });
+        }
+
+        if (historySearchInputSidebar) {
+            historySearchInputSidebar.addEventListener('input', () => {
+                searchState.q = historySearchInputSidebar.value.trim();
+                if (historySearchInput) historySearchInput.value = searchState.q;
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+
+            // Trigger search on Enter key
+            historySearchInputSidebar.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchState.q = historySearchInputSidebar.value.trim();
+                    scheduleSearch();
+                }
+            });
+        }
+
+        if (historyStartDateInput) {
+            historyStartDateInput.addEventListener('change', () => {
+                searchState.start_date = historyStartDateInput.value;
+                if (historyStartDateInputSidebar) historyStartDateInputSidebar.value = searchState.start_date;
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+
+        if (historyStartDateInputSidebar) {
+            historyStartDateInputSidebar.addEventListener('change', () => {
+                searchState.start_date = historyStartDateInputSidebar.value;
+                if (historyStartDateInput) historyStartDateInput.value = searchState.start_date;
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+
+        if (historyEndDateInput) {
+            historyEndDateInput.addEventListener('change', () => {
+                searchState.end_date = historyEndDateInput.value;
+                if (historyEndDateInputSidebar) historyEndDateInputSidebar.value = searchState.end_date;
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+
+        if (historyEndDateInputSidebar) {
+            historyEndDateInputSidebar.addEventListener('change', () => {
+                searchState.end_date = historyEndDateInputSidebar.value;
+                if (historyEndDateInput) historyEndDateInput.value = searchState.end_date;
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+
+        // Clear button handlers
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const clearSearchSidebarBtn = document.getElementById('clearSearchSidebarBtn');
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                searchState.q = '';
+                if (historySearchInput) historySearchInput.value = '';
+                if (historySearchInputSidebar) historySearchInputSidebar.value = '';
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+        if (clearSearchSidebarBtn) {
+            clearSearchSidebarBtn.addEventListener('click', () => {
+                searchState.q = '';
+                if (historySearchInput) historySearchInput.value = '';
+                if (historySearchInputSidebar) historySearchInputSidebar.value = '';
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+
+        const clearStartDateBtn = document.getElementById('clearStartDateBtn');
+        const clearStartDateSidebarBtn = document.getElementById('clearStartDateSidebarBtn');
+        if (clearStartDateBtn) {
+            clearStartDateBtn.addEventListener('click', () => {
+                searchState.start_date = '';
+                if (historyStartDateInput) historyStartDateInput.value = '';
+                if (historyStartDateInputSidebar) historyStartDateInputSidebar.value = '';
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+        if (clearStartDateSidebarBtn) {
+            clearStartDateSidebarBtn.addEventListener('click', () => {
+                searchState.start_date = '';
+                if (historyStartDateInput) historyStartDateInput.value = '';
+                if (historyStartDateInputSidebar) historyStartDateInputSidebar.value = '';
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+
+        const clearEndDateBtn = document.getElementById('clearEndDateBtn');
+        const clearEndDateSidebarBtn = document.getElementById('clearEndDateSidebarBtn');
+        if (clearEndDateBtn) {
+            clearEndDateBtn.addEventListener('click', () => {
+                searchState.end_date = '';
+                if (historyEndDateInput) historyEndDateInput.value = '';
+                if (historyEndDateInputSidebar) historyEndDateInputSidebar.value = '';
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+        if (clearEndDateSidebarBtn) {
+            clearEndDateSidebarBtn.addEventListener('click', () => {
+                searchState.end_date = '';
+                if (historyEndDateInput) historyEndDateInput.value = '';
+                if (historyEndDateInputSidebar) historyEndDateInputSidebar.value = '';
+                updateClearButtonVisibility();
+                scheduleSearch();
+            });
+        }
+
+        // Function to show/hide clear buttons based on input values
+        function updateClearButtonVisibility() {
+            const clearSearchBtn = document.getElementById('clearSearchBtn');
+            const clearSearchSidebarBtn = document.getElementById('clearSearchSidebarBtn');
+            const clearStartDateBtn = document.getElementById('clearStartDateBtn');
+            const clearStartDateSidebarBtn = document.getElementById('clearStartDateSidebarBtn');
+            const clearEndDateBtn = document.getElementById('clearEndDateBtn');
+            const clearEndDateSidebarBtn = document.getElementById('clearEndDateSidebarBtn');
+            const searchInput = document.getElementById('historySearchInput');
+            const searchInputSidebar = document.getElementById('historySearchInputSidebar');
+            const startDateInput = document.getElementById('historyStartDate');
+            const startDateInputSidebar = document.getElementById('historyStartDateSidebar');
+            const endDateInput = document.getElementById('historyEndDate');
+            const endDateInputSidebar = document.getElementById('historyEndDateSidebar');
+
+            // Determine if there's a search value (check both inputs)
+            const hasSearchValue = (searchInput?.value.trim() || '') || (searchInputSidebar?.value.trim() || '');
+            const hasStartDate = startDateInput?.value || startDateInputSidebar?.value;
+            const hasEndDate = endDateInput?.value || endDateInputSidebar?.value;
+
+            // Show/hide search clear button
+            if (clearSearchBtn && searchInput) {
+                if (searchInput.value.trim()) {
+                    clearSearchBtn.classList.remove('d-none');
+                } else {
+                    clearSearchBtn.classList.add('d-none');
+                }
+            }
+            if (clearSearchSidebarBtn && searchInputSidebar) {
+                if (searchInputSidebar.value.trim()) {
+                    clearSearchSidebarBtn.classList.remove('d-none');
+                } else {
+                    clearSearchSidebarBtn.classList.add('d-none');
+                }
+            }
+
+            // Show/hide start date clear button
+            if (clearStartDateBtn && startDateInput) {
+                if (startDateInput.value) {
+                    clearStartDateBtn.classList.remove('d-none');
+                } else {
+                    clearStartDateBtn.classList.add('d-none');
+                }
+            }
+            if (clearStartDateSidebarBtn && startDateInputSidebar) {
+                if (startDateInputSidebar.value) {
+                    clearStartDateSidebarBtn.classList.remove('d-none');
+                } else {
+                    clearStartDateSidebarBtn.classList.add('d-none');
+                }
+            }
+
+            // Show/hide end date clear button
+            if (clearEndDateBtn && endDateInput) {
+                if (endDateInput.value) {
+                    clearEndDateBtn.classList.remove('d-none');
+                } else {
+                    clearEndDateBtn.classList.add('d-none');
+                }
+            }
+            if (clearEndDateSidebarBtn && endDateInputSidebar) {
+                if (endDateInputSidebar.value) {
+                    clearEndDateSidebarBtn.classList.remove('d-none');
+                } else {
+                    clearEndDateSidebarBtn.classList.add('d-none');
+                }
+            }
+
+            // Update search input tooltip with full text
+            if (searchInput) {
+                const tooltip = bootstrap.Tooltip.getInstance(searchInput);
+                if (searchInput.value.trim()) {
+                    searchInput.setAttribute('title', searchInput.value.trim());
+                    if (tooltip) {
+                        tooltip.dispose();
+                        new bootstrap.Tooltip(searchInput);
+                    }
+                } else {
+                    searchInput.setAttribute('title', translations[currentLanguage]?.history_search_aria || 'Search by keywords');
+                    if (tooltip) {
+                        tooltip.dispose();
+                        new bootstrap.Tooltip(searchInput);
+                    }
+                }
+            }
+            if (searchInputSidebar) {
+                const tooltip = bootstrap.Tooltip.getInstance(searchInputSidebar);
+                if (searchInputSidebar.value.trim()) {
+                    searchInputSidebar.setAttribute('title', searchInputSidebar.value.trim());
+                    if (tooltip) {
+                        tooltip.dispose();
+                        new bootstrap.Tooltip(searchInputSidebar);
+                    }
+                } else {
+                    searchInputSidebar.setAttribute('title', translations[currentLanguage]?.history_search_aria || 'Search by keywords');
+                    if (tooltip) {
+                        tooltip.dispose();
+                        new bootstrap.Tooltip(searchInputSidebar);
+                    }
+                }
+            }
+        }
+
         // Initialize pull-to-refresh
         initPullToRefresh();
 
         const { formatValueWithOneDecimal, formatFileSize, formatSmartDate } = window.zutils || {};
 
         let translations = window.translations || { en: {} };
+
+        // Initialize search from URL on startup (after translations are available)
+        initSearchFromURL();
 
         function updateLanguage(lang) {
             currentLanguage = lang;
@@ -745,6 +1012,280 @@
             isDirty = true;
         });
 
+        // --- Search Functions ---
+
+        // Toggle search container visibility
+        function toggleSearchContainer(location) {
+            const containerId = location === 'sidebar'
+                ? 'historySearchContainerSidebar'
+                : 'historySearchContainer';
+            const toggleBtnId = location === 'sidebar'
+                ? 'toggleSearchSidebarBtn'
+                : 'toggleSearchBtn';
+            const container = document.getElementById(containerId);
+            const toggleBtn = document.getElementById(toggleBtnId);
+            const icon = toggleBtn?.querySelector('i');
+
+            if (container?.classList.contains('d-none')) {
+                // Open search container
+                container.classList.remove('d-none');
+                if (icon) {
+                    icon.classList.remove('bi-search');
+                    icon.classList.add('bi-chevron-up');
+                }
+
+                // Auto-expand date filter if there are date values
+                if (searchState.start_date || searchState.end_date) {
+                    const dateFilterCollapseId = location === 'sidebar'
+                        ? 'historyDateRangeFilterSidebar'
+                        : 'historyDateRangeFilter';
+                    const dateFilterCollapse = document.getElementById(dateFilterCollapseId);
+                    if (dateFilterCollapse) {
+                        const collapse = bootstrap.Collapse.getOrCreateInstance(dateFilterCollapse);
+                        collapse.show();
+                    }
+                }
+            } else {
+                // Close search container
+                container?.classList.add('d-none');
+                if (icon) {
+                    icon.classList.remove('bi-chevron-up');
+                    icon.classList.add('bi-search');
+                }
+            }
+        }
+
+        // Initialize from URL on page load
+        function initSearchFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            searchState.q = params.get('q') || '';
+            searchState.start_date = params.get('start_date') || '';
+            searchState.end_date = params.get('end_date') || '';
+
+            // Update UI for both drawer and sidebar
+            const searchInput = document.getElementById('historySearchInput');
+            const searchInputSidebar = document.getElementById('historySearchInputSidebar');
+            const startDateInput = document.getElementById('historyStartDate');
+            const startDateInputSidebar = document.getElementById('historyStartDateSidebar');
+            const endDateInput = document.getElementById('historyEndDate');
+            const endDateInputSidebar = document.getElementById('historyEndDateSidebar');
+
+            if (searchInput) searchInput.value = searchState.q;
+            if (searchInputSidebar) searchInputSidebar.value = searchState.q;
+            if (startDateInput) startDateInput.value = searchState.start_date;
+            if (startDateInputSidebar) startDateInputSidebar.value = searchState.start_date;
+            if (endDateInput) endDateInput.value = searchState.end_date;
+            if (endDateInputSidebar) endDateInputSidebar.value = searchState.end_date;
+
+            // Auto-expand search containers if URL has search params
+            if (searchState.q || searchState.start_date || searchState.end_date) {
+                const container = document.getElementById('historySearchContainer');
+                const containerSidebar = document.getElementById('historySearchContainerSidebar');
+                const toggleBtn = document.getElementById('toggleSearchBtn');
+                const toggleBtnSidebar = document.getElementById('toggleSearchSidebarBtn');
+                const icon = toggleBtn?.querySelector('i');
+                const iconSidebar = toggleBtnSidebar?.querySelector('i');
+
+                if (container) container.classList.remove('d-none');
+                if (containerSidebar) containerSidebar.classList.remove('d-none');
+
+                if (icon) {
+                    icon.classList.remove('bi-search');
+                    icon.classList.add('bi-chevron-up');
+                }
+                if (iconSidebar) {
+                    iconSidebar.classList.remove('bi-search');
+                    iconSidebar.classList.add('bi-chevron-up');
+                }
+
+                // Auto-expand date filter if there are date values
+                if (searchState.start_date || searchState.end_date) {
+                    const dateFilterCollapse = document.getElementById('historyDateRangeFilter');
+                    const dateFilterCollapseSidebar = document.getElementById('historyDateRangeFilterSidebar');
+                    if (dateFilterCollapse) {
+                        const collapse = bootstrap.Collapse.getOrCreateInstance(dateFilterCollapse);
+                        collapse.show();
+                    }
+                    if (dateFilterCollapseSidebar) {
+                        const collapseSidebar = bootstrap.Collapse.getOrCreateInstance(dateFilterCollapseSidebar);
+                        collapseSidebar.show();
+                    }
+                }
+            }
+
+            updateClearButtonVisibility();
+        }
+
+        // Update URL from current search state
+        function updateURLFromSearchState() {
+            const params = new URLSearchParams();
+            if (searchState.q) params.set('q', searchState.q);
+            if (searchState.start_date) params.set('start_date', searchState.start_date);
+            if (searchState.end_date) params.set('end_date', searchState.end_date);
+
+            const newUrl = `${window.location.pathname}?${params.toString()}`;
+            window.history.pushState({}, '', newUrl);
+        }
+
+        // Check if any filters are active
+        function hasActiveFilters() {
+            return searchState.q || searchState.start_date || searchState.end_date;
+        }
+
+        // Debounced search with request cancellation
+        function scheduleSearch() {
+            // Cancel any in-flight request
+            if (searchState.currentRequest) {
+                searchState.currentRequest.abort();
+                searchState.currentRequest = null;
+            }
+
+            // Clear previous debounce timeout
+            if (searchState.debounceTimeout) {
+                clearTimeout(searchState.debounceTimeout);
+            }
+
+            showLoadingState();
+
+            // Debounce rapid changes (400ms)
+            searchState.debounceTimeout = setTimeout(() => {
+                executeSearch();
+            }, 400);
+        }
+
+        // Execute search with current filters
+        async function executeSearch() {
+            // Reset infinite scroll state
+            historyOffset = 0;
+            historyTotal = 0;
+            removeSentinels();
+
+            // Clear existing results
+            if (historyListOffcanvas) historyListOffcanvas.innerHTML = '';
+            if (historyListSidebar) historyListSidebar.innerHTML = '';
+
+            // Build query parameters
+            const params = new URLSearchParams();
+            params.set('limit', historyLimit);
+            params.set('offset', historyOffset);
+
+            if (searchState.q) params.set('q', searchState.q);
+            if (searchState.start_date) params.set('start_date', searchState.start_date);
+            if (searchState.end_date) params.set('end_date', searchState.end_date);
+
+            try {
+                // Create new AbortController for this request
+                const controller = new AbortController();
+                searchState.currentRequest = controller;
+                searchState.isLoading = true;
+
+                const response = await fetch(`/history?${params.toString()}`, {
+                    signal: controller.signal
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Update total count from headers
+                const totalStr = response.headers.get('X-Total-Count');
+                if (totalStr) historyTotal = parseInt(totalStr);
+
+                const items = await response.json();
+
+                // Render results
+                renderHistory(items, false);
+
+                // Update offset for infinite scroll
+                historyOffset += items.length;
+
+                // Add sentinel for infinite scroll if there are more results
+                if (historyOffset < historyTotal) {
+                    addSentinels();
+                }
+
+                // Update URL to reflect current search state
+                updateURLFromSearchState();
+
+                // Show or hide result count based on filters
+                if (hasActiveFilters()) {
+                    showResultCount(historyOffset, historyTotal);
+                } else {
+                    hideResultCount();
+                }
+
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Search failed:', error);
+                    showErrorState(error.message);
+                }
+            } finally {
+                searchState.currentRequest = null;
+                searchState.isLoading = false;
+                hideLoadingState();
+            }
+        }
+
+        // Show loading state
+        function showLoadingState() {
+            const searchButton = document.getElementById('historySearchButton');
+            if (searchButton) {
+                const icon = searchButton.querySelector('i');
+                icon.classList.add('refresh-spin');
+            }
+        }
+
+        // Hide loading state
+        function hideLoadingState() {
+            const searchButton = document.getElementById('historySearchButton');
+            if (searchButton) {
+                const icon = searchButton.querySelector('i');
+                icon.classList.remove('refresh-spin');
+            }
+        }
+
+        // Show result count
+        function showResultCount(shown, total) {
+            const infoElement = document.getElementById('searchResultsInfo');
+            const infoElementSidebar = document.getElementById('searchResultsInfoSidebar');
+            const t = translations[currentLanguage] || translations.en || {};
+            const text = (t.history_results_count || '{total} results')
+                .replace('{total}', total);
+            if (infoElement) infoElement.textContent = text;
+            if (infoElementSidebar) infoElementSidebar.textContent = text;
+        }
+
+        // Hide result count
+        function hideResultCount() {
+            const infoElement = document.getElementById('searchResultsInfo');
+            const infoElementSidebar = document.getElementById('searchResultsInfoSidebar');
+            if (infoElement) infoElement.textContent = '';
+            if (infoElementSidebar) infoElementSidebar.textContent = '';
+        }
+
+        // Show error state
+        function showErrorState(message) {
+            const infoElement = document.getElementById('searchResultsInfo');
+            const infoElementSidebar = document.getElementById('searchResultsInfoSidebar');
+            const t = translations[currentLanguage] || translations.en || {};
+            const errorMessage = `${t.history_error_generic || 'An error occurred'}: ${message}`;
+            if (infoElement) {
+                infoElement.textContent = errorMessage;
+                infoElement.classList.add('text-danger');
+            }
+            if (infoElementSidebar) {
+                infoElementSidebar.textContent = errorMessage;
+                infoElementSidebar.classList.add('text-danger');
+            }
+        }
+
+        // HTML escape helper
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // --- History Logic ---
         let historyOffset = 0;
         const historyLimit = 20;
@@ -864,7 +1405,18 @@
 
         async function loadHistory(append = false) {
             if (isHistoryLoading) return;
-            
+
+            // If we have active filters, use executeSearch instead
+            if (searchState.q || searchState.start_date || searchState.end_date) {
+                if (!append) {
+                    executeSearch();
+                } else {
+                    await loadMoreFilteredResults();
+                }
+                return;
+            }
+
+            // Original infinite scroll logic for unfiltered case
             if (!append) {
                 historyOffset = 0;
                 historyTotal = 0;
@@ -896,6 +1448,48 @@
             }
         }
 
+        async function loadMoreFilteredResults() {
+            if (isHistoryLoading) return;
+            isHistoryLoading = true;
+            removeSentinels();
+
+            const params = new URLSearchParams();
+            params.set('limit', historyLimit);
+            params.set('offset', historyOffset);
+
+            if (searchState.q) params.set('q', searchState.q);
+            if (searchState.start_date) params.set('start_date', searchState.start_date);
+            if (searchState.end_date) params.set('end_date', searchState.end_date);
+
+            try {
+                const response = await fetch(`/history?${params.toString()}`);
+
+                // Update total count from headers
+                const totalStr = response.headers.get('X-Total-Count');
+                if (totalStr) historyTotal = parseInt(totalStr);
+
+                const items = await response.json();
+
+                if (items.length > 0) {
+                    renderHistory(items, true);
+                    historyOffset += items.length;
+                }
+
+                // Add sentinel for infinite scroll if there are more results
+                if (historyOffset < historyTotal) {
+                    addSentinels();
+                }
+
+                // Update result count
+                showResultCount(historyOffset, historyTotal);
+
+            } catch (error) {
+                console.error('Failed to load more results:', error);
+            } finally {
+                isHistoryLoading = false;
+            }
+        }
+
         // Refresh history function
         async function refreshHistory() {
             // Prevent multiple simultaneous refreshes
@@ -907,6 +1501,59 @@
 
             // Add loading state to refresh buttons
             setRefreshButtonLoading(true);
+
+            // Clear search filters when refreshing
+            searchState.q = '';
+            searchState.start_date = '';
+            searchState.end_date = '';
+
+            const searchInput = document.getElementById('historySearchInput');
+            const searchInputSidebar = document.getElementById('historySearchInputSidebar');
+            const startDateInput = document.getElementById('historyStartDate');
+            const startDateInputSidebar = document.getElementById('historyStartDateSidebar');
+            const endDateInput = document.getElementById('historyEndDate');
+            const endDateInputSidebar = document.getElementById('historyEndDateSidebar');
+
+            if (searchInput) searchInput.value = '';
+            if (searchInputSidebar) searchInputSidebar.value = '';
+            if (startDateInput) startDateInput.value = '';
+            if (startDateInputSidebar) startDateInputSidebar.value = '';
+            if (endDateInput) endDateInput.value = '';
+            if (endDateInputSidebar) endDateInputSidebar.value = '';
+
+            updateClearButtonVisibility();
+            const searchResultsInfo = document.getElementById('searchResultsInfo');
+            const searchResultsInfoSidebar = document.getElementById('searchResultsInfoSidebar');
+            if (searchResultsInfo) {
+                searchResultsInfo.textContent = '';
+                searchResultsInfo.classList.remove('text-danger');
+            }
+            if (searchResultsInfoSidebar) {
+                searchResultsInfoSidebar.textContent = '';
+                searchResultsInfoSidebar.classList.remove('text-danger');
+            }
+
+            // Close search containers for both drawer and sidebar
+            const container = document.getElementById('historySearchContainer');
+            const containerSidebar = document.getElementById('historySearchContainerSidebar');
+            const toggleBtn = document.getElementById('toggleSearchBtn');
+            const toggleBtnSidebar = document.getElementById('toggleSearchSidebarBtn');
+            const icon = toggleBtn?.querySelector('i');
+            const iconSidebar = toggleBtnSidebar?.querySelector('i');
+
+            if (container) container.classList.add('d-none');
+            if (containerSidebar) containerSidebar.classList.add('d-none');
+            if (icon) {
+                icon.classList.remove('bi-chevron-up');
+                icon.classList.add('bi-search');
+            }
+            if (iconSidebar) {
+                iconSidebar.classList.remove('bi-chevron-up');
+                iconSidebar.classList.add('bi-search');
+            }
+
+            // Clear URL
+            window.history.pushState({}, '', window.location.pathname);
 
             try {
                 // Load fresh first page (same as initial page load)
