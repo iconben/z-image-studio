@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from pathlib import Path
 from typing import Optional, List, Dict, Any, AsyncGenerator
+from urllib.parse import quote
 import asyncio
 import time
 import sqlite3
@@ -461,7 +462,7 @@ async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
         
         return {
             "id": new_id,
-            "image_url": f"/outputs/{filename}",
+            "image_url": f"/outputs/{quote(filename, safe='')}",
             "generation_time": round(duration, 2),
             "width": image.width,
             "height": image.height,

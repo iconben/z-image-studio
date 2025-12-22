@@ -8,6 +8,7 @@ import os
 import json
 import base64
 import random
+from urllib.parse import quote
 
 # Lazy import for yarl to avoid dependency issues
 try:
@@ -204,7 +205,9 @@ async def _generate_impl(
         raise
 
     base_url = os.getenv("ZIMAGE_BASE_URL")
-    relative_url = f"/outputs/{filename}"
+    # UTF-8 percent-encode the filename for URL safety and compatibility
+    encoded_filename = quote(filename, safe='')
+    relative_url = f"/outputs/{encoded_filename}"
 
     # Build appropriate URI based on transport context
     if transport in ("sse", "streamable_http"):
@@ -355,7 +358,8 @@ async def _generate_impl(
             )
     else:
         # For stdio transport, use file:// URI for local access
-        resource_uri = f"file://{output_path.resolve()}"
+        # URL-encode the path to handle spaces and special characters
+        resource_uri = f"file://{quote(str(output_path.resolve()), safe='/')}"
 
     # Create text content with generation info and file metadata
     # Note: For SSE (remote), we include the URL instead of local file path
