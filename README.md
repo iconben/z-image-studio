@@ -12,7 +12,7 @@
 
 A Cli, a webUI, and a MCP server for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
 
-This tool is designed to run efficiently on local machines for Windows/Mac/Linux users with or without Nvadia CUDA cards, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if both CUDA and MPS are both unavailable.
+This tool is designed to run efficiently on local machines for Windows/Mac/Linux users with or without Nvadia CUDA cards, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if CUDA and MPS are both unavailable.
 
 ![Screenshot 0](docs/images/screenshot0.png)
 
@@ -33,7 +33,7 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 
 ### Web UI features
 *   **Multilanguage Support**: English, Japanese, Chinese Simplified (zh-CN), and Chinese Traditional (zh-TW) are supported.
-*   **History Browser**: Efficiently browse your past generations with a paginated history that loads more items as you scroll.
+*   **History Browser**: Efficiently search and browse your past generations with a paginated history that loads more items as you scroll.
 *   **Hardware-aware Model Recommendation**: The Web UI dynamically presents model precision options based on your system's detected RAM/VRAM, recommending the optimal choice for your hardware. You can also inspect available models and recommendations via the CLI.
 *   **Image Sharing**: The generated image can be downloaded to browser download directory, conveniently shared via OS share protocol, and copied into clipboard. 
 *   **Theme Switch**: Light, dark and auto themes.
@@ -48,6 +48,8 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 
 *   Python >= 3.11
 *   `uv` (recommended for dependency management)
+
+**Python 3.12+ Note**: `torch.compile` is disabled by default for Python 3.12+ due to known compatibility issues with the Z-Image model architecture. If you want to experiment with `torch.compile` on Python 3.12+, set `ZIMAGE_ENABLE_TORCH_COMPILE=1` via environment variable or in `~/.z-image-studio/config.json` (experimental, may cause errors).
 
 ## Global installation
 
@@ -374,9 +376,16 @@ On first run without an existing config file, the app migrates legacy data by mo
     ```
 
 ### Optional: Override the folder settings with environment variables
-    If you do not want your development data mess up your production data,  
+    If you do not want your development data mess up your production data,
     You can define environment variable Z_IMAGE_STUDIO_DATA_DIR to change the data folder for
     You can also define environment variable Z_IMAGE_STUDIO_OUTPUT_DIR to change the output folder to another separate folder
+
+### Environment Variables
+| Variable | Description |
+| :--- | :--- |
+| `ZIMAGE_ENABLE_TORCH_COMPILE` | Force enable `torch.compile` optimization (experimental). By default disabled for Python 3.12+ due to known compatibility issues. Can be set to `1` via environment variable or config file (`~/.z-image-studio/config.json`) to enable at your own risk. |
+| `Z_IMAGE_STUDIO_DATA_DIR` | Override the default data directory location. |
+| `Z_IMAGE_STUDIO_OUTPUT_DIR` | Override the default output directory location. |
 ## Notes
 
 *   **Guidance Scale**: The script hardcodes `guidance_scale=0.0` as required by the Turbo model distillation process.
