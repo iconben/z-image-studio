@@ -308,14 +308,16 @@ def generate_image(
         "num_inference_steps": steps,
         "height": height,
         "width": width,
-        "guidance_scale": 0.0, 
+        "guidance_scale": 0.0,
         "generator": generator,
     }
 
+    had_error = False
     try:
         with torch.inference_mode():
             image = pipe(**gen_kwargs).images[0]
     except RuntimeError as e:
+        had_error = True
         # Check if this is a torch.compile-related error that we can recover from
         error_msg = str(e)
         is_compile_error = (
@@ -367,6 +369,10 @@ def generate_image(
         gc.collect()
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+        # Clear CUDA cache on error to free GPU memory for next request
+        if had_error and torch.cuda.is_available():
+            log_warn("Clearing CUDA cache after error")
+            torch.cuda.empty_cache()
 
     return image
 
