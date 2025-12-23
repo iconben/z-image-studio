@@ -51,6 +51,18 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 
 **Python 3.12+ Note**: `torch.compile` is disabled by default for Python 3.12+ due to known compatibility issues with the Z-Image model architecture. If you want to experiment with `torch.compile` on Python 3.12+, set `ZIMAGE_ENABLE_TORCH_COMPILE=1` via environment variable or in `~/.z-image-studio/config.json` (experimental, may cause errors).
 
+## GPU acceleration notes
+
+*   **NVIDIA (CUDA)**: Works with standard PyTorch CUDA builds.
+*   **Apple Silicon (MPS)**: Uses PyTorch MPS backend on macOS.
+*   **AMD on Linux (ROCm)**: Explicitly supported. Requires a ROCm-enabled PyTorch build.
+    *   **Installation**: Install AMD ROCm drivers/runtime for your distribution. Then install PyTorch with ROCm support (e.g., via `pip install torch --index-url https://download.pytorch.org/whl/rocm6.1` or similar). Ensure the PyTorch ROCm version matches your installed driver version.
+    *   **Verification**: The app will automatically detect your device as "rocm". You can confirm this by running `zimg models`.
+    *   **Troubleshooting**:
+        *   If the app falls back to CPU, ensure `torch.version.hip` is detected.
+        *   **HSA Override**: For some consumer GPUs (e.g., RX 6000/7000 series) not officially supported by all ROCm versions, you may need to set `HSA_OVERRIDE_GFX_VERSION` (e.g., `10.3.0` for RDNA2, `11.0.0` for RDNA3).
+        *   **Performance**: `torch.compile` is disabled by default on ROCm due to experimental support. You can force-enable it with `ZIMAGE_ENABLE_TORCH_COMPILE=1` if your setup (Triton/ROCm version) supports it.
+
 ## Global installation
 
 If you just want the `zimg` CLI to be available from anywhere, install it as a uv tool:

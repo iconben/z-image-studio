@@ -68,6 +68,7 @@ def is_torch_compile_safe() -> bool:
 
     The safety check considers:
     - Python version (3.12+ has known torch.compile issues with Z-Image models)
+    - ROCm/AMD GPUs (experimentally supported, disabled by default)
     - Future: PyTorch version (when 2.6+ potentially stabilizes 3.12 support)
 
     Returns:
@@ -90,6 +91,10 @@ def is_torch_compile_safe() -> bool:
     # Python 3.12+ has known compatibility issues with torch.compile on Z-Image models
     # See: https://github.com/anthropics/z-image-studio/issues/49
     if sys.version_info >= (3, 12):
+        return False
+        
+    # ROCm: Disable torch.compile by default as it is experimental on AMD
+    if detect_device() == "rocm":
         return False
 
     # TODO: Add PyTorch version check when 2.6+ is released
@@ -129,9 +134,9 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         del _cached_pipe
         import gc
         gc.collect()
-        if device == "cuda" and torch.cuda.is_available(): # added check for cuda availability
+        if (device == "cuda" or device == "rocm") and torch.cuda.is_available():
             torch.cuda.empty_cache()
-        if device == "mps" and torch.backends.mps.is_available(): # added check for mps availability
+        if device == "mps" and torch.backends.mps.is_available():
              torch.mps.empty_cache()
         _cached_pipe = None
 
@@ -151,6 +156,14 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         else:
             log_warn("CUDA device does NOT support bfloat16 -> falling back to float16")
             torch_dtype = torch.float16
+    elif device == "rocm":
+        # ROCm often supports float16. bfloat16 depends on newer cards (MI200+).
+        if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+             log_info("ROCm device supports bfloat16 -> using bfloat16")
+             torch_dtype = torch.bfloat16
+        else:
+             log_info("ROCm device -> using float16")
+             torch_dtype = torch.float16
     else:
         torch_dtype = torch.float32
 
@@ -174,7 +187,10 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         torch_dtype=torch_dtype,
         low_cpu_mem_usage=low_cpu_mem_usage,
     )
-    pipe = pipe.to(device)
+    
+    # PyTorch ROCm builds use "cuda" as the device type
+    torch_device = "cuda" if device == "rocm" else device
+    pipe = pipe.to(torch_device)
     
     # Compatibility shim for SD3LoraLoaderMixin which expects text_encoder_2 and 3
     if not hasattr(pipe, "text_encoder_2"):
@@ -190,7 +206,8 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
     # Enable INT8 MatMul for AMD, Intel ARC and Nvidia GPUs:
     # Note: torch.compile is only applied when deemed safe for the current environment
     _is_using_compiled_transformer = False
-    if triton_is_available and (torch.cuda.is_available() or torch.xpu.is_available()):
+    # Explicitly exclude ROCm for now as it may be unstable with SDNQ/Triton kernels
+    if triton_is_available and (device == "cuda" or torch.xpu.is_available()):
         pipe.transformer = apply_sdnq_options_to_model(pipe.transformer, use_quantized_matmul=True)
         pipe.text_encoder = apply_sdnq_options_to_model(pipe.text_encoder, use_quantized_matmul=True)
 
