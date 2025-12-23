@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+import os
+import sys
 import warnings
 import traceback
+
+# Import from paths module for config access
+try:
+    from .paths import load_config
+except ImportError:
+    from paths import load_config
 
 # Silence the noisy CUDA autocast warning on Mac
 warnings.filterwarnings(
@@ -47,6 +55,50 @@ def log_info(message: str):
 def log_warn(message: str):
     logger.warning(message)
 
+# Environment variable to force-enable torch.compile (use at your own risk)
+_TORCH_COMPILE_ENV_VAR = "ZIMAGE_ENABLE_TORCH_COMPILE"
+
+def is_torch_compile_safe() -> bool:
+    """
+    Determine if torch.compile is safe to use for the current environment.
+
+    Returns True if torch.compile is known to be stable, False otherwise.
+    This can be overridden by setting ZIMAGE_ENABLE_TORCH_COMPILE=1 via
+    environment variable or config file (~/.z-image-studio/config.json).
+
+    The safety check considers:
+    - Python version (3.12+ has known torch.compile issues with Z-Image models)
+    - Future: PyTorch version (when 2.6+ potentially stabilizes 3.12 support)
+
+    Returns:
+        bool: True if torch.compile is considered safe, False otherwise
+    """
+    # User override - opt-in to experimental/unsafe behavior
+    # Priority: environment variable > config file
+    if os.getenv(_TORCH_COMPILE_ENV_VAR, "") == "1":
+        log_warn(f"{_TORCH_COMPILE_ENV_VAR}=1: User has forced torch.compile enabled (via env)")
+        return True
+
+    # Check config file
+    cfg = load_config()
+    cfg_value = cfg.get(_TORCH_COMPILE_ENV_VAR) if isinstance(cfg, dict) else None
+    if cfg_value:
+        if str(cfg_value) == "1" or cfg_value is True:
+            log_warn(f"{_TORCH_COMPILE_ENV_VAR}=1: User has forced torch.compile enabled (via config)")
+            return True
+
+    # Python 3.12+ has known compatibility issues with torch.compile on Z-Image models
+    # See: https://github.com/anthropics/z-image-studio/issues/49
+    if sys.version_info >= (3, 12):
+        return False
+
+    # TODO: Add PyTorch version check when 2.6+ is released
+    # Future: if torch.__version__ >= (2, 6) and sys.version_info >= (3, 12):
+    #             return True
+
+    # Default: safe for Python < 3.12
+    return True
+
 warnings.filterwarnings(
     "ignore",
     message="`torch_dtype` is deprecated! Use `dtype` instead!",
@@ -55,9 +107,11 @@ warnings.filterwarnings(
 
 _cached_pipe = None
 _cached_precision = None
+_cached_original_transformer = None  # Store uncompiled transformer for fallback
+_is_using_compiled_transformer = False  # Track if transformer is compiled
 
 def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePipeline:
-    global _cached_pipe, _cached_precision
+    global _cached_pipe, _cached_precision, _cached_original_transformer, _is_using_compiled_transformer
     
     # Cache key uses precision directly now
     cache_key = precision
@@ -134,10 +188,29 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         _SET_ADAPTER_SCALE_FN_MAPPING["ZImageTransformer2DModel"] = lambda model_cls, weights: weights
 
     # Enable INT8 MatMul for AMD, Intel ARC and Nvidia GPUs:
+    # Note: torch.compile is only applied when deemed safe for the current environment
+    _is_using_compiled_transformer = False
     if triton_is_available and (torch.cuda.is_available() or torch.xpu.is_available()):
         pipe.transformer = apply_sdnq_options_to_model(pipe.transformer, use_quantized_matmul=True)
         pipe.text_encoder = apply_sdnq_options_to_model(pipe.text_encoder, use_quantized_matmul=True)
-        pipe.transformer = torch.compile(pipe.transformer) 
+
+        # Store original uncompiled transformer for potential fallback
+        _cached_original_transformer = pipe.transformer
+
+        # Apply torch.compile only if safe for the current environment
+        if is_torch_compile_safe():
+            try:
+                pipe.transformer = torch.compile(pipe.transformer)
+                _is_using_compiled_transformer = True
+                log_info("torch.compile enabled for transformer")
+            except Exception as e:
+                log_warn(f"torch.compile failed during setup: {e}")
+                _is_using_compiled_transformer = False
+        else:
+            log_info(
+                f"torch.compile disabled for this environment. "
+                f"Set {_TORCH_COMPILE_ENV_VAR}=1 to force enable (experimental)."
+            ) 
 
     if device == "cuda":
         pipe.enable_model_cpu_offload()
@@ -164,6 +237,7 @@ def generate_image(
     precision: str = "q4",
     loras: list[tuple[str, float]] = None,
 ):
+    global _is_using_compiled_transformer
     pipe = load_pipeline(precision=precision)
     
     log_info(f"generating image for prompt: {prompt!r}")
@@ -180,15 +254,17 @@ def generate_image(
 
     active_adapters = []
     adapter_weights = []
+    # Store LoRA data for potential torch.compile fallback
+    lora_data = []  # List of (adapter_name, remapped_state_dict, strength) tuples
 
     if loras:
         try:
             for i, (path, strength) in enumerate(loras):
                 adapter_name = f"lora_{i}"
-                
+
                 # Load raw state dict
                 state_dict = load_file(path)
-                
+
                 # Remap keys: diffusion_model -> transformer
                 new_state_dict = {}
                 for key, value in state_dict.items():
@@ -197,7 +273,10 @@ def generate_image(
                     else:
                         new_key = key
                     new_state_dict[new_key] = value
-                
+
+                # Store for potential fallback
+                lora_data.append((adapter_name, new_state_dict, strength))
+
                 pipe.transformer.load_lora_adapter(
                     new_state_dict,
                     adapter_name=adapter_name,
@@ -205,7 +284,7 @@ def generate_image(
                 )
                 active_adapters.append(adapter_name)
                 adapter_weights.append(strength)
-            
+
             if active_adapters:
                 pipe.transformer.set_adapters(active_adapters, weights=adapter_weights)
 
@@ -236,8 +315,46 @@ def generate_image(
     try:
         with torch.inference_mode():
             image = pipe(**gen_kwargs).images[0]
-        
-        return image
+    except RuntimeError as e:
+        # Check if this is a torch.compile-related error that we can recover from
+        error_msg = str(e)
+        is_compile_error = (
+            "shape of the mask" in error_msg.lower() or
+            "pow_by_natural" in error_msg.lower() or
+            "sympy" in error_msg.lower() or
+            any(x in error_msg for x in ["indexed tensor", "does not match"])
+        )
+
+        if is_compile_error and _is_using_compiled_transformer and _cached_original_transformer is not None:
+            # Fall back to uncompiled transformer
+            log_warn("torch.compile failed during inference, falling back to uncompiled transformer")
+            log_warn(f"Error: {error_msg}")
+            pipe.transformer = _cached_original_transformer
+            _is_using_compiled_transformer = False
+
+            # Reapply LoRAs to the fallback transformer if they were loaded
+            if lora_data:
+                log_warn("Reapplying LoRA adapters to fallback transformer")
+                fallback_adapters = []
+                fallback_weights = []
+                for adapter_name, state_dict, strength in lora_data:
+                    pipe.transformer.load_lora_adapter(
+                        state_dict,
+                        adapter_name=adapter_name,
+                        prefix="transformer",
+                    )
+                    fallback_adapters.append(adapter_name)
+                    fallback_weights.append(strength)
+
+                if fallback_adapters:
+                    pipe.transformer.set_adapters(fallback_adapters, weights=fallback_weights)
+
+            # Retry generation with uncompiled model
+            with torch.inference_mode():
+                image = pipe(**gen_kwargs).images[0]
+        else:
+            # Re-raise if not a recoverable compile error
+            raise
     finally:
         if loras:
             try:
@@ -250,6 +367,8 @@ def generate_image(
         gc.collect()
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+
+    return image
 
 def cleanup_memory():
     import gc
