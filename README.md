@@ -8,6 +8,7 @@
 ![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Diffusers-yellow)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-MPS-gray?logo=apple)
 ![Nvidia CUDA](https://img.shields.io/badge/Nvidia-CUDA-gray?logo=nvidia)
+![AMD ROCm](https://img.shields.io/badge/AMD-ROCm-gray?logo=amd)
 [![Docs](https://img.shields.io/badge/docs-deepwiki.com-blue)](https://deepwiki.com/iconben/z-image-studio)
 
 A Cli, a webUI, and a MCP server for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
@@ -25,6 +26,7 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 ### CLI and core features
 *   **Z-Image-Turbo Model**: Utilizes the high-quality `Tongyi-MAI/Z-Image-Turbo` model and quatized variants via `diffusers`.
 *   **MPS Acceleration**: Optimized for Mac users with Apple Silicon.
+*   **ROCm Support**: Explicitly supported on Linux for AMD GPUs.
 *   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
 *   **Multiple LoRA Support**: Upload/manage LoRAs in the web UI, apply up to 4 with per-LoRA strengths in a single generation; CLI supports multiple `--lora` entries with optional strengths.
