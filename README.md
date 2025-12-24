@@ -8,11 +8,12 @@
 ![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-Diffusers-yellow)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-MPS-gray?logo=apple)
 ![Nvidia CUDA](https://img.shields.io/badge/Nvidia-CUDA-gray?logo=nvidia)
+![AMD ROCm](https://img.shields.io/badge/AMD-ROCm-gray?logo=amd)
 [![Docs](https://img.shields.io/badge/docs-deepwiki.com-blue)](https://deepwiki.com/iconben/z-image-studio)
 
 A Cli, a webUI, and a MCP server for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
 
-This tool is designed to run efficiently on local machines for Windows/Mac/Linux users with or without Nvadia CUDA cards, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if CUDA and MPS are both unavailable.
+This tool is designed to run efficiently on local machines for Windows/Mac/Linux users. It features specific optimizations for **NVIDIA (CUDA)**, **Apple Silicon (MPS)**, and **AMD on Linux (ROCm)**, falling back to CPU if no compatible GPU is detected.
 
 ![Screenshot 0](docs/images/screenshot0.png)
 
@@ -25,6 +26,7 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 ### CLI and core features
 *   **Z-Image-Turbo Model**: Utilizes the high-quality `Tongyi-MAI/Z-Image-Turbo` model and quatized variants via `diffusers`.
 *   **MPS Acceleration**: Optimized for Mac users with Apple Silicon.
+*   **ROCm Support**: Explicitly supported on Linux for AMD GPUs.
 *   **Attention Slicing Auto-detection**: Automatically manages memory usage (e.g., enables attention slicing for systems with lower RAM/VRAM) to prevent Out-of-Memory errors and optimize performance.
 *   **Seed Control**: Reproducible image generation via CLI or Web UI.
 *   **Multiple LoRA Support**: Upload/manage LoRAs in the web UI, apply up to 4 with per-LoRA strengths in a single generation; CLI supports multiple `--lora` entries with optional strengths.
@@ -50,6 +52,19 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 *   `uv` (recommended for dependency management)
 
 **Python 3.12+ Note**: `torch.compile` is disabled by default for Python 3.12+ due to known compatibility issues with the Z-Image model architecture. If you want to experiment with `torch.compile` on Python 3.12+, set `ZIMAGE_ENABLE_TORCH_COMPILE=1` via environment variable or in `~/.z-image-studio/config.json` (experimental, may cause errors).
+
+## GPU acceleration notes
+
+*   **NVIDIA (CUDA)**: Works with standard PyTorch CUDA builds.
+*   **Apple Silicon (MPS)**: Uses PyTorch MPS backend on macOS.
+*   **AMD on Linux (ROCm)**: Explicitly supported on Linux.
+    > **Note**: AMD GPU support currently requires ROCm, which is only available for Linux PyTorch builds. Windows users with AMD GPUs will currently fall back to CPU.
+    *   **Installation**: Install AMD ROCm drivers/runtime for your distribution. Then install PyTorch with ROCm support (e.g., via `pip install torch --index-url https://download.pytorch.org/whl/rocm6.1` or similar). Ensure the PyTorch ROCm version matches your installed driver version.
+    *   **Verification**: The app will automatically detect your device as "rocm". You can confirm this by running `zimg models`.
+    *   **Troubleshooting**:
+        *   If the app falls back to CPU, ensure `torch.version.hip` is detected.
+        *   **HSA Override**: For some consumer GPUs (e.g., RX 6000/7000 series) not officially supported by all ROCm versions, you may need to set `HSA_OVERRIDE_GFX_VERSION` (e.g., `10.3.0` for RDNA2, `11.0.0` for RDNA3).
+        *   **Performance**: `torch.compile` is disabled by default on ROCm due to experimental support. You can force-enable it with `ZIMAGE_ENABLE_TORCH_COMPILE=1` if your setup (Triton/ROCm version) supports it.
 
 ## Global installation
 

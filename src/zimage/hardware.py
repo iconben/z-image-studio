@@ -65,6 +65,9 @@ def _log_warn(message: str):
 def detect_device() -> str:
     if torch.backends.mps.is_available():
         return "mps"
+    # Detect ROCm (AMD GPU)
+    if hasattr(torch.version, "hip") and torch.version.hip and torch.cuda.is_available():
+        return "rocm"
     if torch.cuda.is_available():
         return "cuda"
     return "cpu"
@@ -92,6 +95,7 @@ def get_ram_gb() -> float | None:
 def get_vram_gb() -> float | None:
     try:
         if torch.cuda.is_available():
+            # Works for both NVIDIA (CUDA) and AMD (ROCm via HIP)
             props = torch.cuda.get_device_properties(0)
             return props.total_memory / (1024 ** 3)
     except Exception:
@@ -119,7 +123,7 @@ def get_available_models() -> ModelsResponse:
     for the current hardware.
     Structure:
     {
-      "device": "mps" | "cuda" | "cpu",
+      "device": "mps" | "cuda" | "rocm" | "cpu",
       "ram_gb": float | None,
       "vram_gb": float | None,
       "models": [
@@ -206,8 +210,8 @@ def get_available_models() -> ModelsResponse:
                     models["q8"]["recommended"] = True
                 # q4 left for "advanced/extreme compression" users, not actively recommended
 
-    elif device == "cuda":
-        # CUDA: Check VRAM
+    elif device == "cuda" or device == "rocm":
+        # CUDA / ROCm: Check VRAM
         if vram_gb is None:
             # Unknown VRAM: conservative strategy, don't make full default
             models["full"]["recommended"] = False
@@ -308,7 +312,7 @@ def should_enable_attention_slicing(device: str) -> bool:
     """
     Determine if attention slicing should be enabled based on hardware specs.
     - MPS (Mac): Enable if RAM < 32 GB.
-    - CUDA: Enable if VRAM < 12 GB.
+    - CUDA/ROCm: Enable if VRAM < 12 GB.
     - CPU: Always enable.
     """
     try:
@@ -320,8 +324,9 @@ def should_enable_attention_slicing(device: str) -> bool:
             _log_info("Device is MPS -> Enabling attention slicing for stability.")
             return True
 
-        if device == "cuda" and torch.cuda.is_available():
-            # Get CUDA VRAM in bytes
+        # Check CUDA or ROCm (via torch.cuda)
+        if (device == "cuda" or device == "rocm") and torch.cuda.is_available():
+            # Get VRAM in bytes
             props = torch.cuda.get_device_properties(0)
             total_vram_gb = props.total_memory / (1024**3)
 
