@@ -13,7 +13,7 @@
 
 A Cli, a webUI, and a MCP server for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
 
-This tool is designed to run efficiently on local machines for Windows/Mac/Linux users with or without Nvadia CUDA cards, with specific optimizations for **Apple Silicon (MPS)**, falling back to CPU if CUDA and MPS are both unavailable.
+This tool is designed to run efficiently on local machines for Windows/Mac/Linux users. It features specific optimizations for **NVIDIA (CUDA)**, **Apple Silicon (MPS)**, and **AMD on Linux (ROCm)**, falling back to CPU if no compatible GPU is detected.
 
 ![Screenshot 0](docs/images/screenshot0.png)
 
@@ -57,7 +57,8 @@ This tool is designed to run efficiently on local machines for Windows/Mac/Linux
 
 *   **NVIDIA (CUDA)**: Works with standard PyTorch CUDA builds.
 *   **Apple Silicon (MPS)**: Uses PyTorch MPS backend on macOS.
-*   **AMD on Linux (ROCm)**: Explicitly supported. Requires a ROCm-enabled PyTorch build.
+*   **AMD on Linux (ROCm)**: Explicitly supported on Linux.
+    > **Note**: AMD GPU support currently requires ROCm, which is only available for Linux PyTorch builds. Windows users with AMD GPUs will currently fall back to CPU.
     *   **Installation**: Install AMD ROCm drivers/runtime for your distribution. Then install PyTorch with ROCm support (e.g., via `pip install torch --index-url https://download.pytorch.org/whl/rocm6.1` or similar). Ensure the PyTorch ROCm version matches your installed driver version.
     *   **Verification**: The app will automatically detect your device as "rocm". You can confirm this by running `zimg models`.
     *   **Troubleshooting**:
