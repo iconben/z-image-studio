@@ -91,6 +91,29 @@ uv tool upgrade z-image-studio
 # git pull
 ```
 
+## Windows Installation
+
+For Windows users, a pre-built installer is available that bundles everything you need:
+
+1. Download the latest installer from [GitHub Releases](https://github.com/iconben/z-image-studio/releases)
+2. Run `Z-Image-Studio-Setup-x.x.x.exe`
+3. Follow the installation wizard
+4. Launch from the Start Menu:
+   - **Z-Image Studio (Web UI)**: Starts the web server and opens your browser
+   - **Z-Image Studio CLI**: Opens a console for command-line usage
+
+### Installation Details
+
+*   **Install Location**: `C:\Program Files\Z-Image Studio`
+*   **User Data**: `%LOCALAPPDATA%\z-image-studio` (contains database, LoRAs, and outputs)
+*   **Uninstall**: Use "Add or Remove Programs" or the uninstall shortcut in the Start Menu
+
+### System Requirements
+
+*   Windows 10 or Windows 11
+*   NVIDIA GPU with CUDA support (recommended) or compatible AMD GPU
+*   8GB+ RAM (16GB+ recommended for full precision models)
+
 ## Usage
 
 After installation, you can use the `zimg` command directly from your terminal.

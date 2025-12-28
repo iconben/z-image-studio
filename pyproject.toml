@@ -41,7 +41,14 @@ dev = [
     "pytest-mock>=3.14.0",
     "httpx",
     "Pillow",  # For test image creation
+    "pyinstaller>=6.0.0",  # For building Windows executable
 ]
+
+[build-dependencies]
+pyinstaller = { version = ">=6.0.0", optional = true }
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
