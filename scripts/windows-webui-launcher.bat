@@ -6,7 +6,7 @@ setlocal EnableDelayedExpansion
 
 set SERVER_URL=http://localhost:8000
 set TIMEOUT=30
-set POLL_INTERVAL=0.5
+set POLL_INTERVAL_MS=500
 
 echo Starting Z-Image Studio server...
 
@@ -18,7 +18,7 @@ powershell -WindowStyle Hidden -Command ^
      $timeout = [DateTime]::Now.AddSeconds(%TIMEOUT%); ^
      while ([DateTime]::Now -lt $timeout) { ^
          try { $response = $client.DownloadString('%SERVER_URL%'); break; } ^
-         catch { Start-Sleep -Seconds %POLL_INTERVAL%; } ^
+         catch { Start-Sleep -Milliseconds %POLL_INTERVAL_MS%; } ^
      }; ^
      Start-Process '%SERVER_URL%'"
 

@@ -37,8 +37,9 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies and build
+      - name: Install project dependencies
         run: |
+          uv pip install -e .
           uv pip install pyinstaller
 
       - name: Build PyInstaller executable

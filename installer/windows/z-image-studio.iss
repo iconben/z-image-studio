@@ -8,7 +8,7 @@
 ;   iscc z-image-studio.iss
 
 [Setup]
-AppId={{A7B3D6E3-4B4F-4C3C-9C1D-7A8B7E7D7E7D}
+AppId={A7B3D6E3-4B4F-4C3C-9C1D-7A8B7E7D7E7D}
 AppName=Z-Image Studio
 AppVersion=0.1.0
 AppVerName=Z-Image Studio 0.1.0
