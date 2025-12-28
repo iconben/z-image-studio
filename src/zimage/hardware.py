@@ -5,7 +5,6 @@ import subprocess
 import warnings
 from typing import Literal, TypedDict, List, Optional
 
-import psutil
 import torch
 
 try:
@@ -88,10 +87,13 @@ def get_ram_gb() -> float | None:
                         kb = int(line.split()[1])
                         return kb / 1024 / 1024
         elif system == "Windows":
-            # Windows: use psutil (cross-platform, reliable)
+            # Windows: use psutil (lazy import, optional dependency)
+            import psutil
             return psutil.virtual_memory().total / (1024 ** 3)
-        # Fallback: use psutil for any other platform
-        return psutil.virtual_memory().total / (1024 ** 3)
+        # Other systems: return None (unsupported)
+    except ImportError:
+        # psutil not installed - Windows falls back to None
+        pass
     except Exception:
         pass
     return None
