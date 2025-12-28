@@ -5,6 +5,7 @@ import subprocess
 import warnings
 from typing import Literal, TypedDict, List, Optional
 
+import psutil
 import torch
 
 try:
@@ -86,7 +87,11 @@ def get_ram_gb() -> float | None:
                     if line.startswith("MemTotal:"):
                         kb = int(line.split()[1])
                         return kb / 1024 / 1024
-        # Other systems not yet supported, return None
+        elif system == "Windows":
+            # Windows: use psutil (cross-platform, reliable)
+            return psutil.virtual_memory().total / (1024 ** 3)
+        # Fallback: use psutil for any other platform
+        return psutil.virtual_memory().total / (1024 ** 3)
     except Exception:
         pass
     return None
