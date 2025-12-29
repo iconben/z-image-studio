@@ -14,14 +14,14 @@ from pathlib import Path
 
 block_cipher = None
 
-# Paths
-ROOT_DIR = Path(__file__).parent.resolve()
+# Paths - use current working directory since __file__ is not available in spec context
+ROOT_DIR = Path.cwd().resolve()
 SRC_DIR = ROOT_DIR / "src"
 STATIC_DIR = SRC_DIR / "zimage" / "static"
 I18N_DIR = STATIC_DIR / "i18n"
 
 a = Analysis(
-    [ROOT_DIR / "src" / "zimage" / "cli.py"],
+    [str(SRC_DIR / "zimage" / "cli.py")],
     pathex=[str(ROOT_DIR)],
     binaries=[],
     datas=[
