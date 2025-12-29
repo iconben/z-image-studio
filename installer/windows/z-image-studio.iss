@@ -26,8 +26,6 @@ DefaultDirName={autopf}\Z-Image Studio
 DefaultGroupName=Z-Image Studio
 AllowNoIcons=yes
 LicenseFile=LICENSE
-; license Show file on install
-LicenseRequired=yes
 ; Modern wizard style
 WizardStyle=Modern
 ; Compression
