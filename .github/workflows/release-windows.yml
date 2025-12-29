@@ -30,7 +30,7 @@ jobs:
           echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Install Inno Setup
-        run: choco install innosetup --version 6.4.2 -y
+        run: choco install innosetup -y
 
       - name: Setup Python
         uses: actions/setup-python@v5
