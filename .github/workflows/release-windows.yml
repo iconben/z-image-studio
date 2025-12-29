@@ -47,9 +47,13 @@ jobs:
           uv pip install --system -e .
           uv pip install --system pyinstaller
 
+      - name: List files
+        run: Get-ChildItem -Path $env:GITHUB_WORKSPACE
+
       - name: Build PyInstaller executable
         run: |
-          pyinstaller pyinstaller.spec --noconfirm --distpath dist --workpath build
+          $spec = Join-Path $env:GITHUB_WORKSPACE "pyinstaller.spec"
+          pyinstaller $spec --noconfirm --distpath dist --workpath build
 
       - name: Verify executable exists
         run: |
