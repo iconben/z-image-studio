@@ -57,7 +57,7 @@ jobs:
       - name: Build Inno Setup installer
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          iscc /Odist /F"Z-Image-Studio-Setup-$version" installer/windows/z-image-studio.iss
+          iscc /DVERSION=$version /Odist /F"Z-Image-Studio-Setup-$version" installer/windows/z-image-studio.iss
 
       - name: Verify installer exists
         run: |

@@ -5,13 +5,19 @@
 ;
 ; For CI/CD, you can use:
 ;   choco install innosetup
-;   iscc z-image-studio.iss
+;   iscc /DVERSION=0.2.0 z-image-studio.iss
+
+; Version can be passed via command line: /DVERSION=x.x.x
+; Defaults to 0.1.0 if not provided
+#ifndef VERSION
+#define VERSION "0.1.0"
+#endif
 
 [Setup]
 AppId={A7B3D6E3-4B4F-4C3C-9C1D-7A8B7E7D7E7D}
 AppName=Z-Image Studio
-AppVersion=0.1.0
-AppVerName=Z-Image Studio 0.1.0
+AppVersion={#VERSION}
+AppVerName=Z-Image Studio {#VERSION}
 AppPublisher=Z-Image Studio
 AppPublisherURL=https://github.com/iconben/z-image-studio
 AppSupportURL=https://github.com/iconben/z-image-studio/issues
@@ -53,6 +59,9 @@ Source: "..\..\scripts\windows-webui-launcher.bat"; DestDir: "{app}"; Flags: ign
 
 ; License file
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+
+; App icon for shortcuts
+Source: "..\..\src\zimage\static\logo-180.png"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Web UI shortcut (main entry point - shown first in Start Menu)
