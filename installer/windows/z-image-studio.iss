@@ -14,7 +14,7 @@
 #endif
 
 [Setup]
-AppId={A7B3D6E3-4B4F-4C3C-9C1D-7A8B7E7D7E7D}
+AppId=z-image-studio
 AppName=Z-Image Studio
 AppVersion={#VERSION}
 AppVerName=Z-Image Studio {#VERSION}
