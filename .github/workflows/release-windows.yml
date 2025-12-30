@@ -2,13 +2,8 @@ name: Windows Release Build
 
 on:
   push:
-    branches:
-      - main
-      - 41-implement-windows-installer-and-packaging-mechanism
-  # Uncomment for production: trigger on tags only
-  # push:
-  #   tags:
-  #     - 'v*'
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
