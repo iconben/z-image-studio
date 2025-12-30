@@ -25,7 +25,7 @@ AppUpdatesURL=https://github.com/iconben/z-image-studio/releases
 DefaultDirName={autopf}\Z-Image Studio
 DefaultGroupName=Z-Image Studio
 AllowNoIcons=yes
-LicenseFile=LICENSE
+LicenseFile=..\..\LICENSE
 ; Modern wizard style
 WizardStyle=Modern
 ; Compression
