@@ -40,8 +40,8 @@ AppMutex=Global\Z-Image-Studio-Mutex
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
-Name: "startmenuicon"; Description: "Create Start Menu shortcuts"; GroupDescription: "Additional icons:"; Flags: checked
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
+Name: "startmenuicon"; Description: "Create Start Menu shortcuts"; GroupDescription: "Additional icons:"
 
 [Files]
 ; Main application files (from PyInstaller build)
