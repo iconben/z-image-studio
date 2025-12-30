@@ -59,17 +59,17 @@ Source: "..\..\src\zimage\static\logo-180.png"; DestDir: "{app}"; Flags: ignorev
 
 [Icons]
 ; Web UI shortcut (main entry point - shown first in Start Menu)
-Name: "{group}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: startmenuicon
-Name: "{group}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: desktopicon
+Name: "{groupname}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: startmenuicon
+Name: "{groupname}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: desktopicon
 
 ; CLI shortcut (for advanced users)
-Name: "{group}\Z-Image Studio CLI"; Filename: "{app}\zimg.exe"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: startmenuicon
+Name: "{groupname}\Z-Image Studio CLI"; Filename: "{app}\zimg.exe"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: startmenuicon
 
 ; Documentation shortcut
-Name: "{group}\View License"; Filename: "{app}\LICENSE"; Tasks: startmenuicon
+Name: "{groupname}\View License"; Filename: "{app}\LICENSE"; Tasks: startmenuicon
 
 ; Uninstall shortcut
-Name: "{group}\Uninstall Z-Image Studio"; Filename: "{uninstexe}"; Tasks: startmenuicon
+Name: "{groupname}\Uninstall Z-Image Studio"; Filename: "{uninstallexe}"; Tasks: startmenuicon
 
 [Run]
 ; Optionally open the web UI after installation (commented out by default)
