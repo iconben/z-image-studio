@@ -33,7 +33,6 @@ Compression=lzma2/fast
 SolidCompression=yes
 ; Output settings
 OutputBaseFilename=Z-Image-Studio-Setup
-SetupIconFile=..\..\src\zimage\static\logo-180.png
 ; App mutex for single instance
 AppMutex=Global\Z-Image-Studio-Mutex
 
