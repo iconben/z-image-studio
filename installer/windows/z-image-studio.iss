@@ -80,54 +80,9 @@ Name: "{groupname}\Uninstall Z-Image Studio"; Filename: "{uninstallexe}"; Tasks:
 ; Uncomment if you want to remove user data on uninstall
 ; Filename: "{app}\windows-webui-launcher.bat"; Parameters: "cleanup"; Flags: runhidden
 
-[Code]
-var
-  ErrorCode: Integer;
-
-procedure InitializeWizard;
-begin
-  // Custom initialization if needed
-end;
-
-function IsAppRunning: Boolean;
-var
-  mutex: THandle;
-begin
-  // Check if app is already running
-  mutex := CreateMutex(nil, True, 'Global\Z-Image-Studio-Mutex');
-  Result := (GetLastError = ERROR_ALREADY_EXISTS);
-  if Result then begin
-    MsgBox('Z-Image Studio is already running.', mbInformation, MB_OK);
-  end;
-  CloseHandle(mutex);
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-
-  // Prevent installation if app is running
-  if CurPageID = wpReady then begin
-    if IsAppRunning then begin
-      Result := False;
-    end;
-  end;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then begin
-    // Post-install steps if needed
-  end;
-end;
-
 [Messages]
 BeveledLabel=Z-Image Studio Installer
 
 [Dirs]
 ; Create AppData directory for user data (created at runtime via platformdirs)
 ; No need to create here - the app handles this
-
-[Parameters]
-; App run parameters (if using exe instead of batch for launcher)
-; Run as minimzed for server
