@@ -45,8 +45,8 @@ Name: "startmenuicon"; Description: "Create Start Menu shortcuts"; GroupDescript
 
 [Files]
 ; Main application files (from PyInstaller build)
-Source: "dist\zimg.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\zimg.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Copy the webui launcher script
 Source: "..\..\scripts\windows-webui-launcher.bat"; DestDir: "{app}"; Flags: ignoreversion
