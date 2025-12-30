@@ -38,9 +38,6 @@ AppMutex=Global\Z-Image-Studio-Mutex
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimp.isl"
-Name: "chinesetraditional"; MessagesFile: "compiler:Languages\ChineseTrad.isl"
-Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
