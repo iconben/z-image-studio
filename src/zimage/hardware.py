@@ -86,7 +86,14 @@ def get_ram_gb() -> float | None:
                     if line.startswith("MemTotal:"):
                         kb = int(line.split()[1])
                         return kb / 1024 / 1024
-        # Other systems not yet supported, return None
+        elif system == "Windows":
+            # Windows: use psutil (lazy import, optional dependency)
+            import psutil
+            return psutil.virtual_memory().total / (1024 ** 3)
+        # Other systems: return None (unsupported)
+    except ImportError:
+        # psutil not installed - Windows falls back to None
+        pass
     except Exception:
         pass
     return None
