@@ -18,8 +18,8 @@ WORKDIR /app
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies from pyproject.toml (editable install)
-RUN uv pip install --system --no-dev --compile -e .
+# Install dependencies from pyproject.toml
+RUN uv pip install --system --no-dev --compile .
 
 # Copy source code
 COPY src/ ./src/
