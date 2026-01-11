@@ -100,11 +100,14 @@ jobs:
 
       - name: Create and push manifest
         run: |
-          # Create manifest combining both platforms under version tag and latest
-          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} \
+          # Strip "v" prefix from tag for Docker convention
+          VERSION_TAG=${GITHUB_REF_NAME#v}
+
+          # Create manifest combining both platforms under version tag
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION_TAG} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION_TAG}
 
           # Also update latest tag
           docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
