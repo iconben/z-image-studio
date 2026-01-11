@@ -1,0 +1,143 @@
+name: macOS Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  attestations: write
+  id-token: write
+
+env:
+  SIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID }}
+  SIGN_ENTITLEMENTS: ${{ secrets.APPLE_SIGN_ENTITLEMENTS_FILE }}
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install project dependencies
+        run: |
+          uv pip install --system -e .
+          uv pip install --system pyinstaller
+
+      - name: Install create-dmg
+        run: |
+          brew install create-dmg
+
+      - name: Build PyInstaller .app bundle
+        run: |
+          chmod +x packaging/macos/scripts/build-macos.sh
+          ./packaging/macos/scripts/build-macos.sh \
+            --version "${{ steps.version.outputs.version }}"
+
+      - name: Verify .app exists
+        run: |
+          if [ ! -d "dist/Z-Image Studio.app" ]; then
+            echo "ERROR: .app bundle not found!"
+            exit 1
+          fi
+          echo ".app bundle found"
+          ls -la "dist/Z-Image Studio.app/Contents/MacOS/"
+
+      - name: Verify .dmg exists
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          dmg="dist/Z-Image-Studio-macOS-arm64-${version}.dmg"
+          if [ ! -f "$dmg" ]; then
+            echo "ERROR: DMG not found at $dmg"
+            exit 1
+          fi
+          echo "DMG found: $(ls -lh "$dmg")"
+
+      - name: Code sign .dmg (optional)
+        if: env.SIGN_IDENTITY != ''
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          dmg="dist/Z-Image-Studio-macOS-arm64-${version}.dmg"
+          echo "Signing DMG with identity: $SIGN_IDENTITY"
+          codesign --sign "$SIGN_IDENTITY" \
+            --timestamp \
+            --force \
+            "$dmg"
+
+      - name: Compute SHA256 checksum
+        id: checksum
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          dmg="dist/Z-Image-Studio-macOS-arm64-${version}.dmg"
+          sha256=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
+          echo "sha256=$sha256" >> $GITHUB_OUTPUT
+          echo "Checksum: $sha256"
+
+      - name: Create checksums file
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          dmg="Z-Image-Studio-macOS-arm64-${version}.dmg"
+          echo "${{ steps.checksum.outputs.sha256 }}  $dmg" > "dist/${dmg}.sha256"
+          cat "dist/${dmg}.sha256"
+
+      - name: Upload .dmg to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Z-Image-Studio-*.dmg
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload checksum to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.sha256
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output signing info
+        if: env.SIGN_IDENTITY == ''
+        run: |
+          echo "=== SIGNING SKIPPED ==="
+          echo "No APPLE_DEVELOPER_ID secret set."
+          echo "To enable code signing, add APPLE_DEVELOPER_ID to repository secrets."
+          echo "The .dmg is unsigned and will show a Gatekeeper warning."
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create release notes
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
