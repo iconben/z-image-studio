@@ -47,7 +47,7 @@ jobs:
 
       - name: Build PyInstaller executable
         run: |
-          $spec = Join-Path $env:GITHUB_WORKSPACE "pyinstaller.spec"
+          $spec = Join-Path $env:GITHUB_WORKSPACE "packaging/windows/pyinstaller/windows.spec"
           pyinstaller $spec --noconfirm --distpath dist --workpath build
 
       - name: Verify executable exists
@@ -61,7 +61,8 @@ jobs:
       - name: Build Inno Setup installer
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          iscc /DVERSION=$version /Odist /F"Z-Image-Studio-Setup-$version" installer/windows/z-image-studio.iss
+          $installerScript = Join-Path $env:GITHUB_WORKSPACE "packaging/windows/installer/z-image-studio.iss"
+          iscc /DVERSION=$version /Odist /F"Z-Image-Studio-Setup-$version" $installerScript
 
       - name: Verify installer exists
         run: |
