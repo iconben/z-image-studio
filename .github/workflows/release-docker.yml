@@ -90,11 +90,7 @@ jobs:
 
       - name: Create and push manifest using imagetools
         run: |
-          # Pull the platform-specific images to ensure they're available locally
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
-
-          # Create and push manifest for version tag using imagetools (creates from existing images)
+          # Create and push manifest for version tag using imagetools (works with remote images)
           docker buildx imagetools create \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest \
