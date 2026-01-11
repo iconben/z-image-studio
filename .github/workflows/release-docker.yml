@@ -59,12 +59,10 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.platform }}-latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform }}-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            PYTHON_VERSION=3.11-slim-bookworm
 
   manifest:
     needs: build
@@ -96,6 +94,6 @@ jobs:
       - name: Create and push manifest
         run: |
           docker manifest create ${{ steps.meta.outputs.tags }} \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-linux-amd64:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-linux-arm64:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
           docker manifest push ${{ steps.meta.outputs.tags }}
