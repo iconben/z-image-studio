@@ -63,6 +63,9 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
+      - name: Set version tag
+        run: echo "VERSION_TAG=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -71,7 +74,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_REF_NAME#v}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION_TAG }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
@@ -111,16 +114,16 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
+      - name: Set version tag
+        run: echo "VERSION_TAG=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Create and push manifest
         run: |
-          # Strip "v" prefix from tag for Docker convention
-          VERSION_TAG=${GITHUB_REF_NAME#v}
-
           # Create manifest combining both platforms under version tag
-          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION_TAG} \
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION_TAG }} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION_TAG}
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION_TAG }}
 
           # Also update latest tag
           docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
