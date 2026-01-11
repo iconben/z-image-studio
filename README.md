@@ -9,6 +9,7 @@
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-MPS-gray?logo=apple)
 ![Nvidia CUDA](https://img.shields.io/badge/Nvidia-CUDA-gray?logo=nvidia)
 ![AMD ROCm](https://img.shields.io/badge/AMD-ROCm-gray?logo=amd)
+![Docker](https://img.shields.io/badge/Docker-blue?logo=docker)
 [![Docs](https://img.shields.io/badge/docs-deepwiki.com-blue)](https://deepwiki.com/iconben/z-image-studio)
 
 A Cli, a webUI, and a MCP server for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
@@ -113,6 +114,112 @@ For Windows users, a pre-built installer is available that bundles everything yo
 *   Windows 10 or Windows 11
 *   NVIDIA GPU with CUDA support (recommended) or compatible AMD GPU
 *   8GB+ RAM (16GB+ recommended for full precision models)
+
+## Docker Installation
+
+Run Z-Image Studio in a container with Docker:
+
+### Quick Start
+
+```bash
+# Create persistent volume
+docker volume create zimg-data
+
+# Run the container
+docker run -d \
+  --name z-image-studio \
+  -p 8000:8000 \
+  -v zimg-data:/data \
+  -v zimg-outputs:/data/outputs \
+  iconben/z-image-studio:latest
+```
+
+Then open http://localhost:8000 in your browser.
+
+### With Docker Compose
+
+```bash
+docker compose up -d
+```
+
+### With GPU Support
+
+**NVIDIA GPU:**
+```bash
+# Ensure NVIDIA Container Toolkit is installed
+# https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
+
+docker run -d \
+  --name z-image-studio \
+  -p 8000:8000 \
+  --gpus all \
+  -v zimg-data:/data \
+  -v zimg-outputs:/data/outputs \
+  iconben/z-image-studio:latest
+```
+
+**AMD GPU (Linux):**
+```bash
+# Ensure ROCm is installed on the host
+docker run -d \
+  --name z-image-studio \
+  -p 8000:8000 \
+  --device /dev/dri:/dev/dri \
+  -v zimg-data:/data \
+  -v zimg-outputs:/data/outputs \
+  iconben/z-image-studio:latest
+```
+
+### Data Persistence
+
+The container uses Docker volumes for persistence:
+
+| Volume | Path | Description |
+|--------|------|-------------|
+| `zimg-data` | `/data` | Database and LoRA storage |
+| `zimg-outputs` | `/data/outputs` | Generated images |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HOST` | `0.0.0.0` | Server bind host |
+| `PORT` | `8000` | Server bind port |
+| `Z_IMAGE_STUDIO_DATA_DIR` | `/data` | Database and LoRA storage |
+| `Z_IMAGE_STUDIO_OUTPUT_DIR` | `/data/outputs` | Generated images |
+| `ZIMAGE_BASE_URL` | Auto | Base URL for generated links |
+| `ZIMAGE_DISABLE_MCP` | `0` | Disable MCP endpoints |
+| `ZIMAGE_ENABLE_TORCH_COMPILE` | Auto | Force torch.compile |
+
+### Development Mode
+
+Mount source code for development:
+
+```bash
+docker run -d \
+  --name z-image-studio-dev \
+  -p 8000:8000 \
+  -v $(pwd)/src:/app/src \
+  -v zimg-data:/data \
+  -e DEBUG=1 \
+  iconben/z-image-studio:latest
+```
+
+### Management Commands
+
+```bash
+# View logs
+docker logs -f z-image-studio
+
+# Stop container
+docker stop z-image-studio
+
+# Remove container (data preserved)
+docker rm z-image-studio
+
+# Remove all data
+docker volume rm zimg-data zimg-outputs
+```
 
 ## pip / uv Installation
 
@@ -440,9 +547,34 @@ On first run without an existing config file, the app migrates legacy data by mo
     ```
 
 ### Optional: Override the folder settings with environment variables
-    If you do not want your development data mess up your production data,
-    You can define environment variable Z_IMAGE_STUDIO_DATA_DIR to change the data folder for
-    You can also define environment variable Z_IMAGE_STUDIO_OUTPUT_DIR to change the output folder to another separate folder
+     If you do not want your development data mess up your production data,
+     You can define environment variable Z_IMAGE_STUDIO_DATA_DIR to change the data folder for
+     You can also define environment variable Z_IMAGE_STUDIO_OUTPUT_DIR to change the output folder to another separate folder
+
+### Docker Development
+
+Build and run with Docker:
+
+```bash
+# Build the image
+docker build -t z-image-studio:dev .
+
+# Run with source mounted for hot-reload
+docker run -d \
+  --name zimg-dev \
+  -p 8000:8000 \
+  -v $(pwd)/src:/app/src \
+  -v zimg-data:/data \
+  -e DEBUG=1 \
+  -e ZIMAGE_ENABLE_TORCH_COMPILE=1 \
+  z-image-studio:dev
+```
+
+Or use Docker Compose:
+
+```bash
+docker compose up -d
+```
 
 ### Environment Variables
 | Variable | Description |
