@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repository
@@ -47,7 +47,7 @@ jobs:
 
       - name: Build PyInstaller executable
         run: |
-          $spec = Join-Path $env:GITHUB_WORKSPACE "pyinstaller.spec"
+          $spec = Join-Path $env:GITHUB_WORKSPACE "packaging/windows/pyinstaller/windows.spec"
           pyinstaller $spec --noconfirm --distpath dist --workpath build
 
       - name: Verify executable exists
@@ -61,12 +61,13 @@ jobs:
       - name: Build Inno Setup installer
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          iscc /DVERSION=$version /Odist /F"Z-Image-Studio-Setup-$version" installer/windows/z-image-studio.iss
+          $installerScript = Join-Path $env:GITHUB_WORKSPACE "packaging/windows/installer/z-image-studio.iss"
+          iscc /DVERSION=$version /Odist /F"Z-Image-Studio-Windows-x64-$version" $installerScript
 
       - name: Verify installer exists
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          $installer = "dist\Z-Image-Studio-Setup-$version.exe"
+          $installer = "dist\Z-Image-Studio-Windows-x64-$version.exe"
           if (-Not (Test-Path $installer)) {
             Write-Error "Installer not found at $installer"
             exit 1
@@ -76,17 +77,7 @@ jobs:
       - name: Upload installer to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Z-Image-Studio-Setup-*.exe
-          draft: false
-          prerelease: false
-          tag_name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload executable to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/zimg.exe
+          files: dist/Z-Image-Studio-Windows-x64-*.exe
           draft: false
           prerelease: false
           tag_name: ${{ github.ref_name }}

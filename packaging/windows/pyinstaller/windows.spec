@@ -142,6 +142,7 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    [],
     a.binaries,
     a.zipfiles,
     a.datas,
@@ -160,4 +161,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=None,  # Add icon=None, can set to icon='path/to/icon.ico' later
+    onefile=True,
 )
