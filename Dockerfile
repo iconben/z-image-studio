@@ -92,4 +92,4 @@ exec "$@"
 EOF
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["serve"]
+CMD ["zimg", "serve"]
