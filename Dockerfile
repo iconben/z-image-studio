@@ -18,25 +18,8 @@ WORKDIR /app
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Copy and install dependencies
-COPY requirements.txt requirements.txt 2>/dev/null || true
-RUN if [ -f requirements.txt ]; then \
-      uv pip install --system --no-dev --compile -r requirements.txt; \
-    else \
-      uv pip install --system --no-dev --compile \
-        accelerate>=1.12.0 \
-        diffusers>=0.36.0 \
-        fastapi>=0.123.0 \
-        peft>=0.18.0 \
-        platformdirs>=4.0.0 \
-        psutil>=5.9.0 \
-        python-multipart>=0.0.20 \
-        sdnq>=0.1.3 \
-        torchvision>=0.24.1 \
-        transformers>=4.57.3 \
-        uvicorn>=0.38.0 \
-        mcp>=1.23.2; \
-    fi
+# Install dependencies from pyproject.toml (editable install)
+RUN uv pip install --system --no-dev --compile -e .
 
 # Copy source code
 COPY src/ ./src/
