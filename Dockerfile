@@ -10,16 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast dependency management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
 WORKDIR /app
 
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies
-RUN uv pip install --system --no-dev --compile z-image-studio
+# Install dependencies using pip (simpler approach)
+RUN pip install --no-cache-dir --prefix=/install -e .
 
 # Copy source code
 COPY src/ ./src/
@@ -43,20 +40,20 @@ RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
     mkdir -p /data /outputs && \
     chown -R appuser:appgroup /data /outputs
 
-# Copy virtual environment from builder
-COPY --from=builder --chown=appuser:appgroup /root/.local /home/appuser/.local
-COPY --from=builder --chown=appuser:appgroup /opt/venv /opt/venv
+# Copy installed packages from builder
+COPY --from=builder --chown=appuser:appgroup /install /usr/local
+COPY --from=builder --chown=appuser:appgroup /home/build/.cache /home/build/.cache
 
 # Copy application source
 COPY --chown=appuser:appgroup src/ /app/src/
 
 # Set environment variables
-ENV PATH="/opt/venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     Z_IMAGE_STUDIO_DATA_DIR=/data \
     Z_IMAGE_STUDIO_OUTPUT_DIR=/data/outputs \
-    HOME=/home/appuser
+    HOME=/home/appuser \
+    PATH=/usr/local/bin:$PATH
 
 WORKDIR /app
 
