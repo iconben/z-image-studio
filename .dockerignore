@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+dist
+build
+*.egg
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+tests/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.log
+server.log
+
+# Cache
+.ruff_cache
+.mypy_cache
+.pyright
+
+# Virtual environments
+.venv
+venv
+
+# CI/CD
+.github/workflows/*.yml
+!.github/workflows/release-docker.yml
+
+# Local data (should be in volumes, not built)
+outputs/
+loras/
+zimage.db

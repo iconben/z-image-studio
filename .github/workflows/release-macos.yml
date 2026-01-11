@@ -101,23 +101,16 @@ jobs:
           echo "${{ steps.checksum.outputs.sha256 }}  $dmg" > "dist/${dmg}.sha256"
           cat "dist/${dmg}.sha256"
 
-      - name: Upload .dmg to release
+      - name: Upload all artifacts
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Z-Image-Studio-*.dmg
+          files: |
+            dist/Z-Image-Studio-*.dmg
+            dist/*.sha256
           draft: false
           prerelease: false
           tag_name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload checksum to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.sha256
-          draft: false
-          prerelease: false
-          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -128,16 +121,3 @@ jobs:
           echo "No APPLE_DEVELOPER_ID secret set."
           echo "To enable code signing, add APPLE_DEVELOPER_ID to repository secrets."
           echo "The .dmg is unsigned and will show a Gatekeeper warning."
-
-  create-release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Create release notes
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
