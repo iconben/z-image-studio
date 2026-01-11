@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "z-image-studio"
-version = "0.1.0.dev27"
+version = "0.1.0.dev28"
 description = "Z-Image Studio: local image toolkit (CLI + Web UI)"
 readme = "README.md"
 requires-python = ">=3.11"
