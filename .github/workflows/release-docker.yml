@@ -52,6 +52,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -87,18 +88,20 @@ jobs:
       - name: Set version tag
         run: echo "VERSION_TAG=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
-      - name: Create and push manifest with version tag first
+      - name: Create and push manifest using imagetools
         run: |
-          # Create manifest combining both platforms under version tag (version first)
-          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION_TAG }} \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION_TAG }}
+          # Pull the platform-specific images to ensure they're available locally
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
 
-      - name: Update latest tag
-        run: |
-          # Create and push manifest for latest
-          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+          # Create and push manifest for version tag using imagetools (creates from existing images)
+          docker buildx imagetools create \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION_TAG }}
+
+          # Create and push manifest for latest tag
+          docker buildx imagetools create \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
