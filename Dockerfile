@@ -18,8 +18,9 @@ COPY pyproject.toml uv.lock* ./
 # Install build dependencies
 RUN python -m pip install --no-cache-dir build
 
-# Copy source code
+# Copy source code and README for build
 COPY src/ ./src/
+COPY README.md ./
 
 # Build wheel
 RUN python -m build
