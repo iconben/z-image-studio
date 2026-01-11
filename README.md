@@ -114,6 +114,32 @@ For Windows users, a pre-built installer is available that bundles everything yo
 *   NVIDIA GPU with CUDA support (recommended) or compatible AMD GPU
 *   8GB+ RAM (16GB+ recommended for full precision models)
 
+## pip / uv Installation
+
+Install Z-Image Studio via pip or uv:
+
+```bash
+pip install z-image-studio
+# or
+uv pip install z-image-studio
+```
+
+After installation, the `zimg` command is available globally:
+
+```bash
+zimg --help
+```
+
+### From Source
+
+```bash
+git clone https://github.com/iconben/z-image-studio.git
+cd z-image-studio
+pip install -e .
+# or
+uv pip install -e .
+```
+
 ## Usage
 
 After installation, you can use the `zimg` command directly from your terminal.
