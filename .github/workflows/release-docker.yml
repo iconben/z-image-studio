@@ -66,7 +66,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -75,17 +75,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' && success()
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
-        include:
-          - platform: linux/amd64
-            platform_tag: linux-amd64
-          - platform: linux/arm64
-            platform_tag: linux-arm64
 
     steps:
       - name: Checkout repository
@@ -109,16 +98,16 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      - name: Create manifest list
-        run: |
-          # Pull platform-specific images that were pushed
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-latest || true
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }} || true
-
       - name: Create and push manifest
         run: |
-          # Create manifest combining both platforms
-          docker manifest create ${{ steps.meta.outputs.tags }} \
+          # Create manifest combining both platforms under version tag and latest
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
-          docker manifest push ${{ steps.meta.outputs.tags }}
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+
+          # Also update latest tag
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
