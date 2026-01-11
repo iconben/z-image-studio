@@ -15,26 +15,12 @@ WORKDIR /install
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install Python dependencies with cleanup
+# Install Python dependencies
 RUN python -m pip install --no-cache-dir --prefix=/install \
-    accelerate>=1.12.0 \
-    diffusers>=0.36.0 \
-    fastapi>=0.123.0 \
-    peft>=0.18.0 \
-    platformdirs>=4.0.0 \
-    psutil>=5.9.0 \
-    python-multipart>=0.0.20 \
-    sdnq>=0.1.3 \
-    torchvision>=0.24.1 \
-    transformers>=4.57.3 \
-    uvicorn>=0.38.0 \
-    mcp>=1.23.2 \
+    -e . \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache/pip
-
-WORKDIR /app
-COPY src/ ./src/
 
 # ============================================
 # Runtime Stage - Minimal image
@@ -55,7 +41,7 @@ RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
 
 COPY --from=builder --chown=appuser:appgroup /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder --chown=appuser:appgroup /usr/local/bin /usr/local/bin
-COPY --chown=appuser:appgroup src/ /app/src/
+COPY --from=builder --chown=appuser:appgroup /app/src /app/src
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
