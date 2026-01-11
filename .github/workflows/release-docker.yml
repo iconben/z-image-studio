@@ -26,6 +26,11 @@ jobs:
         platform:
           - linux/amd64
           - linux/arm64
+        include:
+          - platform: linux/amd64
+            platform_tag: linux-amd64
+          - platform: linux/arm64
+            platform_tag: linux-arm64
 
     steps:
       - name: Checkout repository
@@ -59,7 +64,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform }}-latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
