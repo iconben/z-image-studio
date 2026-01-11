@@ -15,7 +15,10 @@ WORKDIR /install
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install Python dependencies
+# Copy source code
+COPY src/ ./src/
+
+# Install Python dependencies and package
 RUN python -m pip install --no-cache-dir --prefix=/install \
     -e . \
     && apt-get clean \
@@ -41,7 +44,6 @@ RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
 
 COPY --from=builder --chown=appuser:appgroup /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder --chown=appuser:appgroup /usr/local/bin /usr/local/bin
-COPY --from=builder --chown=appuser:appgroup /app/src /app/src
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
