@@ -15,8 +15,8 @@ WORKDIR /install
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install Python dependencies
-RUN python -m pip install --no-cache-dir \
+# Install Python dependencies with cleanup
+RUN python -m pip install --no-cache-dir --prefix=/install \
     accelerate>=1.12.0 \
     diffusers>=0.36.0 \
     fastapi>=0.123.0 \
@@ -28,7 +28,10 @@ RUN python -m pip install --no-cache-dir \
     torchvision>=0.24.1 \
     transformers>=4.57.3 \
     uvicorn>=0.38.0 \
-    mcp>=1.23.2
+    mcp>=1.23.2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /root/.cache/pip
 
 WORKDIR /app
 COPY src/ ./src/
