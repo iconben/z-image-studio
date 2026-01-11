@@ -25,9 +25,8 @@ COPY README.md ./
 # Build wheel
 RUN python -m build
 
-# Install the wheel
-RUN python -m pip install --no-cache-dir --prefix=/install dist/*.whl && \
-    rm -rf /root/.cache/pip
+# Install the wheel (without --prefix to install to standard location)
+RUN pip install dist/*.whl && rm -rf /root/.cache/pip
 
 # ============================================
 # Runtime Stage - Minimal image
@@ -46,9 +45,8 @@ RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
     mkdir -p /data /outputs && \
     chown -R appuser:appgroup /data /outputs
 
-# Copy scripts from /install/bin and packages from /install
-COPY --from=builder --chown=appuser:appgroup /install/bin /usr/local/bin
-COPY --from=builder --chown=appuser:appgroup /install/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copy everything from builder
+COPY --from=builder --chown=appuser:appgroup /usr/local /usr/local
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
