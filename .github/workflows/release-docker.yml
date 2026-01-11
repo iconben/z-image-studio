@@ -28,9 +28,9 @@ jobs:
           - linux/arm64
         include:
           - platform: linux/amd64
-            platform_tag: linux-amd64
+            platform_tag: amd64
           - platform: linux/arm64
-            platform_tag: linux-arm64
+            platform_tag: arm64
 
     steps:
       - name: Checkout repository
@@ -58,7 +58,9 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-latest
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-${{ github.ref_name }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           build-args: |
@@ -92,12 +94,12 @@ jobs:
         run: |
           # Create and push manifest for version tag using imagetools (works with remote images)
           docker buildx imagetools create \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION_TAG }}
 
           # Create and push manifest for latest tag
           docker buildx imagetools create \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-amd64-latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:linux-arm64-latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
