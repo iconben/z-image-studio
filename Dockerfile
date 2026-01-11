@@ -2,7 +2,7 @@
 ARG PYTHON_VERSION=3.11-slim-bookworm
 
 # ============================================
-# Builder Stage - Install dependencies
+# Builder Stage - Build wheel and install
 # ============================================
 FROM python:${PYTHON_VERSION} AS builder
 
@@ -10,20 +10,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /install
+WORKDIR /build
 
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
+# Install build dependencies
+RUN python -m pip install --no-cache-dir build
+
 # Copy source code
 COPY src/ ./src/
 
-# Install Python dependencies and package
-RUN python -m pip install --no-cache-dir --prefix=/install \
-    -e . \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /root/.cache/pip
+# Build wheel
+RUN python -m build
+
+# Install the wheel
+RUN python -m pip install --no-cache-dir --prefix=/install dist/*.whl && \
+    rm -rf /root/.cache/pip
 
 # ============================================
 # Runtime Stage - Minimal image
