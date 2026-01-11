@@ -48,7 +48,7 @@ RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
 
 # Copy scripts from /install/bin and packages from /install
 COPY --from=builder --chown=appuser:appgroup /install/bin /usr/local/bin
-COPY --from=builder --chown=appuser:appgroup /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder --chown=appuser:appgroup /install/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
