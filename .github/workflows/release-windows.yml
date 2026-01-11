@@ -74,24 +74,12 @@ jobs:
           }
           Write-Host "Installer found: $(Get-Item $installer).Length bytes"
 
-      - name: Upload installer to release
+      - name: Upload installer to release with notes
         uses: softprops/action-gh-release@v2
         with:
           files: dist/Z-Image-Studio-Windows-x64-*.exe
           draft: false
           prerelease: false
-          tag_name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  create-release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Create release notes
-        uses: softprops/action-gh-release@v2
-        with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
         env:
