@@ -10,15 +10,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /install
 
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies using pip (simpler approach)
-RUN pip install --no-cache-dir --prefix=/install -e .
+# Install Python dependencies
+RUN python -m pip install --no-cache-dir \
+    accelerate>=1.12.0 \
+    diffusers>=0.36.0 \
+    fastapi>=0.123.0 \
+    peft>=0.18.0 \
+    platformdirs>=4.0.0 \
+    psutil>=5.9.0 \
+    python-multipart>=0.0.20 \
+    sdnq>=0.1.3 \
+    torchvision>=0.24.1 \
+    transformers>=4.57.3 \
+    uvicorn>=0.38.0 \
+    mcp>=1.23.2
 
-# Copy source code
+WORKDIR /app
 COPY src/ ./src/
 
 # ============================================
@@ -26,7 +38,6 @@ COPY src/ ./src/
 # ============================================
 FROM python:${PYTHON_VERSION} AS runtime
 
-# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -35,19 +46,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
     mkdir -p /data /outputs && \
     chown -R appuser:appgroup /data /outputs
 
-# Copy installed packages from builder
-COPY --from=builder --chown=appuser:appgroup /install /usr/local
-COPY --from=builder --chown=appuser:appgroup /home/build/.cache /home/build/.cache
-
-# Copy application source
+COPY --from=builder --chown=appuser:appgroup /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder --chown=appuser:appgroup /usr/local/bin /usr/local/bin
 COPY --chown=appuser:appgroup src/ /app/src/
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     Z_IMAGE_STUDIO_DATA_DIR=/data \
@@ -56,20 +62,15 @@ ENV PYTHONUNBUFFERED=1 \
     PATH=/usr/local/bin:$PATH
 
 WORKDIR /app
-
-# Switch to non-root user
 USER appuser
 
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" 2>/dev/null || exit 1
 
-# Entrypoint
 COPY --chown=appuser:appgroup <<'EOF' /entrypoint.sh
 #!/bin/bash
 set -e
 
-# GPU Detection and PyTorch installation
 install_gpu_pytorch() {
     if command -v nvidia-smi &> /dev/null; then
         echo "NVIDIA GPU detected, installing CUDA PyTorch..."
@@ -83,14 +84,9 @@ install_gpu_pytorch() {
     fi
 }
 
-# Run GPU detection
 install_gpu_pytorch
-
-# Run the main command
 exec "$@"
 EOF
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
-
-# Default command
 CMD ["serve"]
