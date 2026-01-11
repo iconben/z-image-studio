@@ -27,7 +27,7 @@ rm -rf dist build
 
 # Build with PyInstaller
 echo "Building executable..."
-pyinstaller pyinstaller.spec --noconfirm
+pyinstaller packaging/windows/pyinstaller/windows.spec --noconfirm
 
 if [ -f "dist/zimg.exe" ]; then
     echo "========================================"
