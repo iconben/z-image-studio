@@ -18,8 +18,8 @@ WORKDIR /app
 # Copy dependency files first for better layer caching
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies from pyproject.toml
-RUN uv pip install --system --no-dev --compile .
+# Install dependencies
+RUN uv pip install --system --no-dev --compile z-image-studio
 
 # Copy source code
 COPY src/ ./src/
