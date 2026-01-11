@@ -25,14 +25,14 @@ AppUpdatesURL=https://github.com/iconben/z-image-studio/releases
 DefaultDirName={autopf}\Z-Image Studio
 DefaultGroupName=Z-Image Studio
 AllowNoIcons=yes
-LicenseFile=..\..\LICENSE
+LicenseFile=..\..\..\LICENSE
 ; Modern wizard style
 WizardStyle=Modern
 ; Compression
 Compression=lzma2/fast
 SolidCompression=yes
 ; Output settings
-OutputBaseFilename=Z-Image-Studio-Setup
+OutputBaseFilename=Z-Image-Studio-Windows-x64
 ; App mutex for single instance
 AppMutex=Global\Z-Image-Studio-Mutex
 
@@ -45,17 +45,16 @@ Name: "startmenuicon"; Description: "Create Start Menu shortcuts"; GroupDescript
 
 [Files]
 ; Main application files (from PyInstaller build)
-Source: "..\..\dist\zimg.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\..\dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Copy the webui launcher script
-Source: "..\..\scripts\windows-webui-launcher.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\packaging\windows\scripts\launchers\windows-webui-launcher.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 ; License file
-Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 ; App icon for shortcuts
-Source: "..\..\src\zimage\static\logo-180.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\src\zimage\static\logo-180.png"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Web UI shortcut (main entry point - shown first in Start Menu)
