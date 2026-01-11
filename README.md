@@ -138,17 +138,98 @@ Then open http://localhost:8000 in your browser.
 
 ### With Docker Compose
 
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  z-image-studio:
+    image: iconben/z-image-studio:latest
+    container_name: z-image-studio
+    ports:
+      - "8000:8000"
+    volumes:
+      - zimg-data:/data
+      - zimg-outputs:/data/outputs
+    restart: unless-stopped
+
+volumes:
+  zimg-data:
+  zimg-outputs:
+```
+
+Then run:
+
 ```bash
 docker compose up -d
 ```
 
-### With GPU Support
+#### With GPU Support
+
+**NVIDIA GPU:**
+```yaml
+services:
+  z-image-studio:
+    image: iconben/z-image-studio:latest
+    container_name: z-image-studio
+    ports:
+      - "8000:8000"
+    volumes:
+      - zimg-data:/data
+      - zimg-outputs:/data/outputs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  zimg-data:
+  zimg-outputs:
+```
+
+**AMD GPU (Linux):**
+```yaml
+services:
+  z-image-studio:
+    image: iconben/z-image-studio:latest
+    container_name: z-image-studio
+    ports:
+      - "8000:8000"
+    volumes:
+      - zimg-data:/data
+      - zimg-outputs:/data/outputs
+    devices:
+      - /dev/dri:/dev/dri
+    restart: unless-stopped
+
+volumes:
+  zimg-data:
+  zimg-outputs:
+```
+
+Then run:
+
+```bash
+docker compose up -d
+```
+
+### With Docker Run
+
+**Basic:**
+```bash
+docker run -d \
+  --name z-image-studio \
+  -p 8000:8000 \
+  -v zimg-data:/data \
+  -v zimg-outputs:/data/outputs \
+  iconben/z-image-studio:latest
+```
 
 **NVIDIA GPU:**
 ```bash
-# Ensure NVIDIA Container Toolkit is installed
-# https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
-
 docker run -d \
   --name z-image-studio \
   -p 8000:8000 \
@@ -160,10 +241,14 @@ docker run -d \
 
 **AMD GPU (Linux):**
 ```bash
-# Ensure ROCm is installed on the host
 docker run -d \
   --name z-image-studio \
   -p 8000:8000 \
+  --device /dev/dri:/dev/dri \
+  -v zimg-data:/data \
+  -v zimg-outputs:/data/outputs \
+  iconben/z-image-studio:latest
+```
   --device /dev/dri:/dev/dri \
   -v zimg-data:/data \
   -v zimg-outputs:/data/outputs \
