@@ -263,6 +263,7 @@ The container uses Docker volumes for persistence:
 |--------|------|-------------|
 | `zimg-data` | `/data` | Database and LoRA storage |
 | `zimg-outputs` | `/data/outputs` | Generated images |
+| `zimg-config` | `/home/appuser/.z-image-studio` | User configuration |
 
 ### Environment Variables
 
@@ -303,7 +304,7 @@ docker stop z-image-studio
 docker rm z-image-studio
 
 # Remove all data
-docker volume rm zimg-data zimg-outputs
+docker volume rm zimg-data zimg-outputs zimg-config
 ```
 
 ## pip / uv Installation
