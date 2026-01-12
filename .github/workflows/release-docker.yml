@@ -91,13 +91,6 @@ jobs:
           rm -rf /home/runner/actions-runner/_work/_tool
           rm -rf /home/runner/actions-runner/_work/_temp
 
-      - name: Clean up local platform images after push
-        if: github.event_name != 'pull_request'
-        run: |
-          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-latest || true
-          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-${{ env.VERSION_TAG }} || true
-          docker image prune -f || true
-
   manifest:
     needs: build
     runs-on: ubuntu-latest
@@ -129,3 +122,9 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Clean up platform images after manifest
+        run: |
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest || true
+          docker rmi ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest || true
+          docker image prune -f || true
