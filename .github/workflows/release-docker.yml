@@ -78,7 +78,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.platform_tag }}-${{ env.VERSION_TAG }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
-          rm: true
           build-args: |
             PYTHON_VERSION=3.11-slim-bookworm
 
