@@ -42,8 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
-    mkdir -p /data /outputs && \
-    chown -R appuser:appgroup /data /outputs
+    mkdir -p /data /outputs /home/appuser && \
+    chown -R appuser:appgroup /data /outputs /home/appuser
 
 # Copy everything from builder
 COPY --from=builder --chown=appuser:appgroup /usr/local /usr/local
