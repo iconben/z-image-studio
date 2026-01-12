@@ -270,14 +270,14 @@ The container uses Docker volumes for persistence:
 | `zimg-outputs` | `/data/outputs` | Generated images |
 | `zimg-config` | `/home/appuser/.z-image-studio` | User configuration |
 
+**Note:** The data directories (`/data` and `/data/outputs`) are set as defaults in the Dockerfile. Override with environment variables only if needed.
+
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Server bind host |
 | `PORT` | `8000` | Server bind port |
-| `Z_IMAGE_STUDIO_DATA_DIR` | `/data` | Database and LoRA storage |
-| `Z_IMAGE_STUDIO_OUTPUT_DIR` | `/data/outputs` | Generated images |
 | `ZIMAGE_BASE_URL` | Auto | Base URL for generated links |
 | `ZIMAGE_DISABLE_MCP` | `0` | Disable MCP endpoints |
 | `ZIMAGE_ENABLE_TORCH_COMPILE` | Auto | Force torch.compile |

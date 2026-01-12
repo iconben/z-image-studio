@@ -15,9 +15,8 @@ services:
       # Server configuration
       - HOST=0.0.0.0
       - PORT=8000
-      # Path configuration
-      - Z_IMAGE_STUDIO_DATA_DIR=/data
-      - Z_IMAGE_STUDIO_OUTPUT_DIR=/data/outputs
+      # Note: Z_IMAGE_STUDIO_DATA_DIR and Z_IMAGE_STUDIO_OUTPUT_DIR are
+      # set as defaults in the Dockerfile. Override with environment if needed.
       # Performance (auto-detected by default)
       # - ZIMAGE_ENABLE_TORCH_COMPILE=1
     restart: unless-stopped
