@@ -9,6 +9,7 @@ services:
     volumes:
       - zimg-data:/data
       - zimg-outputs:/data/outputs
+      - zimg-config:/home/appuser/.z-image-studio
     environment:
       - TZ=UTC
       # Server configuration
@@ -45,6 +46,8 @@ volumes:
   zimg-data:
     driver: local
   zimg-outputs:
+    driver: local
+  zimg-config:
     driver: local
 
 networks:
