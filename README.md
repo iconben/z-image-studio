@@ -97,7 +97,7 @@ uv tool upgrade z-image-studio
 For Windows users, a pre-built installer is available that bundles everything you need:
 
 1. Download the latest installer from [GitHub Releases](https://github.com/iconben/z-image-studio/releases)
-2. Run `Z-Image-Studio-Setup-x.x.x.exe`
+2. Run `Z-Image-Studio-Windows-x64-x.x.x.exe`
 3. Follow the installation wizard
 4. Launch from the Start Menu:
    - **Z-Image Studio (Web UI)**: Starts the web server and opens your browser
@@ -130,6 +130,7 @@ docker run -d \
   --name z-image-studio \
   -p 8000:8000 \
   -v zimg-data:/data \
+  -v zimg-config:/home/appuser/.z-image-studio \
   -v zimg-outputs:/data/outputs \
   iconben/z-image-studio:latest
 ```
@@ -149,11 +150,13 @@ services:
       - "8000:8000"
     volumes:
       - zimg-data:/data
+      - zimg-config:/home/appuser/.z-image-studio
       - zimg-outputs:/data/outputs
     restart: unless-stopped
 
 volumes:
   zimg-data:
+  zimg-config:
   zimg-outputs:
 ```
 
@@ -175,6 +178,7 @@ services:
       - "8000:8000"
     volumes:
       - zimg-data:/data
+      - zimg-config:/home/appuser/.z-image-studio
       - zimg-outputs:/data/outputs
     deploy:
       resources:
@@ -187,6 +191,7 @@ services:
 
 volumes:
   zimg-data:
+  zimg-config:
   zimg-outputs:
 ```
 
@@ -200,6 +205,7 @@ services:
       - "8000:8000"
     volumes:
       - zimg-data:/data
+      - zimg-config:/home/appuser/.z-image-studio
       - zimg-outputs:/data/outputs
     devices:
       - /dev/dri:/dev/dri
@@ -207,6 +213,7 @@ services:
 
 volumes:
   zimg-data:
+  zimg-config:
   zimg-outputs:
 ```
 
@@ -224,6 +231,7 @@ docker run -d \
   --name z-image-studio \
   -p 8000:8000 \
   -v zimg-data:/data \
+  -v zimg-config:/home/appuser/.z-image-studio \
   -v zimg-outputs:/data/outputs \
   iconben/z-image-studio:latest
 ```
@@ -235,6 +243,7 @@ docker run -d \
   -p 8000:8000 \
   --gpus all \
   -v zimg-data:/data \
+  -v zimg-config:/home/appuser/.z-image-studio \
   -v zimg-outputs:/data/outputs \
   iconben/z-image-studio:latest
 ```
@@ -246,11 +255,7 @@ docker run -d \
   -p 8000:8000 \
   --device /dev/dri:/dev/dri \
   -v zimg-data:/data \
-  -v zimg-outputs:/data/outputs \
-  iconben/z-image-studio:latest
-```
-  --device /dev/dri:/dev/dri \
-  -v zimg-data:/data \
+  -v zimg-config:/home/appuser/.z-image-studio \
   -v zimg-outputs:/data/outputs \
   iconben/z-image-studio:latest
 ```
