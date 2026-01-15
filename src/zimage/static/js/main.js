@@ -606,7 +606,6 @@
                 const parsed = JSON.parse(savedLoras);
                 if (Array.isArray(parsed)) {
                     activeLoras = parsed;
-                    console.log("Loaded active LoRAs:", activeLoras);
                 }
             }
         } catch (e) {
@@ -1293,11 +1292,106 @@
         let isHistoryLoading = false;
         let historyObserver;
 
-        async function deleteHistoryItem(itemId) {
+async function deleteHistoryItem(itemId) {
             try {
                 const res = await fetch(`/history/${itemId}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Failed to delete history item');
-                loadHistory(); 
+                
+                // Check if search filters are active (if they are, must reload entire list)
+                const hasFilters = searchState.q || searchState.start_date || searchState.end_date;
+                
+                if (hasFilters) {
+                    // If filters are active, we must reload the entire list as filtering may affect which items show
+                    loadHistory();
+                } else {
+                    // Find and remove the specific history item from DOM without reloading entire list
+                    const itemsToRemove = [];
+                    
+                    // Find all history items in both containers
+                    const offcanvasItems = historyListOffcanvas ? 
+                        Array.from(historyListOffcanvas.querySelectorAll('.history-item-link')) : [];
+                    const sidebarItems = historyListSidebar ? 
+                        Array.from(historyListSidebar.querySelectorAll('.history-item-link')) : [];
+                    
+                    // Collect items to remove by data-id attribute - FIXED TYPE COMPARISON
+                    offcanvasItems.forEach(item => {
+                        const deleteBtn = item.querySelector('.delete-history-item');
+                        // Ensure proper string/number comparison
+                        const itemDataId = deleteBtn && deleteBtn.dataset.id;
+                        if (deleteBtn && (
+                            (typeof itemDataId === 'string' && itemDataId === itemId.toString()) ||
+                            (typeof itemDataId === 'number' && itemDataId === itemId) ||
+                            (typeof itemId === 'string' && itemDataId == itemId)
+                        )) {
+                            itemsToRemove.push({ container: historyListOffcanvas, element: item });
+                        }
+                    });
+                    
+                    sidebarItems.forEach(item => {
+                        const deleteBtn = item.querySelector('.delete-history-item');
+                        // Ensure proper string/number comparison
+                        const itemDataId = deleteBtn && deleteBtn.dataset.id;
+                        if (deleteBtn && (
+                            (typeof itemDataId === 'string' && itemDataId === itemId.toString()) ||
+                            (typeof itemDataId === 'number' && itemDataId === itemId) ||
+                            (typeof itemId === 'string' && itemDataId == itemId)
+                        )) {
+                            itemsToRemove.push({ container: historyListSidebar, element: item });
+                        }
+                    });
+                                       
+                    // Save scroll positions before removal
+                    let scrollTop = 0;
+                    let scrollTopSidebar = 0;
+                    
+                    if (historyListOffcanvas) {
+                        scrollTop = historyListOffcanvas.scrollTop;
+                    }
+                    
+                    if (historyListSidebar) {
+                        scrollTopSidebar = historyListSidebar.scrollTop;
+                    }
+                    
+                    // Remove the items from DOM
+                    itemsToRemove.forEach(itemInfo => {
+                        if (itemInfo.element) {
+                            itemInfo.element.remove();
+                        }
+                    });
+                    
+                    // Restore scroll position if needed
+                    const restoreScrollPosition = () => {
+                        // Double-check that the elements still exist and are accessible
+                        if (historyListOffcanvas && scrollTop > 0) {
+                            try {
+                                // Validate that the element is still in the DOM and accessible
+                                if (document.contains(historyListOffcanvas)) {
+                                    historyListOffcanvas.scrollTop = scrollTop;
+                                }
+                            } catch (e) {
+                                console.warn('Could not restore scroll position for offcanvas history list:', e);
+                            }
+                        }
+                        if (historyListSidebar && scrollTopSidebar > 0) {
+                            try {
+                                // Validate that the element is still in the DOM and accessible
+                                if (document.contains(historyListSidebar)) {
+                                    historyListSidebar.scrollTop = scrollTopSidebar;
+                                }
+                            } catch (e) {
+                                console.warn('Could not restore scroll position for sidebar history list:', e);
+                            }
+                        }
+                    };
+                    
+                    // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
+                    requestAnimationFrame(() => {
+                        // Add another animation frame for better reliability
+                        setTimeout(() => {
+                            requestAnimationFrame(restoreScrollPosition);
+                        }, 10);
+                    });
+                }
             } catch (e) {
                 console.error("Error deleting history item:", e);
                 alert("Failed to delete item.");
@@ -1783,7 +1877,6 @@
             
             // Check button state after update
             setTimeout(() => {
-                console.log('Button state after loadFromHistory:', {
                     shareBtnDisabled: shareBtn ? shareBtn.disabled : 'N/A',
                     copyBtnDisabled: copyBtn ? copyBtn.disabled : 'N/A',
                     shareBtnTitle: shareBtn ? shareBtn.title : 'N/A',
@@ -2003,7 +2096,6 @@
                         title: currentImageFilename,
                         text: t.share_btn || "Check out this image I generated!"
                     });
-                    console.log("Image shared successfully");
                 } else {
                     // Fallback to sharing just the URL
                     await navigator.share({
@@ -2011,7 +2103,6 @@
                         text: t.share_btn || "Check out this image I generated!",
                         url: currentImageUrl
                     });
-                    console.log("Image URL shared successfully");
                 }
                 
             } catch (error) {
@@ -2074,7 +2165,6 @@
                 await navigator.clipboard.write([clipboardItem]);
                 
                 showToast(t.copy_success || "Image copied to clipboard!");
-                console.log("Image copied to clipboard successfully");
                 
             } catch (error) {
                 console.error("Copy to clipboard failed:", error);
