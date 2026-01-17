@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  zimg:
+    image: iconben/z-image-studio:latest
+    container_name: z-image-studio
+    ports:
+      - "8000:8000"
+    volumes:
+      - zimg-data:/data
+      - zimg-outputs:/data/outputs
+      - zimg-config:/home/appuser/.z-image-studio
+    environment:
+      - TZ=UTC
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Note: Z_IMAGE_STUDIO_DATA_DIR and Z_IMAGE_STUDIO_OUTPUT_DIR are
+      # set as defaults in the Dockerfile. Override with environment if needed.
+      # Performance (auto-detected by default)
+      # - ZIMAGE_ENABLE_TORCH_COMPILE=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+        limits:
+          memory: 8G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  zimg-data:
+    driver: local
+  zimg-outputs:
+    driver: local
+  zimg-config:
+    driver: local
+
+networks:
+  default:
+    name: zimg-network
