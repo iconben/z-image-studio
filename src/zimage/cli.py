@@ -11,18 +11,49 @@ RED = "\033[91m"
 RESET = "\033[0m"
 
 try:
-    from .engine import generate_image
-    from .hardware import get_available_models
-    from . import db
-    from . import migrations
-    from .storage import save_image, record_generation
-    from .paths import (
-        ensure_initial_setup,
-        get_data_dir,
-        get_loras_dir,
-        get_outputs_dir,
-    )
-    from .logger import get_logger, setup_logging
+    if getattr(sys, 'frozen', False):
+        # Running in PyInstaller bundle
+        # Try importing as package first
+        try:
+            from zimage.engine import generate_image
+            from zimage.hardware import get_available_models
+            from zimage import db
+            from zimage import migrations
+            from zimage.storage import save_image, record_generation
+            from zimage.paths import (
+                ensure_initial_setup,
+                get_data_dir,
+                get_loras_dir,
+                get_outputs_dir,
+            )
+            from zimage.logger import get_logger, setup_logging
+        except ImportError:
+            # Fallback if zimage package is not found (e.g. flattened)
+            from engine import generate_image
+            from hardware import get_available_models
+            import db
+            import migrations
+            from storage import save_image, record_generation
+            from paths import (
+                ensure_initial_setup,
+                get_data_dir,
+                get_loras_dir,
+                get_outputs_dir,
+            )
+            from logger import get_logger, setup_logging
+    else:
+        from .engine import generate_image
+        from .hardware import get_available_models
+        from . import db
+        from . import migrations
+        from .storage import save_image, record_generation
+        from .paths import (
+            ensure_initial_setup,
+            get_data_dir,
+            get_loras_dir,
+            get_outputs_dir,
+        )
+        from .logger import get_logger, setup_logging
 except ImportError:
     # Allow running as a script directly (e.g. python src/zimage/cli.py)
     sys.path.append(str(Path(__file__).parent))

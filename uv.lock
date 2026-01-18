@@ -1899,7 +1899,7 @@ wheels = [
 
 [[package]]
 name = "z-image-studio"
-version = "0.1.0.dev13"
+version = "0.1.0.dev39"
 source = { editable = "." }
 dependencies = [
     { name = "accelerate" },

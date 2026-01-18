@@ -54,15 +54,15 @@ Source: "..\..\..\packaging\windows\scripts\launchers\windows-webui-launcher.bat
 Source: "..\..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 ; App icon for shortcuts
-Source: "..\..\..\src\zimage\static\logo-180.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\src\zimage\static\favicon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Web UI shortcut (main entry point - shown first in Start Menu)
-Name: "{groupname}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: startmenuicon
-Name: "{groupname}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: desktopicon
+Name: "{groupname}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\favicon.ico"; Tasks: startmenuicon
+Name: "{groupname}\Z-Image Studio (Web UI)"; Filename: "{app}\windows-webui-launcher.bat"; WorkingDir: "{app}"; IconFilename: "{app}\favicon.ico"; Tasks: desktopicon
 
 ; CLI shortcut (for advanced users)
-Name: "{groupname}\Z-Image Studio CLI"; Filename: "{app}\zimg.exe"; WorkingDir: "{app}"; IconFilename: "{app}\logo-180.png"; Tasks: startmenuicon
+Name: "{groupname}\Z-Image Studio CLI"; Filename: "{app}\zimg.exe"; WorkingDir: "{app}"; IconFilename: "{app}\favicon.ico"; Tasks: startmenuicon
 
 ; Documentation shortcut
 Name: "{groupname}\View License"; Filename: "{app}\LICENSE"; Tasks: startmenuicon
