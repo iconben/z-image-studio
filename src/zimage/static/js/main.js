@@ -1877,11 +1877,10 @@ async function deleteHistoryItem(itemId) {
             
             // Check button state after update
             setTimeout(() => {
-                    shareBtnDisabled: shareBtn ? shareBtn.disabled : 'N/A',
-                    copyBtnDisabled: copyBtn ? copyBtn.disabled : 'N/A',
-                    shareBtnTitle: shareBtn ? shareBtn.title : 'N/A',
-                    copyBtnTitle: copyBtn ? copyBtn.title : 'N/A'
-                });
+                    shareBtnDisabled = shareBtn ? shareBtn.disabled : false,
+                    copyBtnDisabled = copyBtn ? copyBtn.disabled : false,
+                    shareBtnTitle = shareBtn ? shareBtn.title : 'N/A',
+                    copyBtnTitle = copyBtn ? copyBtn.title : 'N/A'
             }, 100);
             
             // Meta
