@@ -22,7 +22,7 @@ I18N_DIR = STATIC_DIR / "i18n"
 
 a = Analysis(
     [str(SRC_DIR / "zimage" / "cli.py")],
-    pathex=[str(ROOT_DIR)],
+    pathex=[str(ROOT_DIR), str(SRC_DIR)],
     binaries=[],
     datas=[
         # Static web assets
@@ -38,6 +38,18 @@ a = Analysis(
         (str(I18N_DIR), "static/i18n"),
     ],
     hiddenimports=[
+        # Z-Image components (explicitly included to ensure package structure)
+        "zimage",
+        "zimage.engine",
+        "zimage.hardware",
+        "zimage.db",
+        "zimage.migrations",
+        "zimage.storage",
+        "zimage.paths",
+        "zimage.logger",
+        "zimage.mcp_server",
+        "zimage.server",
+        "zimage.worker",
         # FastAPI and dependencies
         "fastapi",
         "fastapi.staticfiles",
@@ -160,6 +172,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon=None, can set to icon='path/to/icon.ico' later
+    icon=str(STATIC_DIR / "favicon.ico"),
     onefile=True,
 )
