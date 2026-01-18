@@ -1,0 +1,11 @@
+name: Clear Docker Images
+
+on:
+  push:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune all Docker images and volumes
+        run: docker system prune -af --volumes
