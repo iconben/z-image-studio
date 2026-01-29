@@ -2,7 +2,7 @@ cask "z-image-studio" do
   version "VERSION_PLACEHOLDER"
   sha256 "SHA256_PLACEHOLDER"
 
-  url "https://github.com/iconben/z-image-studio/releases/download/v#{version}/Z-Image-Studio-#{version}-macOS.dmg"
+  url "https://github.com/iconben/z-image-studio/releases/download/v#{version}/Z-Image-Studio-macOS-arm64-#{version}.dmg"
   name "Z-Image Studio"
   desc "Local AI image generation toolkit (CLI + Web UI)"
   homepage "https://github.com/iconben/z-image-studio"
