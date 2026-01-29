@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'
     branches:
-      - 'feat/homebrew-workflow'
+      - 'feat/homebrew-workflow-16433386141146418825'
 
 permissions:
   contents: write
@@ -32,7 +32,7 @@ jobs:
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             version="${GITHUB_REF_NAME#v}"
           else
-            version="0.0.0-dev-${GITHUB_SHA::7}"
+            version="0.0.0-dev-${GITHUB_SHA:0:7}"
           fi
           echo "version=$version" >> $GITHUB_OUTPUT
 
