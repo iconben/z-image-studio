@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - 'feat/homebrew-workflow'
 
 permissions:
   contents: write
@@ -27,7 +29,11 @@ jobs:
       - name: Get version from tag
         id: version
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.0.0-dev-${GITHUB_SHA::7}"
+          fi
           echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Setup Python
