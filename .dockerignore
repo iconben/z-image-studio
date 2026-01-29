@@ -56,3 +56,9 @@ venv
 outputs/
 loras/
 zimage.db
+
+# Packaging & Config
+packaging/
+homebrew/
+docker-compose.yml
+.python-version
