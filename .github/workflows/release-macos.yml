@@ -143,7 +143,7 @@ jobs:
           # Read template and substitute variables
           sed -e "s/VERSION_PLACEHOLDER/$VERSION/g" \
               -e "s/SHA256_PLACEHOLDER/$SHA256/g" \
-              packaging/homebrew/z-image-studio.rb > "$DEST_FILE"
+              packaging/macos/homebrew/z-image-studio.rb > "$DEST_FILE"
 
           cd homebrew-tap
           git config user.name "github-actions[bot]"
