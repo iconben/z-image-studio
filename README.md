@@ -546,7 +546,9 @@ This structure ensures:
 ### Subcommand: `models`
 | Argument | Short | Type | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| (None)   |       |       |         | Lists available image generation models, highlights the one recommended for your system's hardware, and displays their corresponding Hugging Face model IDs. |
+| (None)   |       |       |         | Lists available image generation models and local cache status (cached flag, cache path, cache size). |
+| `list`   |       |       |         | Explicit alias for list behavior (`zimg models list`). |
+| `clear <precision>` | | `str` | Required | Clear local cached files for one precision (`full`, `q8`, `q4`). |
 
 ### Subcommand: `info`
 | Argument | Type | Default | Description |
