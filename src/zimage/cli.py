@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import platform
+import shutil
 from pathlib import Path
 import traceback
 from importlib.metadata import PackageNotFoundError, version as package_version
@@ -142,6 +143,103 @@ def _load_get_available_models():
     return get_available_models
 
 
+def _load_model_id_map():
+    """Lazily load model precision to Hugging Face model ID mapping."""
+    try:
+        if getattr(sys, "frozen", False):
+            try:
+                from zimage.hardware import MODEL_ID_MAP
+            except ImportError:
+                from hardware import MODEL_ID_MAP
+        elif __package__:
+            from .hardware import MODEL_ID_MAP
+        else:
+            sys.path.append(str(Path(__file__).parent))
+            from hardware import MODEL_ID_MAP
+    except ImportError:
+        sys.path.append(str(Path(__file__).parent))
+        from hardware import MODEL_ID_MAP
+    return MODEL_ID_MAP
+
+
+def _resolve_hf_hub_cache_dir() -> Path:
+    """
+    Resolve Hugging Face Hub cache directory based on environment variables.
+    """
+    if os.environ.get("HF_HUB_CACHE"):
+        return Path(os.environ["HF_HUB_CACHE"]).expanduser()
+    if os.environ.get("HUGGINGFACE_HUB_CACHE"):
+        return Path(os.environ["HUGGINGFACE_HUB_CACHE"]).expanduser()
+    if os.environ.get("HF_HOME"):
+        return Path(os.environ["HF_HOME"]).expanduser() / "hub"
+    if os.environ.get("XDG_CACHE_HOME"):
+        return Path(os.environ["XDG_CACHE_HOME"]).expanduser() / "huggingface" / "hub"
+    return Path.home() / ".cache" / "huggingface" / "hub"
+
+
+def _repo_cache_dir_for_model_id(model_id: str) -> Path:
+    """
+    Return repository cache folder for a model ID in Hugging Face cache layout.
+    """
+    normalized = model_id.replace("/", "--")
+    return _resolve_hf_hub_cache_dir() / f"models--{normalized}"
+
+
+def _remove_cached_model_for_precision(precision: str) -> tuple[bool, Path]:
+    """
+    Remove locally cached model files for a given precision.
+    """
+    model_id_map = _load_model_id_map()
+    model_id = model_id_map[precision]
+    cache_dir = _repo_cache_dir_for_model_id(model_id)
+    if not cache_dir.exists():
+        return False, cache_dir
+    shutil.rmtree(cache_dir)
+    return True, cache_dir
+
+
+def _dir_size_bytes(path: Path) -> int:
+    total = 0
+    for entry in path.rglob("*"):
+        if entry.is_file():
+            try:
+                total += entry.stat().st_size
+            except OSError:
+                continue
+    return total
+
+
+def _format_size(num_bytes: int) -> str:
+    size = float(num_bytes)
+    units = ["B", "KB", "MB", "GB", "TB"]
+    unit_index = 0
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+    if unit_index == 0:
+        return f"{int(size)} {units[unit_index]}"
+    return f"{size:.1f} {units[unit_index]}"
+
+
+def _get_model_cache_info(model_id: str) -> dict:
+    cache_dir = _repo_cache_dir_for_model_id(model_id)
+    if not cache_dir.exists():
+        return {
+            "cached": False,
+            "cache_path": str(cache_dir.resolve()),
+            "cache_size_bytes": None,
+            "cache_size_human": "-",
+        }
+
+    size_bytes = _dir_size_bytes(cache_dir)
+    return {
+        "cached": True,
+        "cache_path": str(cache_dir.resolve()),
+        "cache_size_bytes": size_bytes,
+        "cache_size_human": _format_size(size_bytes),
+    }
+
+
 def _round_gb(value):
     if value is None:
         return None
@@ -279,9 +377,34 @@ def run_models(args):
         log_warn("No models available for this hardware configuration.")
         return
 
+    print(f"{'Precision':<10} {'Recommended':<12} {'Cached':<8} {'Size':<10} {'Model ID'}")
     for m in models_response['models']:
-        rec_str = f" {GREEN}(Recommended){RESET}" if m.get('recommended') else ""
-        print(f"  * {m['id']} -> {m['hf_model_id']}{rec_str}")
+        cache_info = _get_model_cache_info(m["hf_model_id"])
+        recommended = "yes" if m.get("recommended") else "no"
+        cached = "yes" if cache_info["cached"] else "no"
+        print(
+            f"{m['id']:<10} {recommended:<12} {cached:<8} {cache_info['cache_size_human']:<10} {m['hf_model_id']}"
+        )
+        print(f"  cache_path: {cache_info['cache_path']}")
+
+
+def run_models_clear(args):
+    """Clear cached local model files for the selected precision."""
+    precision = args.precision.lower()
+    try:
+        removed, cache_dir = _remove_cached_model_for_precision(precision)
+    except Exception as exc:
+        log_error(f"Failed to clear cached model files for precision '{precision}': {exc}")
+        return
+
+    model_id = _load_model_id_map()[precision]
+    if removed:
+        print(f"Cleared cached files for '{precision}' ({model_id})")
+        print(f"Cache directory deleted: {cache_dir.resolve()}")
+    else:
+        print(f"No cached files found for '{precision}' ({model_id})")
+        print(f"Expected cache directory: {cache_dir.resolve()}")
+
 
 def run_list_loras(args):
     loras = db.list_loras()
@@ -482,8 +605,16 @@ def main():
     parser_serve.set_defaults(func=run_server)
 
     # Subcommand: models
-    parser_models = subparsers.add_parser("models", help="List available models and recommendations")
+    parser_models = subparsers.add_parser("models", help="List available models with local cache status")
     parser_models.set_defaults(func=run_models)
+    models_subparsers = parser_models.add_subparsers(dest="models_subcommand")
+
+    parser_models_list = models_subparsers.add_parser("list", help="List available models and recommendations")
+    parser_models_list.set_defaults(func=run_models)
+
+    parser_models_clear = models_subparsers.add_parser("clear", help="Clear local cached files for one precision")
+    parser_models_clear.add_argument("precision", type=str.lower, choices=["full", "q8", "q4"], help="Model precision cache to clear")
+    parser_models_clear.set_defaults(func=run_models_clear)
 
     # Subcommand: info
     parser_info = subparsers.add_parser("info", help="Show application and environment diagnostics")
