@@ -548,6 +548,12 @@ This structure ensures:
 | :--- | :--- | :--- | :--- | :--- |
 | (None)   |       |       |         | Lists available image generation models, highlights the one recommended for your system's hardware, and displays their corresponding Hugging Face model IDs. |
 
+### Subcommand: `info`
+| Argument | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--json` | `bool` | `False` | Output application diagnostics as JSON (for scripts/tools). |
+| (none) | | | Shows version, runtime details, resolved data/config/output paths, env overrides, and hardware probe info. |
+
 ### Subcommand: `mcp`
 | Argument | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
