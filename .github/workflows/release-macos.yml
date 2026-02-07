@@ -27,8 +27,15 @@ jobs:
       - name: Get version from tag
         id: version
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            is_tag="true"
+          else
+            version="0.0.0-dev-${GITHUB_SHA:0:7}"
+            is_tag="false"
+          fi
           echo "version=$version" >> $GITHUB_OUTPUT
+          echo "is_tag=$is_tag" >> $GITHUB_OUTPUT
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -102,6 +109,7 @@ jobs:
           cat "dist/${dmg}.sha256"
 
       - name: Upload all artifacts
+        if: steps.version.outputs.is_tag == 'true'
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -113,6 +121,51 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew Tap
+        if: steps.version.outputs.is_tag == 'true'
+        env:
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$TAP_GITHUB_TOKEN" ]; then
+            echo "Skipping Homebrew update because TAP_GITHUB_TOKEN is not set."
+            exit 0
+          fi
+
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA256="${{ steps.checksum.outputs.sha256 }}"
+
+          echo "Updating Homebrew formula for version $VERSION with SHA256 $SHA256..."
+
+          # Clone the tap repository
+          git clone https://x-access-token:$TAP_GITHUB_TOKEN@github.com/iconben/homebrew-tap.git homebrew-tap
+
+          # Determine destination path
+          if [ -d "homebrew-tap/Casks" ]; then
+            DEST_FILE="homebrew-tap/Casks/z-image-studio.rb"
+          else
+            DEST_FILE="homebrew-tap/z-image-studio.rb"
+          fi
+
+          echo "Writing to $DEST_FILE"
+
+          # Read template and substitute variables
+          sed -e "s/VERSION_PLACEHOLDER/$VERSION/g" \
+              -e "s/SHA256_PLACEHOLDER/$SHA256/g" \
+              packaging/macos/homebrew/z-image-studio.rb > "$DEST_FILE"
+
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update z-image-studio to $VERSION"
+            git push
+            echo "Homebrew tap updated successfully."
+          fi
 
       - name: Output signing info
         if: env.SIGN_IDENTITY == ''
