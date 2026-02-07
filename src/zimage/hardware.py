@@ -9,8 +9,10 @@ import torch
 
 try:
     from .logger import get_logger
+    from .sdnq_policy import apply_sdnq_compile_policy
 except ImportError:
     from logger import get_logger
+    from sdnq_policy import apply_sdnq_compile_policy
 
 logger = get_logger("zimage.hardware")
 
@@ -111,6 +113,10 @@ def get_vram_gb() -> float | None:
 
 
 def has_sdnq() -> bool:
+    # Basic Triton precheck may set SDNQ_USE_TORCH_COMPILE=0 when unavailable.
+    # This avoids noisy warnings, but SDNQ remains the final judge when Triton
+    # appears available.
+    apply_sdnq_compile_policy()
     try:
         from sdnq import SDNQConfig  # noqa: F401
         return True
