@@ -20,6 +20,16 @@ warnings.filterwarnings(
 
 import torch
 from diffusers import ZImagePipeline
+
+try:
+    from .sdnq_policy import apply_sdnq_compile_policy
+except ImportError:
+    from sdnq_policy import apply_sdnq_compile_policy
+
+# Basic Triton detection is a fast precheck only; SDNQ runtime probe remains
+# the final authority when Triton appears available.
+apply_sdnq_compile_policy()
+
 from sdnq.common import use_torch_compile as triton_is_available
 from sdnq.loader import apply_sdnq_options_to_model
 from safetensors.torch import load_file
