@@ -67,9 +67,60 @@
                         </div>
                         <div class="flex-shrink-0">
                             <!-- Search Toggle Button for Sidebar (Center) -->
-                            <button type="button" class="btn btn-sm btn-link text-secondary p-1" id="toggleSearchSidebarBtn" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Toggle Search" data-i18n-title="toggle_search_aria">
+                            <button type="button" class="btn btn-sm btn-link text-secondary p-1" id="toggleSearchSidebarBtn" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Toggle Search" data-i18n-title="toggle_search_aria" aria-expanded="false" aria-controls="filterOverlaySidebar">
                                 <i class="bi bi-search"></i>
                             </button>
+                        </div>
+                        <!-- Filter Overlay for Sidebar -->
+                        <div class="filter-overlay d-none" id="filterOverlaySidebar">
+                            <div class="history-search-container" id="historySearchContainerSidebar">
+                                <!-- Search Input with Clear Button -->
+                                <div class="d-flex gap-1 mb-2">
+                                    <div class="search-input-wrapper">
+                                        <input type="text"
+                                               class="form-control form-control-sm"
+                                               placeholder="Search prompts..."
+                                               id="historySearchInputSidebar"
+                                               aria-label="Search history by keywords"
+                                               maxlength="100"
+                                               data-i18n-placeholder="history_search_placeholder"
+                                               data-bs-toggle="tooltip"
+                                               data-bs-placement="top"
+                                               title="Search by keywords">
+                                        <button class="btn-clear-inner d-none" type="button" id="clearSearchSidebarBtn" aria-label="Clear search" title="Clear search">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="historyDateFilterToggleSidebar" aria-label="Filter by date" data-bs-toggle="collapse" data-bs-target="#historyDateRangeFilterSidebar" data-i18n-title="history_date_filter_aria">
+                                        <i class="bi bi-calendar"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Date Range Filter (collapsible) -->
+                                <div class="collapse" id="historyDateRangeFilterSidebar">
+                                    <div class="row g-2 mt-2">
+                                        <div class="col-6">
+                                            <div class="date-input-wrapper">
+                                                <input type="date" class="form-control form-control-sm" id="historyStartDateSidebar" aria-label="Start date" data-i18n-title="history_start_date_aria">
+                                                <button class="btn-clear-inner d-none" type="button" id="clearStartDateSidebarBtn" aria-label="Clear start date" title="Clear start date">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="date-input-wrapper">
+                                                <input type="date" class="form-control form-control-sm" id="historyEndDateSidebar" aria-label="End date" data-i18n-title="history_end_date_aria">
+                                                <button class="btn-clear-inner d-none" type="button" id="clearEndDateSidebarBtn" aria-label="Clear end date" title="Clear end date">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Result Count (shown when filtered) -->
+                                <div class="search-results-info small text-muted mt-1" id="searchResultsInfoSidebar"></div>
+                            </div>
                         </div>
                         <div class="d-flex justify-content-end flex-grow-1">
                             <button class="btn btn-sm btn-outline-primary active" id="unpinHistoryBtn" title="Unpin History">
@@ -85,55 +136,6 @@
                             <i class="bi bi-arrow-down-circle"></i>
                             <span data-i18n="pull_to_refresh">Pull to refresh</span>
                         </div>
-                    </div>
-                    <!-- History Search Container for Sidebar (collapsible) -->
-                    <div class="history-search-container px-3 d-none" id="historySearchContainerSidebar">
-                        <!-- Search Input with Clear Button -->
-                        <div class="d-flex gap-1 mb-2">
-                            <div class="search-input-wrapper">
-                                <input type="text"
-                                       class="form-control form-control-sm"
-                                       placeholder="Search prompts..."
-                                       id="historySearchInputSidebar"
-                                       aria-label="Search history by keywords"
-                                       maxlength="100"
-                                       data-i18n-placeholder="history_search_placeholder"
-                                       data-bs-toggle="tooltip"
-                                       data-bs-placement="top"
-                                       title="Search by keywords">
-                                <button class="btn-clear-inner d-none" type="button" id="clearSearchSidebarBtn" aria-label="Clear search" title="Clear search">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            </div>
-                            <button class="btn btn-outline-secondary btn-sm" type="button" id="historyDateFilterToggleSidebar" aria-label="Filter by date" data-bs-toggle="collapse" data-bs-target="#historyDateRangeFilterSidebar" data-i18n-title="history_date_filter_aria">
-                                <i class="bi bi-calendar"></i>
-                            </button>
-                        </div>
-
-                        <!-- Date Range Filter (collapsible) -->
-                        <div class="collapse" id="historyDateRangeFilterSidebar">
-                            <div class="row g-2 mt-2">
-                                <div class="col-6">
-                                    <div class="date-input-wrapper">
-                                        <input type="date" class="form-control form-control-sm" id="historyStartDateSidebar" aria-label="Start date" data-i18n-title="history_start_date_aria">
-                                        <button class="btn-clear-inner d-none" type="button" id="clearStartDateSidebarBtn" aria-label="Clear start date" title="Clear start date">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="date-input-wrapper">
-                                        <input type="date" class="form-control form-control-sm" id="historyEndDateSidebar" aria-label="End date" data-i18n-title="history_end_date_aria">
-                                        <button class="btn-clear-inner d-none" type="button" id="clearEndDateSidebarBtn" aria-label="Clear end date" title="Clear end date">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Result Count (shown when filtered) -->
-                        <div class="search-results-info small text-muted mt-1" id="searchResultsInfoSidebar"></div>
                     </div>
                     <div id="historyListSidebar" class="list-group list-group-flush">
                         <!-- History items injected here when pinned -->
@@ -349,9 +351,60 @@
                     </button>
                 </div>
                 <!-- Search Toggle Button (Center) -->
-                <button type="button" class="btn btn-sm btn-link text-secondary p-1" id="toggleSearchBtn" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Toggle Search" data-i18n-title="toggle_search_aria">
+                <button type="button" class="btn btn-sm btn-link text-secondary p-1" id="toggleSearchBtn" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Toggle Search" data-i18n-title="toggle_search_aria" aria-expanded="false" aria-controls="filterOverlayDrawer">
                     <i class="bi bi-search"></i>
                 </button>
+                <!-- Filter Overlay for Drawer -->
+                <div class="filter-overlay d-none" id="filterOverlayDrawer">
+                    <div class="history-search-container" id="historySearchContainer">
+                        <!-- Search Input with Clear Button -->
+                        <div class="d-flex gap-1 mb-2">
+                            <div class="search-input-wrapper">
+                                <input type="text"
+                                       class="form-control form-control-sm"
+                                       placeholder="Search prompts..."
+                                       id="historySearchInput"
+                                       aria-label="Search history by keywords"
+                                       maxlength="100"
+                                       data-i18n-placeholder="history_search_placeholder"
+                                       data-bs-toggle="tooltip"
+                                       data-bs-placement="top"
+                                       title="Search by keywords">
+                                <button class="btn-clear-inner d-none" type="button" id="clearSearchBtn" aria-label="Clear search" title="Clear search">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" id="historyDateFilterToggle" aria-label="Filter by date" data-bs-toggle="collapse" data-bs-target="#historyDateRangeFilter" data-i18n-title="history_date_filter_aria">
+                                <i class="bi bi-calendar"></i>
+                            </button>
+                        </div>
+
+                        <!-- Date Range Filter (collapsible) -->
+                        <div class="collapse" id="historyDateRangeFilter">
+                            <div class="row g-2 mt-2">
+                                <div class="col-6">
+                                    <div class="date-input-wrapper">
+                                        <input type="date" class="form-control form-control-sm" id="historyStartDate" aria-label="Start date" data-i18n-title="history_start_date_aria">
+                                        <button class="btn-clear-inner d-none" type="button" id="clearStartDateBtn" aria-label="Clear start date" title="Clear start date">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="date-input-wrapper">
+                                        <input type="date" class="form-control form-control-sm" id="historyEndDate" aria-label="End date" data-i18n-title="history_end_date_aria">
+                                        <button class="btn-clear-inner d-none" type="button" id="clearEndDateBtn" aria-label="Clear end date" title="Clear end date">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Result Count (shown when filtered) -->
+                        <div class="search-results-info small text-muted mt-1" id="searchResultsInfo"></div>
+                    </div>
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     <!-- Pin Button for Desktop -->
                     <button type="button" class="btn btn-sm btn-outline-secondary d-none d-lg-block" id="pinHistoryBtn" title="Pin History Sidebar">
@@ -362,56 +415,6 @@
             </div>
         </div>
         <div class="offcanvas-body position-relative">
-            <!-- History Search Container (collapsible) -->
-            <div class="history-search-container mb-3 px-3 d-none" id="historySearchContainer">
-                <!-- Search Input with Clear Button -->
-                <div class="d-flex gap-1 mb-2">
-                    <div class="search-input-wrapper">
-                        <input type="text"
-                               class="form-control form-control-sm"
-                               placeholder="Search prompts..."
-                               id="historySearchInput"
-                               aria-label="Search history by keywords"
-                               maxlength="100"
-                               data-i18n-placeholder="history_search_placeholder"
-                               data-bs-toggle="tooltip"
-                               data-bs-placement="top"
-                               title="Search by keywords">
-                        <button class="btn-clear-inner d-none" type="button" id="clearSearchBtn" aria-label="Clear search" title="Clear search">
-                            <i class="bi bi-x"></i>
-                        </button>
-                    </div>
-                    <button class="btn btn-outline-secondary btn-sm" type="button" id="historyDateFilterToggle" aria-label="Filter by date" data-bs-toggle="collapse" data-bs-target="#historyDateRangeFilter" data-i18n-title="history_date_filter_aria">
-                        <i class="bi bi-calendar"></i>
-                    </button>
-                </div>
-
-                <!-- Date Range Filter (collapsible) -->
-                <div class="collapse" id="historyDateRangeFilter">
-                    <div class="row g-2 mt-2">
-                        <div class="col-6">
-                            <div class="date-input-wrapper">
-                                <input type="date" class="form-control form-control-sm" id="historyStartDate" aria-label="Start date" data-i18n-title="history_start_date_aria">
-                                <button class="btn-clear-inner d-none" type="button" id="clearStartDateBtn" aria-label="Clear start date" title="Clear start date">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="date-input-wrapper">
-                                <input type="date" class="form-control form-control-sm" id="historyEndDate" aria-label="End date" data-i18n-title="history_end_date_aria">
-                                <button class="btn-clear-inner d-none" type="button" id="clearEndDateBtn" aria-label="Clear end date" title="Clear end date">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Result Count (shown when filtered) -->
-                <div class="search-results-info small text-muted mt-1" id="searchResultsInfo"></div>
-            </div>
-
             <!-- Pull to Refresh Indicator -->
             <div id="pullRefreshIndicator" class="pull-refresh-indicator">
                 <div class="d-flex align-items-center gap-2">

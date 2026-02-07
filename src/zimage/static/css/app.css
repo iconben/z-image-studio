@@ -536,3 +536,53 @@ body { background-color: #f8f9fa; }
             background-color: rgba(13, 110, 253, 0.2) !important;
             color: var(--bs-primary) !important;
         }
+
+        /* Filter overlay container - positioned below header */
+        .filter-overlay {
+            position: absolute;
+            top: 100%; /* Position right below header */
+            left: 0;
+            right: 0;
+            z-index: 1050;
+            background: var(--bs-body-bg);
+            border-bottom: 1px solid var(--bs-border-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-height: 250px;
+            overflow-y: auto;
+            transition: all 0.2s ease-in-out;
+            padding: 0.75rem 1rem;
+        }
+
+        /* Dark mode support */
+        [data-bs-theme="dark"] .filter-overlay {
+            background: var(--bs-body-bg);
+            border-bottom-color: var(--bs-border-color-translucent);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Hidden state */
+        .filter-overlay.d-none {
+            display: none !important;
+        }
+
+        /* Scrollbar styling for overlay */
+        .filter-overlay::-webkit-scrollbar {
+            width: 6px;
+        }
+        .filter-overlay::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .filter-overlay::-webkit-scrollbar-thumb {
+            background-color: var(--bs-secondary);
+            border-radius: 3px;
+        }
+
+        /* Ensure offcanvas-header has position relative for overlay positioning */
+        .offcanvas-header {
+            position: relative;
+        }
+
+        /* Ensure sticky-top header has position relative for overlay positioning */
+        .sticky-top {
+            position: relative;
+        }
