@@ -224,6 +224,45 @@
             toggleSearchSidebarBtn.addEventListener('click', () => toggleSearchContainer('sidebar'));
         }
 
+        // ESC key handler to close search overlays
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const drawerOverlay = document.getElementById('filterOverlayDrawer');
+                const sidebarOverlay = document.getElementById('filterOverlaySidebar');
+                
+                if (drawerOverlay && !drawerOverlay.classList.contains('d-none')) {
+                    toggleSearchContainer('drawer');
+                }
+                if (sidebarOverlay && !sidebarOverlay.classList.contains('d-none')) {
+                    toggleSearchContainer('sidebar');
+                }
+            }
+        });
+
+        // Click-outside handler to close search overlays
+        document.addEventListener('click', (e) => {
+            const drawerOverlay = document.getElementById('filterOverlayDrawer');
+            const sidebarOverlay = document.getElementById('filterOverlaySidebar');
+            const drawerToggleBtn = document.getElementById('toggleSearchBtn');
+            const sidebarToggleBtn = document.getElementById('toggleSearchSidebarBtn');
+            
+            // Check drawer overlay
+            if (drawerOverlay && !drawerOverlay.classList.contains('d-none')) {
+                // Check if click is outside the overlay and outside the toggle button
+                if (!drawerOverlay.contains(e.target) && !drawerToggleBtn.contains(e.target)) {
+                    toggleSearchContainer('drawer');
+                }
+            }
+            
+            // Check sidebar overlay
+            if (sidebarOverlay && !sidebarOverlay.classList.contains('d-none')) {
+                // Check if click is outside the overlay and outside the toggle button
+                if (!sidebarOverlay.contains(e.target) && !sidebarToggleBtn.contains(e.target)) {
+                    toggleSearchContainer('sidebar');
+                }
+            }
+        });
+
         const historySearchInput = document.getElementById('historySearchInput');
         const historySearchInputSidebar = document.getElementById('historySearchInputSidebar');
         const historyStartDateInput = document.getElementById('historyStartDate');
@@ -1015,19 +1054,20 @@
 
         // Toggle search container visibility
         function toggleSearchContainer(location) {
-            const containerId = location === 'sidebar'
-                ? 'historySearchContainerSidebar'
-                : 'historySearchContainer';
+            const overlayId = location === 'sidebar'
+                ? 'filterOverlaySidebar'
+                : 'filterOverlayDrawer';
             const toggleBtnId = location === 'sidebar'
                 ? 'toggleSearchSidebarBtn'
                 : 'toggleSearchBtn';
-            const container = document.getElementById(containerId);
+            const overlay = document.getElementById(overlayId);
             const toggleBtn = document.getElementById(toggleBtnId);
             const icon = toggleBtn?.querySelector('i');
 
-            if (container?.classList.contains('d-none')) {
-                // Open search container
-                container.classList.remove('d-none');
+            if (overlay?.classList.contains('d-none')) {
+                // Open search overlay
+                overlay.classList.remove('d-none');
+                toggleBtn?.setAttribute('aria-expanded', 'true');
                 if (icon) {
                     icon.classList.remove('bi-search');
                     icon.classList.add('bi-chevron-up');
@@ -1045,8 +1085,9 @@
                     }
                 }
             } else {
-                // Close search container
-                container?.classList.add('d-none');
+                // Close search overlay
+                overlay?.classList.add('d-none');
+                toggleBtn?.setAttribute('aria-expanded', 'false');
                 if (icon) {
                     icon.classList.remove('bi-chevron-up');
                     icon.classList.add('bi-search');
@@ -1076,17 +1117,23 @@
             if (endDateInput) endDateInput.value = searchState.end_date;
             if (endDateInputSidebar) endDateInputSidebar.value = searchState.end_date;
 
-            // Auto-expand search containers if URL has search params
+            // Auto-expand search overlays if URL has search params
             if (searchState.q || searchState.start_date || searchState.end_date) {
-                const container = document.getElementById('historySearchContainer');
-                const containerSidebar = document.getElementById('historySearchContainerSidebar');
+                const overlay = document.getElementById('filterOverlayDrawer');
+                const overlaySidebar = document.getElementById('filterOverlaySidebar');
                 const toggleBtn = document.getElementById('toggleSearchBtn');
                 const toggleBtnSidebar = document.getElementById('toggleSearchSidebarBtn');
                 const icon = toggleBtn?.querySelector('i');
                 const iconSidebar = toggleBtnSidebar?.querySelector('i');
 
-                if (container) container.classList.remove('d-none');
-                if (containerSidebar) containerSidebar.classList.remove('d-none');
+                if (overlay) {
+                    overlay.classList.remove('d-none');
+                    toggleBtn?.setAttribute('aria-expanded', 'true');
+                }
+                if (overlaySidebar) {
+                    overlaySidebar.classList.remove('d-none');
+                    toggleBtnSidebar?.setAttribute('aria-expanded', 'true');
+                }
 
                 if (icon) {
                     icon.classList.remove('bi-search');
