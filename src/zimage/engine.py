@@ -44,6 +44,7 @@ try:
         should_enable_attention_slicing,
         get_ram_gb,
         detect_device,
+        is_xpu_available,
     )
     from .logger import get_logger
 except ImportError:
@@ -54,6 +55,7 @@ except ImportError:
         should_enable_attention_slicing,
         get_ram_gb,
         detect_device,
+        is_xpu_available,
     )
     from logger import get_logger
 
@@ -64,6 +66,23 @@ def log_info(message: str):
 
 def log_warn(message: str):
     logger.warning(message)
+
+
+def _empty_xpu_cache() -> None:
+    xpu = getattr(torch, "xpu", None)
+    if xpu is not None and hasattr(xpu, "empty_cache"):
+        xpu.empty_cache()
+
+
+def _is_xpu_bf16_supported() -> bool:
+    xpu = getattr(torch, "xpu", None)
+    if xpu is None or not hasattr(xpu, "is_bf16_supported"):
+        return False
+    try:
+        return bool(xpu.is_bf16_supported())
+    except Exception as e:
+        log_warn(f"Failed to probe XPU bfloat16 support: {e}")
+        return False
 
 # Environment variable to force-enable torch.compile (use at your own risk)
 _TORCH_COMPILE_ENV_VAR = "ZIMAGE_ENABLE_TORCH_COMPILE"
@@ -148,6 +167,8 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
             torch.cuda.empty_cache()
         if device == "mps" and torch.backends.mps.is_available():
              torch.mps.empty_cache()
+        if device == "xpu" and is_xpu_available():
+            _empty_xpu_cache()
         _cached_pipe = None
 
     # Directly use MODEL_ID_MAP
@@ -174,6 +195,13 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
         else:
              log_info("ROCm device -> using float16")
              torch_dtype = torch.float16
+    elif device == "xpu":
+        if _is_xpu_bf16_supported():
+            log_info("XPU device supports bfloat16 -> using bfloat16")
+            torch_dtype = torch.bfloat16
+        else:
+            log_info("XPU device -> using float16")
+            torch_dtype = torch.float16
     else:
         torch_dtype = torch.float32
 
@@ -217,7 +245,7 @@ def load_pipeline(device: str = None, precision: PrecisionId = "q8") -> ZImagePi
     # Note: torch.compile is only applied when deemed safe for the current environment
     _is_using_compiled_transformer = False
     # Explicitly exclude ROCm for now as it may be unstable with SDNQ/Triton kernels
-    if triton_is_available and (device == "cuda" or torch.xpu.is_available()):
+    if triton_is_available and (device == "cuda" or device == "xpu"):
         pipe.transformer = apply_sdnq_options_to_model(pipe.transformer, use_quantized_matmul=True)
         pipe.text_encoder = apply_sdnq_options_to_model(pipe.text_encoder, use_quantized_matmul=True)
 
@@ -396,6 +424,8 @@ def generate_image(
         gc.collect()
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+        if is_xpu_available():
+            _empty_xpu_cache()
         # Clear CUDA cache on error to free GPU memory for next request
         if had_error and torch.cuda.is_available():
             log_warn("Clearing CUDA cache after error")
@@ -408,5 +438,7 @@ def cleanup_memory():
     gc.collect()
     if torch.backends.mps.is_available():
         torch.mps.empty_cache()
+    if is_xpu_available():
+        _empty_xpu_cache()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

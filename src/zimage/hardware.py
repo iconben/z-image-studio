@@ -64,14 +64,26 @@ def _log_warn(message: str):
 # Hardware Detection
 # -------------------------------
 
+def is_xpu_available() -> bool:
+    xpu = getattr(torch, "xpu", None)
+    if xpu is None or not hasattr(xpu, "is_available"):
+        return False
+    try:
+        return bool(xpu.is_available())
+    except Exception as e:
+        _log_warn(f"Failed to probe XPU availability ({e})")
+        return False
+
 def detect_device() -> str:
-    if torch.backends.mps.is_available():
-        return "mps"
     # Detect ROCm (AMD GPU)
     if hasattr(torch.version, "hip") and torch.version.hip and torch.cuda.is_available():
         return "rocm"
     if torch.cuda.is_available():
         return "cuda"
+    if is_xpu_available():
+        return "xpu"
+    if torch.backends.mps.is_available():
+        return "mps"
     return "cpu"
 
 
@@ -107,6 +119,13 @@ def get_vram_gb() -> float | None:
             # Works for both NVIDIA (CUDA) and AMD (ROCm via HIP)
             props = torch.cuda.get_device_properties(0)
             return props.total_memory / (1024 ** 3)
+        if is_xpu_available():
+            xpu = getattr(torch, "xpu", None)
+            if xpu is not None and hasattr(xpu, "get_device_properties"):
+                props = xpu.get_device_properties(0)
+                total_memory = getattr(props, "total_memory", None)
+                if total_memory:
+                    return total_memory / (1024 ** 3)
     except Exception:
         pass
     return None
@@ -136,7 +155,7 @@ def get_available_models() -> ModelsResponse:
     for the current hardware.
     Structure:
     {
-      "device": "mps" | "cuda" | "rocm" | "cpu",
+      "device": "mps" | "cuda" | "rocm" | "xpu" | "cpu",
       "ram_gb": float | None,
       "vram_gb": float | None,
       "models": [
@@ -223,8 +242,8 @@ def get_available_models() -> ModelsResponse:
                     models["q8"]["recommended"] = True
                 # q4 left for "advanced/extreme compression" users, not actively recommended
 
-    elif device == "cuda" or device == "rocm":
-        # CUDA / ROCm: Check VRAM
+    elif device == "cuda" or device == "rocm" or device == "xpu":
+        # CUDA / ROCm / XPU: Check VRAM
         if vram_gb is None:
             # Unknown VRAM: conservative strategy, don't make full default
             models["full"]["recommended"] = False
@@ -325,7 +344,7 @@ def should_enable_attention_slicing(device: str) -> bool:
     """
     Determine if attention slicing should be enabled based on hardware specs.
     - MPS (Mac): Enable if RAM < 32 GB.
-    - CUDA/ROCm: Enable if VRAM < 12 GB.
+    - CUDA/ROCm/XPU: Enable if VRAM < 12 GB.
     - CPU: Always enable.
     """
     try:
@@ -351,6 +370,19 @@ def should_enable_attention_slicing(device: str) -> bool:
             else:
                 _log_info("VRAM >= 12GB -> Disabling attention slicing for performance.")
                 return False
+        if device == "xpu" and is_xpu_available():
+            xpu = getattr(torch, "xpu", None)
+            if xpu is not None and hasattr(xpu, "get_device_properties"):
+                props = xpu.get_device_properties(0)
+                total_memory = getattr(props, "total_memory", None)
+                if total_memory is not None:
+                    total_vram_gb = total_memory / (1024**3)
+                    _log_info(f"Detected XPU VRAM: {total_vram_gb:.1f} GB")
+                    if total_vram_gb < 12:
+                        _log_info("XPU VRAM < 12GB -> Enabling attention slicing.")
+                        return True
+                    _log_info("XPU VRAM >= 12GB -> Disabling attention slicing for performance.")
+                    return False
 
     except Exception as e:
         _log_warn(f"Failed to detect hardware specs ({e}), defaulting to attention slicing enabled.")
