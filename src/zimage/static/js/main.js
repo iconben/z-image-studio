@@ -895,6 +895,23 @@
                 const res = await fetch('/models');
                 const data = await res.json();
                 
+                if (data.constraints) {
+                    const stepsEl = document.getElementById('steps');
+                    if (stepsEl && data.constraints.max_steps) {
+                        stepsEl.max = data.constraints.max_steps;
+                    }
+
+                    const widthEl = document.getElementById('width');
+                    if (widthEl && data.constraints.max_width) {
+                        widthEl.max = data.constraints.max_width;
+                    }
+
+                    const heightEl = document.getElementById('height');
+                    if (heightEl && data.constraints.max_height) {
+                        heightEl.max = data.constraints.max_height;
+                    }
+                }
+
                 if (data.device) window.currentDevice = data.device;
                 if (data.default_precision) window.defaultPrecision = data.default_precision;
 

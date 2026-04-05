@@ -219,8 +219,18 @@ class GenerateResponse(BaseModel):
 
 @app.get("/models")
 async def get_models():
-    """Get list of available models with hardware recommendations."""
-    return get_available_models()
+    """Get list of available models with hardware recommendations and constraints."""
+    from .paths import load_config
+    config = load_config()
+    models_info = get_available_models()
+
+    # Inject constraints into the response
+    models_info['constraints'] = {
+        "max_steps": config.get("max_steps", 50),
+        "max_width": config.get("max_width", 4096),
+        "max_height": config.get("max_height", 4096),
+    }
+    return models_info
 
 @app.get("/loras")
 async def get_loras():
@@ -372,6 +382,19 @@ async def delete_lora(lora_id: int):
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:
+        from .paths import load_config
+        config = load_config()
+        max_steps = config.get("max_steps", 50)
+        max_width = config.get("max_width", 4096)
+        max_height = config.get("max_height", 4096)
+
+        if req.steps > max_steps:
+            raise HTTPException(status_code=400, detail=f"Requested steps ({req.steps}) exceeds the maximum allowed ({max_steps}).")
+        if req.width > max_width:
+            raise HTTPException(status_code=400, detail=f"Requested width ({req.width}) exceeds the maximum allowed ({max_width}).")
+        if req.height > max_height:
+            raise HTTPException(status_code=400, detail=f"Requested height ({req.height}) exceeds the maximum allowed ({max_height}).")
+
         # Normalize and validate precision early to avoid KeyError inside engine
         try:
             precision = normalize_precision(req.precision)
