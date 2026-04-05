@@ -12,6 +12,7 @@
 ![Intel XPU](https://img.shields.io/badge/Intel-XPU-gray?logo=intel)
 ![Docker](https://img.shields.io/badge/Docker-blue?logo=docker)
 [![Docs](https://img.shields.io/badge/docs-deepwiki.com-blue)](https://deepwiki.com/iconben/z-image-studio)
+[![AgentSeal MCP](https://agentseal.org/api/v1/mcp/https-githubcom-iconben-z-image-studio/badge)](https://agentseal.org/mcp/https-githubcom-iconben-z-image-studio)
 
 A Cli, a webUI, and a MCP server for the **Z-Image-Turbo** text-to-image generation model (`Tongyi-MAI/Z-Image-Turbo` and its variants).
 
