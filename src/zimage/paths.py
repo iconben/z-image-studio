@@ -141,6 +141,9 @@ def ensure_initial_setup():
         "Z_IMAGE_STUDIO_DATA_DIR": None,
         "Z_IMAGE_STUDIO_OUTPUT_DIR": None,
         "ZIMAGE_ENABLE_TORCH_COMPILE": None,
+        "max_steps": 50,
+        "max_width": 4096,
+        "max_height": 4096,
     }
     global _CONFIG_CACHE
     _CONFIG_CACHE = config

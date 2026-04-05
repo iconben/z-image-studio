@@ -71,6 +71,11 @@ def test_run_info_json_outputs_valid_json(capsys, fake_hardware):
                 "loras_dir": "e",
                 "db_path": "f",
             },
+            "constraints": {
+                "max_steps": 50,
+                "max_width": 4096,
+                "max_height": 4096,
+            },
             "env_overrides": {
                 "Z_IMAGE_STUDIO_DATA_DIR": None,
                 "Z_IMAGE_STUDIO_OUTPUT_DIR": None,
@@ -107,6 +112,11 @@ def test_run_info_text_includes_hardware_error(capsys):
                 "outputs_dir": "d",
                 "loras_dir": "e",
                 "db_path": "f",
+            },
+            "constraints": {
+                "max_steps": 50,
+                "max_width": 4096,
+                "max_height": 4096,
             },
             "env_overrides": {
                 "Z_IMAGE_STUDIO_DATA_DIR": None,

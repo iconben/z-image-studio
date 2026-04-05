@@ -9,6 +9,7 @@ import json
 import base64
 import random
 from urllib.parse import quote
+from pydantic import Field
 
 # Lazy import for yarl to avoid dependency issues
 try:
@@ -21,11 +22,13 @@ try:
     from . import db
     from .storage import save_image, record_generation
     from .logger import get_logger, setup_logging
+    from .paths import load_config
 except ImportError:
     from hardware import get_available_models, normalize_precision, MODEL_ID_MAP
     import db
     from storage import save_image, record_generation
     from logger import get_logger, setup_logging
+    from paths import load_config
 
 # Lazy imports for heavy dependencies
 def _get_engine():
@@ -114,6 +117,19 @@ async def _generate_impl(
 
     try:
         await send_progress(0, "Initializing generation...")
+
+        # Enforce constraints
+        config = load_config()
+        max_steps = config.get("max_steps", 50)
+        max_width = config.get("max_width", 4096)
+        max_height = config.get("max_height", 4096)
+
+        if steps > max_steps:
+            raise ValueError(f"Requested steps ({steps}) exceeds the maximum allowed ({max_steps}).")
+        if width > max_width:
+            raise ValueError(f"Requested width ({width}) exceeds the maximum allowed ({max_width}).")
+        if height > max_height:
+            raise ValueError(f"Requested height ({height}) exceeds the maximum allowed ({max_height}).")
 
         # Normalize and validate precision
         try:
@@ -451,9 +467,9 @@ async def _generate_impl(
 @mcp.tool()
 async def generate(
     prompt: str,
-    steps: int = 9,
-    width: int = 1280,
-    height: int = 720,
+    steps: int = Field(default=9, description="Number of inference steps (max bounded by server config)"),
+    width: int = Field(default=1280, description="Image width in pixels (max bounded by server config)"),
+    height: int = Field(default=720, description="Image height in pixels (max bounded by server config)"),
     seed: int | None = None,
     precision: str = "q8",
     ctx: Optional[Context] = None

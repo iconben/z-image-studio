@@ -217,6 +217,20 @@ class GenerateResponse(BaseModel):
     model_id: str
     loras: List[LoraInput] = []
 
+@app.get("/info")
+async def get_info():
+    """Return system info including paths, config and hardware constraints."""
+    try:
+        from .cli import collect_info
+        return collect_info()
+    except ImportError:
+        # Fallback if relative import fails
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
+        from cli import collect_info
+        return collect_info()
+
 @app.get("/models")
 async def get_models():
     """Get list of available models with hardware recommendations."""
@@ -372,6 +386,19 @@ async def delete_lora(lora_id: int):
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:
+        from .paths import load_config
+        config = load_config()
+        max_steps = config.get("max_steps", 50)
+        max_width = config.get("max_width", 4096)
+        max_height = config.get("max_height", 4096)
+
+        if req.steps > max_steps:
+            raise HTTPException(status_code=400, detail=f"Requested steps ({req.steps}) exceeds the maximum allowed ({max_steps}).")
+        if req.width > max_width:
+            raise HTTPException(status_code=400, detail=f"Requested width ({req.width}) exceeds the maximum allowed ({max_width}).")
+        if req.height > max_height:
+            raise HTTPException(status_code=400, detail=f"Requested height ({req.height}) exceeds the maximum allowed ({max_height}).")
+
         # Normalize and validate precision early to avoid KeyError inside engine
         try:
             precision = normalize_precision(req.precision)

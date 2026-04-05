@@ -27,6 +27,7 @@ try:
                 get_outputs_dir,
                 get_db_path,
                 get_config_path,
+                load_config,
             )
             from zimage.logger import get_logger, setup_logging
         except ImportError:
@@ -40,6 +41,7 @@ try:
                 get_outputs_dir,
                 get_db_path,
                 get_config_path,
+                load_config,
             )
             from logger import get_logger, setup_logging
     elif __package__:
@@ -52,6 +54,7 @@ try:
             get_outputs_dir,
             get_db_path,
             get_config_path,
+            load_config,
         )
         from .logger import get_logger, setup_logging
     else:
@@ -66,6 +69,7 @@ try:
             get_outputs_dir,
             get_db_path,
             get_config_path,
+            load_config,
         )
         from logger import get_logger, setup_logging
 except ImportError:
@@ -80,6 +84,7 @@ except ImportError:
         get_outputs_dir,
         get_db_path,
         get_config_path,
+        load_config,
     )
     from logger import get_logger, setup_logging
 
@@ -304,6 +309,11 @@ def collect_info():
             "loras_dir": str(get_loras_dir().resolve()),
             "db_path": str(get_db_path().resolve()),
         },
+        "constraints": {
+            "max_steps": load_config().get("max_steps", 50),
+            "max_width": load_config().get("max_width", 4096),
+            "max_height": load_config().get("max_height", 4096),
+        },
         "env_overrides": {
             "Z_IMAGE_STUDIO_DATA_DIR": os.environ.get("Z_IMAGE_STUDIO_DATA_DIR"),
             "Z_IMAGE_STUDIO_OUTPUT_DIR": os.environ.get("Z_IMAGE_STUDIO_OUTPUT_DIR"),
@@ -335,6 +345,11 @@ def format_info_text(info: dict) -> str:
         f"  Outputs Dir: {info['paths']['outputs_dir']}",
         f"  LoRAs Dir: {info['paths']['loras_dir']}",
         f"  DB Path: {info['paths']['db_path']}",
+        "",
+        "Constraints:",
+        f"  Max Steps: {info['constraints']['max_steps']}",
+        f"  Max Width: {info['constraints']['max_width']}",
+        f"  Max Height: {info['constraints']['max_height']}",
         "",
         "Environment Overrides:",
         f"  Z_IMAGE_STUDIO_DATA_DIR: {info['env_overrides']['Z_IMAGE_STUDIO_DATA_DIR']}",
@@ -420,6 +435,21 @@ def run_list_loras(args):
 def run_generation(args):
     generate_image, save_image, record_generation = _load_generation_modules()
     logger.info(f"DEBUG: cwd: {Path.cwd().resolve()}")
+
+    # Check constraints
+    config = load_config()
+    max_steps = config.get("max_steps", 50)
+    max_width = config.get("max_width", 4096)
+    max_height = config.get("max_height", 4096)
+
+    if args.steps > max_steps:
+        log_error(f"Requested steps ({args.steps}) exceeds the maximum allowed ({max_steps}).")
+        sys.exit(1)
+    if args.width > max_width:
+        log_error(f"Requested width ({args.width}) exceeds the maximum allowed ({max_width}).")
+        sys.exit(1)
+    if args.height > max_height:
+        log_error(f"Requested height ({args.height}) exceeds the maximum allowed ({max_height}).")
 
     # Ensure width/height are multiples of 16
     for name in ["width", "height"]:
