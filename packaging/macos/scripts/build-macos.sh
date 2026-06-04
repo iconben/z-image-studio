@@ -109,6 +109,8 @@ cat > "$CONTENTS_PATH/Info.plist" << 'INFOPLIST'
     <string>Z-Image Studio</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
     <key>CFBundleShortVersionString</key>
     <string>VERSION_PLACEHOLDER</string>
     <key>CFBundleVersion</key>
@@ -138,6 +140,11 @@ cat > "$CONTENTS_PATH/Info.plist" << 'INFOPLIST'
 INFOPLIST
 
 sed -i '' "s/VERSION_PLACEHOLDER/$VERSION/g" "$CONTENTS_PATH/Info.plist"
+
+echo "Copying resources..."
+if [ -f "$PROJECT_ROOT/packaging/macos/Resources/icon.icns" ]; then
+    cp "$PROJECT_ROOT/packaging/macos/Resources/icon.icns" "$RESOURCES_PATH/"
+fi
 
 echo "Copying launcher script..."
 if [ -f "$SCRIPT_DIR/launchers/macos-launcher.sh" ]; then
