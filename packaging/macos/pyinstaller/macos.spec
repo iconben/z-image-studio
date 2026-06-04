@@ -18,6 +18,7 @@ ROOT_DIR = Path.cwd().resolve()
 SRC_DIR = ROOT_DIR / "src"
 STATIC_DIR = SRC_DIR / "zimage" / "static"
 I18N_DIR = STATIC_DIR / "i18n"
+RESOURCES_DIR = ROOT_DIR / "packaging" / "macos" / "Resources"
 
 a = Analysis(
     [str(SRC_DIR / "zimage" / "cli.py")],
@@ -31,6 +32,7 @@ a = Analysis(
         (str(STATIC_DIR / "css"), "static/css"),
         (str(STATIC_DIR / "js"), "static/js"),
         (str(I18N_DIR), "static/i18n"),
+        (str(RESOURCES_DIR / "icon.icns"), "Resources"),
     ],
     hiddenimports=[
         "fastapi",
@@ -143,13 +145,14 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon=str(RESOURCES_DIR / "icon.icns"),
     onefile=False,
 )
 
 app = BUNDLE(
     exe,
     name="Z-Image Studio.app",
+    icon=str(RESOURCES_DIR / "icon.icns"),
     bundle_identifier="com.z-image-studio.app",
     info_plist={
         "CFBundleName": "Z-Image Studio",
