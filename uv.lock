@@ -694,7 +694,7 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.23.2"
+version = "1.27.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -712,9 +712,9 @@ dependencies = [
     { name = "typing-inspection" },
     { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/39/a9/0e95530946408747ae200e86553ceda0dbd851d4ae9bbe0d02a69cbd6ad5/mcp-1.23.2.tar.gz", hash = "sha256:df4e4b7273dca2aaf428f9cf7a25bbac0c9007528a65004854b246aef3d157bc", size = 599953, upload-time = "2025-12-08T15:51:02.432Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/3c/347cf965d313f5d41764e7d46bea6ffe7d9ef13b983cc429b0340962a082/mcp-1.27.2.tar.gz", hash = "sha256:8e02db104096d1c25b28e64bde29a5c32b31bc241710213e12fd4d84985bdfef", size = 621116, upload-time = "2026-05-29T17:16:04.039Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/6a/1a726905cf41a69d00989e8dfd9de7bd9b4a9f3c8723dac3077b0ba1a7b9/mcp-1.23.2-py3-none-any.whl", hash = "sha256:d8e4c6af0317ad954ea0a53dfb5e229dddea2d0a54568c080e82e8fae4a8264e", size = 231897, upload-time = "2025-12-08T15:51:01.023Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/11/252c6f971dc4f16af1d98a1c469d8ba523aab00d1bb76b4d3bc1ff32eacc/mcp-1.27.2-py3-none-any.whl", hash = "sha256:d6ff5160c6ca65d93013626efb3fc249de683c30b2d8570755ceddd490344de5", size = 220498, upload-time = "2026-05-29T17:16:02.442Z" },
 ]
 
 [[package]]
@@ -2034,7 +2034,7 @@ wheels = [
 
 [[package]]
 name = "z-image-studio"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "accelerate" },
