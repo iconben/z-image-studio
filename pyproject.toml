@@ -60,7 +60,11 @@ addopts = [
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
+    # Unmarked tests are the unit tier: they run in every CI job.
+    "integration: marks tests that spawn real subprocesses or otherwise touch the OS (deselect with '-m \"not integration\"' for a quick local loop)",
+    # Nothing in the suite carries this marker today; it exists so that a test
+    # which needs real weights can be added without ever reaching CI.
+    "requires_model: marks tests that download and run real model weights; never selected in CI (run locally with '-m requires_model')",
 ]
 filterwarnings = [
     "error",
