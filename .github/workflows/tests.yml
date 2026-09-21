@@ -45,6 +45,9 @@ jobs:
           # otherwise look like lock drift. Bump this and re-run `uv lock`
           # together.
           version: "0.12.17"
+          # Part of the cache key; without it both matrix jobs compute the same
+          # key and one of them loses the save race on every run.
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         # Versions come from uv.lock (exported as constraints) so CI runs the
@@ -59,6 +62,17 @@ jobs:
           uv export --locked --no-hashes --no-emit-project --group dev \
             -o "$RUNNER_TEMP/constraints.txt"
           uv pip install -c "$RUNNER_TEMP/constraints.txt" -e . --group dev
+
+      - name: Assert the CPU torch build was installed
+        # The reason for UV_TORCH_BACKEND=cpu is that PyPI's Linux torch wheel
+        # drags in ~2.6 GB of nvidia-* packages a CPU runner cannot use. If that
+        # variable were dropped or renamed, uv would install the CUDA build and
+        # the suite would still pass -- just slowly and fat. Fail loudly instead.
+        run: |
+          if uv pip list --python .venv/bin/python | grep -qiE "^(nvidia|cuda)-"; then
+            echo "::error::CUDA packages were installed; UV_TORCH_BACKEND=cpu did not take effect"
+            exit 1
+          fi
 
       - name: Run unit tests
         run: |
