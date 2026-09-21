@@ -175,7 +175,8 @@ asyncio_mode = "auto"
 addopts = ["-v", "--tb=short", "--strict-markers", "--strict-config"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
+    "integration: marks tests that spawn real subprocesses or otherwise touch the OS",
+    "requires_model: marks tests that download and run real model weights; never selected in CI",
 ]
 ```
 
@@ -183,7 +184,10 @@ Key features:
 - **Auto asyncio mode**: Automatically detects and runs async test functions
 - **Strict markers**: Ensures all pytest.mark.* decorators are properly declared
 - **Test discovery**: Automatically finds tests in the `tests/` directory
-- **Selective testing**: Use `-m "not slow"` to skip time-intensive tests
+- **Selective testing**: Unmarked tests are the unit tier; `-m "not integration
+  and not requires_model"` gives a quick local loop, and `-m "integration"`
+  runs the tier that spawns subprocesses. The `requires_model` tier is local
+  only: CI runs both steps with it excluded.
 
 ### Environment Variables
 - `Z_IMAGE_STUDIO_DATA_DIR`: Override data directory location
