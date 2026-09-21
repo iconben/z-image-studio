@@ -68,8 +68,16 @@ jobs:
         # drags in ~2.6 GB of nvidia-* packages a CPU runner cannot use. If that
         # variable were dropped or renamed, uv would install the CUDA build and
         # the suite would still pass -- just slowly and fat. Fail loudly instead.
+        #
+        # The listing is a command of its own rather than part of the `if`
+        # pipeline. A pipeline reports grep's status, so a `uv pip list` that
+        # failed -- missing .venv, renamed flag, bad interpreter path -- would
+        # read as "no CUDA packages found" and pass the step silently, which is
+        # the exact failure this step exists to catch. Standalone, `bash -e`
+        # aborts the step instead.
         run: |
-          if uv pip list --python .venv/bin/python | grep -qiE "^(nvidia|cuda)-"; then
+          uv pip list --python .venv/bin/python > "$RUNNER_TEMP/installed.txt"
+          if grep -qiE "^(nvidia|cuda)-" "$RUNNER_TEMP/installed.txt"; then
             echo "::error::CUDA packages were installed; UV_TORCH_BACKEND=cpu did not take effect"
             exit 1
           fi
