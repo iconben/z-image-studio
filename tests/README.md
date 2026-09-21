@@ -1,44 +1,65 @@
 # Tests Directory
 
-This directory contains test suites for the Z-Image Studio project.
+Pytest suite for the Z-Image Studio project. No test in this directory downloads
+model weights or runs a model: every model interaction is mocked.
 
-## Running Tests
+## Running
 
-### Run all tests:
+Run pytest through the interpreter in `.venv`, the same way CI does:
+
 ```bash
-python -m tests.test_network_utils
+# Everything (unit + integration)
+.venv/bin/python -m pytest
+
+# Unit tier only -- the quick local loop
+.venv/bin/python -m pytest -m "not integration and not requires_model"
+
+# Integration tier only (spawns real `python -m zimage.mcp_server` subprocesses)
+.venv/bin/python -m pytest -m integration
 ```
 
-Or directly:
-```bash
-python tests/test_network_utils.py
-```
+Avoid `uv run pytest`: `uv run` re-syncs the environment, which on Linux pulls the
+CUDA `torch` wheel back in (about 2.6 GB of `nvidia-*` packages) and rewrites
+`uv.lock`. CI installs with `UV_TORCH_BACKEND=cpu` for the same reason.
 
-### Individual test modules:
-- `test_network_utils.py` - Tests for network utility functions
+The repository-root `conftest.py` redirects `HOME`, the application state
+(database, outputs) and the Hugging Face cache into a temporary directory, sets
+`HF_HUB_OFFLINE=1`, and plants the config file that stops the one-time legacy
+migration from moving real files out of the repository. A stray test can
+therefore neither write to your real data dir nor start a model download.
 
-## Test Structure
+To inspect what a run wrote:
 
-Each test file is a standalone module that can be run independently. Tests include:
+| Knob | Effect |
+|------|--------|
+| `ZIMAGE_TEST_SCRATCH_DIR=/some/path` | Use that directory. A directory you supply is never deleted. |
+| `ZIMAGE_TEST_KEEP_SCRATCH=1` | Keep a directory the session created itself. |
+| `ZIMAGE_TEST_ALLOW_REAL_HF=1` | Opt out of the Hugging Face redirection, for the model tier. |
 
-1. **Unit tests** for individual functions
-2. **Integration tests** for combined functionality
-3. **Edge case testing** for unusual scenarios
-4. **Regression tests** to ensure bugs don't reappear
+## Test tiers
 
-## Adding New Tests
+Markers are registered in `pyproject.toml` and enforced by `--strict-markers`.
 
-When adding new test files:
+| Tier | Marker | Contains | Runs in CI |
+|------|--------|----------|------------|
+| Unit | *(none)* | Pure logic and mocked model/web layers | every push and PR |
+| Integration | `@pytest.mark.integration` | Tests that spawn subprocesses or otherwise touch the OS | every push and PR |
+| Model | `@pytest.mark.requires_model` | Tests needing real weights (the two skipped GPU tests in `test_mcp_integration.py`) | never |
 
-1. Name them `test_*.py` following Python conventions
-2. Include proper docstrings explaining what's being tested
-3. Use assertions to verify expected behavior
-4. Print informative output for debugging
-5. Return `True` on success, raise exceptions on failure
+A test may carry both `integration` and `requires_model`; both CI steps exclude
+the model marker, so it stays out of CI either way.
 
-## Test Coverage Goals
+## Adding tests
 
-- All utility functions should have tests
-- Edge cases should be covered
-- Error conditions should be tested
-- Performance should be considered where relevant
+1. Name files `test_*.py` so pytest collects them.
+2. Prefer plain `assert` and pytest fixtures over `unittest` boilerplate.
+3. Mock anything that would load weights, hit the network, or write outside the
+   scratch directory configured by `conftest.py`.
+4. If a test genuinely needs real weights, mark it `@pytest.mark.requires_model`
+   and keep it out of the default selection.
+
+## Manual, non-pytest checks
+
+Scripts that download and run the model live outside this directory, in
+`scripts/` (for example `scripts/manual_mps_smoke.py`), so they can never be
+collected by accident.

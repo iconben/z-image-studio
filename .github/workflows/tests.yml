@@ -1,0 +1,69 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # CI never downloads model weights. Any accidental fetch fails loudly instead of
+  # silently pulling gigabytes of weights onto a runner that may not have the disk,
+  # RAM or time budget for them.
+  HF_HUB_OFFLINE: "1"
+  # PyPI's default Linux `torch` wheel is CUDA-flavoured and drags in ~2.6 GB of
+  # nvidia-* packages that a CPU-only runner cannot use. `UV_TORCH_BACKEND=cpu`
+  # resolves the CPU build instead; the exact version still comes from uv.lock.
+  UV_TORCH_BACKEND: cpu
+
+jobs:
+  pytest:
+    name: pytest (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        # Versions come from uv.lock (exported as constraints) so CI runs the
+        # dependency set the lock describes -- only the torch build differs.
+        # Two consequences worth knowing: a dependency bumped in pyproject.toml
+        # but not in uv.lock fails this step ("no solution found"), and a
+        # dependency that is missing from the lock altogether installs unpinned.
+        # `--frozen` because uv.lock is currently behind pyproject.toml; switch to
+        # `--locked` once `uv lock` has been run so CI also catches lock drift.
+        # Note: do NOT run pytest through `uv run`, which would re-sync the project
+        # and pull the CUDA torch wheel back in.
+        run: |
+          uv venv --python ${{ matrix.python-version }}
+          uv export --frozen --no-hashes --no-emit-project --group dev \
+            -o "$RUNNER_TEMP/constraints.txt"
+          uv pip install -c "$RUNNER_TEMP/constraints.txt" -e . --group dev
+
+      - name: Run unit tests
+        run: |
+          .venv/bin/python -m pytest -m "not integration and not requires_model" --durations=10
+
+      - name: Run integration tests
+        # `and not requires_model` keeps the model tier out of CI even if a test
+        # carries both markers, which is how the two skipped GPU tests in
+        # tests/test_mcp_integration.py are tagged.
+        run: |
+          .venv/bin/python -m pytest -m "integration and not requires_model" --durations=10

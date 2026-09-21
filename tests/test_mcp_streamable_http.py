@@ -12,40 +12,40 @@ src_path = Path(__file__).parent.parent / "src"
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
-from zimage.server import app, add_mcp_streamable_http_endpoints
+from fastapi import FastAPI
+
+from zimage.server import add_mcp_streamable_http_endpoints
 
 
+def _mcp_client() -> TestClient:
+    """Return a client for a fresh app that carries the Streamable HTTP endpoints.
+
+    ``zimage.server`` registers the endpoints on its module-level ``app`` at
+    import time, so whether ``/mcp`` exists depends on the ambient
+    ``ZIMAGE_DISABLE_MCP``. Tests that need the endpoint must therefore build
+    their own app and call ``add_mcp_streamable_http_endpoints`` under a
+    ``@patch('zimage.server.ENABLE_MCP', True)``.
+    """
+    test_app = FastAPI()
+    add_mcp_streamable_http_endpoints(test_app)
+    return TestClient(test_app)
+
+
+@patch('zimage.server.ENABLE_MCP', True)
 def test_streamable_http_endpoints_added():
     """Test that Streamable HTTP endpoints are added to the app when enabled."""
-    # Enable streamable HTTP
-    import os
-    original_value = os.environ.get("ZIMAGE_DISABLE_MCP")
-    os.environ["ZIMAGE_DISABLE_MCP"] = "0"
+    test_app = FastAPI()
+    add_mcp_streamable_http_endpoints(test_app)
 
-    try:
-        # Create a fresh app and add endpoints
-        from fastapi import FastAPI
-        test_app = FastAPI()
-        add_mcp_streamable_http_endpoints(test_app)
-
-        # Check that the endpoint was added
-        routes = [route.path for route in test_app.routes]
-        assert "/mcp" in routes
-
-    finally:
-        # Restore original environment value
-        if original_value is None:
-            os.environ.pop("ZIMAGE_DISABLE_MCP", None)
-        else:
-            os.environ["ZIMAGE_DISABLE_MCP"] = original_value
+    # Check that the endpoint was added
+    routes = [route.path for route in test_app.routes]
+    assert "/mcp" in routes
 
 
 def test_streamable_http_endpoints_disabled():
     """Test that Streamable HTTP endpoints are not added when disabled."""
     # Disable streamable HTTP by patching the global variable
     with patch('zimage.server.ENABLE_MCP', False):
-        # Create a fresh app and add endpoints
-        from fastapi import FastAPI
         test_app = FastAPI()
         add_mcp_streamable_http_endpoints(test_app)
 
@@ -57,10 +57,7 @@ def test_streamable_http_endpoints_disabled():
 @patch('zimage.server.ENABLE_MCP', True)
 def test_streamable_http_initialize_request():
     """Test MCP initialize request through Streamable HTTP transport."""
-    from fastapi.testclient import TestClient
-
-    # Create test client with the main app
-    client = TestClient(app)
+    client = _mcp_client()
 
     # Test initialize request
     init_request = {
@@ -97,9 +94,7 @@ def test_streamable_http_initialize_request():
 @patch('zimage.server.ENABLE_MCP', True)
 def test_streamable_http_options_request():
     """Test CORS preflight request for Streamable HTTP transport."""
-    from fastapi.testclient import TestClient
-
-    client = TestClient(app)
+    client = _mcp_client()
 
     # Test OPTIONS request
     response = client.options("/mcp")
@@ -114,9 +109,7 @@ def test_streamable_http_options_request():
 @patch('zimage.server.ENABLE_MCP', True)
 def test_streamable_http_invalid_json():
     """Test that invalid JSON returns appropriate error."""
-    from fastapi.testclient import TestClient
-
-    client = TestClient(app)
+    client = _mcp_client()
 
     # Send invalid JSON
     response = client.post(
