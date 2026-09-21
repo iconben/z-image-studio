@@ -40,20 +40,23 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          # Pinned to the uv that produced uv.lock: `--locked` below fails when
+          # any other resolver picks different versions, so a uv release would
+          # otherwise look like lock drift. Bump this and re-run `uv lock`
+          # together.
+          version: "0.12.17"
 
       - name: Install dependencies
         # Versions come from uv.lock (exported as constraints) so CI runs the
         # dependency set the lock describes -- only the torch build differs.
-        # Two consequences worth knowing: a dependency bumped in pyproject.toml
-        # but not in uv.lock fails this step ("no solution found"), and a
-        # dependency that is missing from the lock altogether installs unpinned.
-        # `--frozen` because uv.lock is currently behind pyproject.toml; switch to
-        # `--locked` once `uv lock` has been run so CI also catches lock drift.
+        # `--locked` makes the export fail when pyproject.toml and uv.lock
+        # disagree, so a dependency added or bumped without re-locking is caught
+        # here rather than resolved from PyPI unpinned.
         # Note: do NOT run pytest through `uv run`, which would re-sync the project
         # and pull the CUDA torch wheel back in.
         run: |
           uv venv --python ${{ matrix.python-version }}
-          uv export --frozen --no-hashes --no-emit-project --group dev \
+          uv export --locked --no-hashes --no-emit-project --group dev \
             -o "$RUNNER_TEMP/constraints.txt"
           uv pip install -c "$RUNNER_TEMP/constraints.txt" -e . --group dev
 
