@@ -11,7 +11,11 @@ class TestMCPIntegration(unittest.TestCase):
     """End-to-end tests that drive a real ``python -m zimage.mcp_server`` subprocess.
 
     Only the subprocess-spawning tests carry ``pytest.mark.integration``; the
-    seed-handling helpers further down run in-process and stay in the unit tier.
+    seed-handling tests further down run in-process and stay in the unit tier.
+
+    Those seed tests assert against local re-implementations of the production
+    rule (``zimage/mcp_server.py``, ``zimage/server.py``), so they document the
+    intended contract rather than exercising the shipped code path.
     """
     def setUp(self):
         self.repo_root = Path(__file__).resolve().parent.parent
@@ -202,6 +206,7 @@ class TestMCPIntegration(unittest.TestCase):
         self.assertEqual(result_seed, zero_seed, "Should preserve zero seed")
 
     @pytest.mark.integration
+    @pytest.mark.requires_model
     @unittest.skip("This test requires the full model and GPU, skipping to avoid flaky CI")
     def test_call_generate_with_null_seed(self):
         """Test that generate tool creates a seed when none is provided."""
@@ -282,6 +287,7 @@ class TestMCPIntegration(unittest.TestCase):
 
     @unittest.skip("This test requires the full model and GPU, skipping to avoid flaky CI")
     @pytest.mark.integration
+    @pytest.mark.requires_model
     def test_transport_content_consistency(self):
         """Test that stdio and SSE transports return identical content structure."""
         # This test verifies the fix for issue #35 - transport-agnostic content
