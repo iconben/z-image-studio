@@ -15,29 +15,20 @@ if str(src_path) not in sys.path:
 from zimage.server import app, add_mcp_streamable_http_endpoints
 
 
-def test_streamable_http_endpoints_added():
+def test_streamable_http_endpoints_added(monkeypatch):
     """Test that Streamable HTTP endpoints are added to the app when enabled."""
-    # Enable streamable HTTP
-    import os
-    original_value = os.environ.get("ZIMAGE_DISABLE_MCP")
-    os.environ["ZIMAGE_DISABLE_MCP"] = "0"
+    # Enable streamable HTTP. monkeypatch restores the previous value afterwards,
+    # including on failure, so a failing assertion cannot leak into other tests.
+    monkeypatch.setenv("ZIMAGE_DISABLE_MCP", "0")
 
-    try:
-        # Create a fresh app and add endpoints
-        from fastapi import FastAPI
-        test_app = FastAPI()
-        add_mcp_streamable_http_endpoints(test_app)
+    # Create a fresh app and add endpoints
+    from fastapi import FastAPI
+    test_app = FastAPI()
+    add_mcp_streamable_http_endpoints(test_app)
 
-        # Check that the endpoint was added
-        routes = [route.path for route in test_app.routes]
-        assert "/mcp" in routes
-
-    finally:
-        # Restore original environment value
-        if original_value is None:
-            os.environ.pop("ZIMAGE_DISABLE_MCP", None)
-        else:
-            os.environ["ZIMAGE_DISABLE_MCP"] = original_value
+    # Check that the endpoint was added
+    routes = [route.path for route in test_app.routes]
+    assert "/mcp" in routes
 
 
 def test_streamable_http_endpoints_disabled():

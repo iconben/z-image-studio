@@ -2,14 +2,13 @@
 import sys
 import unittest
 from unittest.mock import patch, MagicMock
-import torch
 import zimage.hardware as hardware_module
 import zimage.engine as engine_module
 
-# Mock torch.version if it doesn't exist or isn't what we want
-if not hasattr(torch, "version"):
-    torch.version = MagicMock()
-
+# No module-level patching of torch: the CPU-only builds used in CI have
+# `torch.version` but no `torch.version.hip`, and mutating the module attribute
+# here would leak into every other test file sharing the process. Each test that
+# needs `torch.version.hip` patches it with `create=True` and restores it.
 from zimage.hardware import detect_device, get_available_models, should_enable_attention_slicing
 from zimage.engine import is_torch_compile_safe, load_pipeline
 
