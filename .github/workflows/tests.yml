@@ -42,8 +42,11 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        # Versions come from uv.lock (exported as constraints), so CI and local
-        # development run the same dependency set -- only the torch build differs.
+        # Versions come from uv.lock (exported as constraints) so CI runs the
+        # dependency set the lock describes -- only the torch build differs.
+        # Two consequences worth knowing: a dependency bumped in pyproject.toml
+        # but not in uv.lock fails this step ("no solution found"), and a
+        # dependency that is missing from the lock altogether installs unpinned.
         # `--frozen` because uv.lock is currently behind pyproject.toml; switch to
         # `--locked` once `uv lock` has been run so CI also catches lock drift.
         # Note: do NOT run pytest through `uv run`, which would re-sync the project
@@ -59,5 +62,8 @@ jobs:
           .venv/bin/python -m pytest -m "not integration and not requires_model" --durations=10
 
       - name: Run integration tests
+        # `and not requires_model` keeps the model tier out of CI even if a test
+        # carries both markers, which is how the two skipped GPU tests in
+        # tests/test_mcp_integration.py are tagged.
         run: |
-          .venv/bin/python -m pytest -m integration --durations=10
+          .venv/bin/python -m pytest -m "integration and not requires_model" --durations=10

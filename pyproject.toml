@@ -62,9 +62,10 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     # Unmarked tests are the unit tier: they run in every CI job.
     "integration: marks tests that spawn real subprocesses or otherwise touch the OS (deselect with '-m \"not integration\"' for a quick local loop)",
-    # Nothing in the suite carries this marker today; it exists so that a test
-    # which needs real weights can be added without ever reaching CI.
-    "requires_model: marks tests that download and run real model weights; never selected in CI (run locally with '-m requires_model')",
+    # Both CI steps exclude this marker, so a weight-dependent test can never
+    # reach a runner. conftest.py forces HF_HUB_OFFLINE=1; opt out with
+    # ZIMAGE_TEST_ALLOW_REAL_HF=1 to actually run such a test locally.
+    "requires_model: marks tests that download and run real model weights; never selected in CI (run locally with 'ZIMAGE_TEST_ALLOW_REAL_HF=1 pytest -m requires_model')",
 ]
 filterwarnings = [
     "error",
