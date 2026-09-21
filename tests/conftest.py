@@ -45,8 +45,16 @@ def _isolate_test_environment() -> None:
     os.environ["Z_IMAGE_STUDIO_DATA_DIR"] = str(scratch / "data")
     os.environ["Z_IMAGE_STUDIO_OUTPUT_DIR"] = str(scratch / "outputs")
 
-    # Hugging Face caches. Offline mode turns a would-be download into a hard
-    # failure, which is exactly what we want in CI.
+    # Hugging Face caches. `zimage.cli._resolve_hf_hub_cache_dir()` prefers
+    # HF_HUB_CACHE and HUGGINGFACE_HUB_CACHE over HF_HOME, so a developer who has
+    # either exported would have `zimg models clear` tests resolve -- and delete --
+    # paths inside their real model cache. Clearing them makes HF_HOME
+    # authoritative, which is what the tests assume.
+    for variable in ("HF_HUB_CACHE", "HUGGINGFACE_HUB_CACHE"):
+        os.environ.pop(variable, None)
+
+    # Offline mode turns a would-be download into a hard failure, which is exactly
+    # what we want in CI.
     os.environ["HF_HOME"] = str(scratch / "hf")
     os.environ["HF_HUB_OFFLINE"] = "1"
 
