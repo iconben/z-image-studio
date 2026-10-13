@@ -24,6 +24,21 @@ def load_config() -> dict:
     return _CONFIG_CACHE
 
 
+def history_disabled() -> bool:
+    """
+    Return True when generation history should be fully disabled.
+
+    Checked at read and write time so both the API and the UI can honor it.
+    Priority: ZIMAGE_DISABLE_HISTORY environment variable > config.json
+    (``disable_history``), mirroring how ZIMAGE_ENABLE_TORCH_COMPILE works.
+    """
+    env_value = os.environ.get("ZIMAGE_DISABLE_HISTORY", "")
+    if env_value:
+        return env_value.lower() in ("1", "true", "yes", "on")
+    cfg = load_config()
+    return bool(cfg.get("disable_history", False)) if isinstance(cfg, dict) else False
+
+
 def get_data_dir() -> Path:
     """
     Returns the main data directory for app state (DB, LoRAs).
@@ -141,6 +156,7 @@ def ensure_initial_setup():
         "Z_IMAGE_STUDIO_DATA_DIR": None,
         "Z_IMAGE_STUDIO_OUTPUT_DIR": None,
         "ZIMAGE_ENABLE_TORCH_COMPILE": None,
+        "disable_history": False,
         "max_steps": 50,
         "max_width": 4096,
         "max_height": 4096,

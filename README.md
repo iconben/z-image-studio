@@ -579,6 +579,7 @@ By default, Z-Image Studio uses the following directories:
 *   **Config File**: `~/.z-image-studio/config.json` (created on first run after migration).
     *   Override the data directory with `Z_IMAGE_STUDIO_DATA_DIR`.
     *   If you want the output directory sit in another location instead of the data directory, you can override it with `Z_IMAGE_STUDIO_OUTPUT_DIR`.
+    *   Set `"disable_history": true` to turn off generation history entirely (useful on shared deployments). No generation records are written and the history panel is hidden in the web interface. Can also be set to `1` via the `ZIMAGE_DISABLE_HISTORY` environment variable.
 
 Directory structure inside Data Directory by default:
 *   `zimage.db`: SQLite database
@@ -687,6 +688,7 @@ docker compose up -d
 | `ZIMAGE_ENABLE_TORCH_COMPILE` | Force enable `torch.compile` optimization (experimental). By default disabled for Python 3.12+ due to known compatibility issues. Can be set to `1` via environment variable or config file (`~/.z-image-studio/config.json`) to enable at your own risk. |
 | `Z_IMAGE_STUDIO_DATA_DIR` | Override the default data directory location. |
 | `Z_IMAGE_STUDIO_OUTPUT_DIR` | Override the default output directory location. |
+| `ZIMAGE_DISABLE_HISTORY` | Disable generation history entirely: nothing is recorded to the database and the history panel is hidden in the web interface. Set to `1` via environment variable or `"disable_history": true` in the config file. |
 ## Notes
 
 *   **Guidance Scale**: The script hardcodes `guidance_scale=0.0` as required by the Turbo model distillation process.

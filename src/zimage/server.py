@@ -220,7 +220,7 @@ class GenerateResponse(BaseModel):
 @app.get("/models")
 async def get_models():
     """Get list of available models with hardware recommendations and constraints."""
-    from .paths import load_config
+    from .paths import load_config, history_disabled
     config = load_config()
     models_info = get_available_models()
 
@@ -229,6 +229,7 @@ async def get_models():
         "max_steps": config.get("max_steps", 50),
         "max_width": config.get("max_width", 4096),
         "max_height": config.get("max_height", 4096),
+        "disable_history": history_disabled(),
     }
     return models_info
 
@@ -512,7 +513,15 @@ async def get_history(
     """Get generation history with search and date filtering.
 
     Maintains existing sorting (created_at DESC) and response format.
+    Returns an empty list when history is disabled (disable_history config
+    or ZIMAGE_DISABLE_HISTORY env var).
     """
+    from .paths import history_disabled
+    if history_disabled():
+        response.headers["X-Total-Count"] = "0"
+        response.headers["X-Page-Size"] = str(limit)
+        response.headers["X-Page-Offset"] = str(offset)
+        return []
     try:
         # Validate search query length (422 - valid format, invalid value)
         if q and len(q) > 100:

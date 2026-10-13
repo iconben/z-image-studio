@@ -5,11 +5,11 @@ import time
 from typing import Optional, List, Dict, Any
 
 try:
-    from .paths import get_outputs_dir
+    from .paths import get_outputs_dir, history_disabled
     from .logger import get_logger
     from . import db
 except ImportError:  # pragma: no cover
-    from paths import get_outputs_dir  # type: ignore
+    from paths import get_outputs_dir, history_disabled  # type: ignore
     from logger import get_logger  # type: ignore
     import db  # type: ignore
 
@@ -71,7 +71,11 @@ def record_generation(
     """
     Persist a generation record to the DB. Best-effort with logging.
     Returns the new record ID or None on failure.
+    No-op returning None when history is disabled via config or
+    ZIMAGE_DISABLE_HISTORY.
     """
+    if history_disabled():
+        return None
     try:
         return db.add_generation(
             prompt=prompt,

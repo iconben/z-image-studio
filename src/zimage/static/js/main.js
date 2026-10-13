@@ -167,6 +167,7 @@
         let isDirty = false;
         let timerInterval;
         let isHistoryPinned = localStorage.getItem('zimage_history_pinned') === 'true';
+        let historyDisabled = false;
         let currentLanguage = 'en';
         let currentPrecisionValue = "q8";
         let activeLoras = []; 
@@ -889,6 +890,22 @@
             }
         }
 
+        function applyHistoryDisabled() {
+            // History is disabled server-side; hide all history UI and skip loading it.
+            historyDisabled = true;
+            const ids = ['historySidebarContainer', 'historyDrawer'];
+            ids.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('d-none');
+            });
+            document.querySelectorAll('.offcanvas-toggle-btn').forEach((btn) => {
+                if (btn.dataset.bsTarget === '#historyDrawer') btn.classList.add('d-none');
+            });
+            if (isHistoryPinned) {
+                document.body.classList.remove('history-pinned');
+            }
+        }
+
         // --- Models Loading Logic ---
         async function loadModels() {
             try {
@@ -909,6 +926,10 @@
                     const heightEl = document.getElementById('height');
                     if (heightEl && data.constraints.max_height) {
                         heightEl.max = data.constraints.max_height;
+                    }
+
+                    if (data.constraints.disable_history) {
+                        applyHistoryDisabled();
                     }
                 }
 
@@ -1563,6 +1584,7 @@ async function deleteHistoryItem(itemId) {
 
         async function loadHistory(append = false) {
             if (isHistoryLoading) return;
+            if (historyDisabled) return;
 
             // If we have active filters, use executeSearch instead
             if (searchState.q || searchState.start_date || searchState.end_date) {
