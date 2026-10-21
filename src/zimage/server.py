@@ -32,6 +32,7 @@ try:
         get_loras_dir,
         get_outputs_dir,
         history_disabled,
+        load_config,
     )
 except ImportError:
     # When running directly (e.g., uv run src/zimage/cli.py serve)
@@ -51,6 +52,7 @@ except ImportError:
         get_loras_dir,
         get_outputs_dir,
         history_disabled,
+        load_config,
     )
 
 # Constants
@@ -222,7 +224,6 @@ class GenerateResponse(BaseModel):
 @app.get("/models")
 async def get_models():
     """Get list of available models with hardware recommendations and constraints."""
-    from .paths import load_config
     config = load_config()
     models_info = get_available_models()
 
@@ -385,7 +386,6 @@ async def delete_lora(lora_id: int):
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:
-        from .paths import load_config
         config = load_config()
         max_steps = config.get("max_steps", 50)
         max_width = config.get("max_width", 4096)

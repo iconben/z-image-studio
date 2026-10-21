@@ -8,7 +8,10 @@ Covers the three layers the option touches:
 
 import unittest
 from unittest.mock import patch, MagicMock
+import os
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -127,6 +130,50 @@ class TestMcpHistoryDisabled(unittest.IsolatedAsyncioTestCase):
             mock_db.get_history.return_value = (existing, 1)
             result = await mcp_server.list_history()
         self.assertIn("visible", result)
+
+
+class TestDirectLaunchImports(unittest.TestCase):
+    """`uv run src/zimage/cli.py serve` imports the app as `server:app` with no
+    package context, so relative imports inside handlers raise ImportError.
+    Runs in a subprocess because the import mode cannot be switched in-process."""
+
+    SCRIPT = """
+import sys
+sys.path.insert(0, sys.argv[1])
+from fastapi.testclient import TestClient
+import server  # top-level module, __package__ is empty
+assert not server.__package__, server.__package__
+client = TestClient(server.app)
+for path in ("/history?limit=5&offset=0", "/models"):
+    r = client.get(path)
+    assert r.status_code == 200, (path, r.status_code, r.text)
+print("ok")
+"""
+
+    def _run(self, disabled):
+        src_dir = Path(__file__).resolve().parent.parent / "src" / "zimage"
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                **os.environ,
+                "Z_IMAGE_STUDIO_DATA_DIR": tmp,
+                "Z_IMAGE_STUDIO_OUTPUT_DIR": os.path.join(tmp, "outputs"),
+                "HF_HUB_OFFLINE": "1",
+            }
+            env.pop("ZIMAGE_DISABLE_HISTORY", None)
+            if disabled:
+                env["ZIMAGE_DISABLE_HISTORY"] = "1"
+            return subprocess.run(
+                [sys.executable, "-c", self.SCRIPT, str(src_dir)],
+                env=env, capture_output=True, text=True, timeout=120,
+            )
+
+    def test_history_and_models_work_when_enabled(self):
+        result = self._run(disabled=False)
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
+    def test_history_and_models_work_when_disabled(self):
+        result = self._run(disabled=True)
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
 
 
 if __name__ == "__main__":
