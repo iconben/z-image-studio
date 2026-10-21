@@ -22,13 +22,13 @@ try:
     from . import db
     from .storage import save_image, record_generation
     from .logger import get_logger, setup_logging
-    from .paths import load_config
+    from .paths import load_config, history_disabled
 except ImportError:
     from hardware import get_available_models, normalize_precision, MODEL_ID_MAP
     import db
     from storage import save_image, record_generation
     from logger import get_logger, setup_logging
-    from paths import load_config
+    from paths import load_config, history_disabled
 
 # Lazy imports for heavy dependencies
 def _get_engine():
@@ -527,7 +527,13 @@ async def list_models() -> str:
 
 @mcp.tool()
 async def list_history(limit: int = 10, offset: int = 0) -> str:
-    """List recent image generations history."""
+    """List recent image generations history.
+
+    Returns no records when history is disabled (disable_history config or
+    ZIMAGE_DISABLE_HISTORY env var), even if the database holds older entries.
+    """
+    if history_disabled():
+        return "History is disabled."
     items, total = db.get_history(limit, offset)
     if not items:
         return "No history found."

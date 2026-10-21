@@ -84,7 +84,7 @@ class TestHistoryEndpointDisabled(unittest.TestCase):
 
         client = TestClient(app)
 
-        with patch("zimage.paths.history_disabled", return_value=True):
+        with patch("zimage.server.history_disabled", return_value=True):
             response = client.get("/history?limit=20&offset=0")
 
         self.assertEqual(response.status_code, 200)
@@ -100,12 +100,33 @@ class TestHistoryEndpointDisabled(unittest.TestCase):
             return
 
         client = TestClient(app)
-        with patch("zimage.paths.history_disabled", return_value=True), \
+        with patch("zimage.server.history_disabled", return_value=True), \
              patch("zimage.server.get_available_models", return_value={"models": [], "device": "CPU"}):
             response = client.get("/models")
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["constraints"]["disable_history"])
+
+
+class TestMcpHistoryDisabled(unittest.IsolatedAsyncioTestCase):
+    async def test_list_history_hides_existing_records_when_disabled(self):
+        from zimage import mcp_server
+        existing = [{"id": 1, "prompt": "secret", "filename": "a.png", "created_at": "now"}]
+        with patch("zimage.mcp_server.history_disabled", return_value=True), \
+             patch("zimage.mcp_server.db") as mock_db:
+            mock_db.get_history.return_value = (existing, 1)
+            result = await mcp_server.list_history()
+        self.assertNotIn("secret", result)
+        mock_db.get_history.assert_not_called()
+
+    async def test_list_history_returns_records_when_enabled(self):
+        from zimage import mcp_server
+        existing = [{"id": 1, "prompt": "visible", "filename": "a.png", "created_at": "now"}]
+        with patch("zimage.mcp_server.history_disabled", return_value=False), \
+             patch("zimage.mcp_server.db") as mock_db:
+            mock_db.get_history.return_value = (existing, 1)
+            result = await mcp_server.list_history()
+        self.assertIn("visible", result)
 
 
 if __name__ == "__main__":

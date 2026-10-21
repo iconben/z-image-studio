@@ -893,6 +893,8 @@
         function applyHistoryDisabled() {
             // History is disabled server-side; hide all history UI and skip loading it.
             historyDisabled = true;
+            // Close an open offcanvas first so Bootstrap releases its backdrop, focus trap and scroll lock.
+            if (historyDrawer) historyDrawer.hide();
             const ids = ['historySidebarContainer', 'historyDrawer'];
             ids.forEach((id) => {
                 const el = document.getElementById(id);
