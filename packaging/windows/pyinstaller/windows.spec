@@ -19,6 +19,7 @@ ROOT_DIR = Path.cwd().resolve()
 SRC_DIR = ROOT_DIR / "src"
 STATIC_DIR = SRC_DIR / "zimage" / "static"
 I18N_DIR = STATIC_DIR / "i18n"
+RESOURCES_DIR = ROOT_DIR / "packaging" / "windows" / "Resources"
 
 a = Analysis(
     [str(SRC_DIR / "zimage" / "cli.py")],
@@ -172,6 +173,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(STATIC_DIR / "favicon.ico"),
+    icon=str(RESOURCES_DIR / "icon.ico"),
     onefile=True,
 )
