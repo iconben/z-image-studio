@@ -319,6 +319,7 @@ def collect_info():
             "Z_IMAGE_STUDIO_OUTPUT_DIR": os.environ.get("Z_IMAGE_STUDIO_OUTPUT_DIR"),
             "ZIMAGE_ENABLE_TORCH_COMPILE": os.environ.get("ZIMAGE_ENABLE_TORCH_COMPILE"),
             "ZIMAGE_DISABLE_MCP": os.environ.get("ZIMAGE_DISABLE_MCP"),
+            "ZIMAGE_DISABLE_HISTORY": os.environ.get("ZIMAGE_DISABLE_HISTORY"),
         },
         "hardware": hardware,
     }
@@ -356,6 +357,7 @@ def format_info_text(info: dict) -> str:
         f"  Z_IMAGE_STUDIO_OUTPUT_DIR: {info['env_overrides']['Z_IMAGE_STUDIO_OUTPUT_DIR']}",
         f"  ZIMAGE_ENABLE_TORCH_COMPILE: {info['env_overrides']['ZIMAGE_ENABLE_TORCH_COMPILE']}",
         f"  ZIMAGE_DISABLE_MCP: {info['env_overrides']['ZIMAGE_DISABLE_MCP']}",
+        f"  ZIMAGE_DISABLE_HISTORY: {info['env_overrides'].get('ZIMAGE_DISABLE_HISTORY')}",
         "",
         "Hardware:",
         f"  Device: {info['hardware']['device']}",

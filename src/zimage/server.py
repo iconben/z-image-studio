@@ -31,6 +31,8 @@ try:
         get_data_dir,
         get_loras_dir,
         get_outputs_dir,
+        history_disabled,
+        load_config,
     )
 except ImportError:
     # When running directly (e.g., uv run src/zimage/cli.py serve)
@@ -49,6 +51,8 @@ except ImportError:
         get_data_dir,
         get_loras_dir,
         get_outputs_dir,
+        history_disabled,
+        load_config,
     )
 
 # Constants
@@ -220,7 +224,6 @@ class GenerateResponse(BaseModel):
 @app.get("/models")
 async def get_models():
     """Get list of available models with hardware recommendations and constraints."""
-    from .paths import load_config
     config = load_config()
     models_info = get_available_models()
 
@@ -229,6 +232,7 @@ async def get_models():
         "max_steps": config.get("max_steps", 50),
         "max_width": config.get("max_width", 4096),
         "max_height": config.get("max_height", 4096),
+        "disable_history": history_disabled(),
     }
     return models_info
 
@@ -382,7 +386,6 @@ async def delete_lora(lora_id: int):
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
     try:
-        from .paths import load_config
         config = load_config()
         max_steps = config.get("max_steps", 50)
         max_width = config.get("max_width", 4096)
@@ -512,7 +515,14 @@ async def get_history(
     """Get generation history with search and date filtering.
 
     Maintains existing sorting (created_at DESC) and response format.
+    Returns an empty list when history is disabled (disable_history config
+    or ZIMAGE_DISABLE_HISTORY env var).
     """
+    if history_disabled():
+        response.headers["X-Total-Count"] = "0"
+        response.headers["X-Page-Size"] = str(limit)
+        response.headers["X-Page-Offset"] = str(offset)
+        return []
     try:
         # Validate search query length (422 - valid format, invalid value)
         if q and len(q) > 100:
